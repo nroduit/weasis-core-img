@@ -32,7 +32,6 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.weasis.core.api.Messages;
 import org.weasis.core.api.util.LocalUtil;
 import org.weasis.core.api.util.StringUtil;
 
@@ -81,38 +80,38 @@ public class TagW implements Serializable {
 
     public static final TagW UnknownTag = new TagW(0, "UnknownTag", "Unknown Tag", TagType.STRING); //$NON-NLS-1$ //$NON-NLS-2$
 
-    public static final TagW Group = new TagW("Group", Messages.getString("TagW.group"), TagType.STRING); //$NON-NLS-1$ //$NON-NLS-2$
+    public static final TagW Group = new TagW("Group", "Group", TagType.STRING); //$NON-NLS-1$ //$NON-NLS-2$
     // Pseudo unique identifier: as PatientID is not a unique identifier for the patient outside an institution,
     // PatientPseudoUID tend to be unique (PatientID, PatientName and PatientBirthDate can be used simultaneously to
     // enforce the unique behavior)
     public static final TagW PatientPseudoUID = new TagW("PatientPseudoUID", //$NON-NLS-1$
-        Messages.getString("TagElement.pat_uid"), TagType.STRING); //$NON-NLS-1$
+        "Patient UID", TagType.STRING); //$NON-NLS-1$
     public static final TagW SeriesLoading =
-        new TagW("SeriesLoading", Messages.getString("TagElement.laod"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("SeriesLoading", "Loading", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW Thumbnail =
-        new TagW("Thumbnail", Messages.getString("TagElement.thumb"), TagType.THUMBNAIL); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("Thumbnail", "Thumbnail", TagType.THUMBNAIL); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ThumbnailPath = new TagW("ThumbnailPath", TagType.STRING); //$NON-NLS-1$
     public static final TagW ExplorerModel =
-        new TagW("ExplorerModel", Messages.getString("TagElement.exp_model"), TagType.OBJECT); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ExplorerModel", "Explorer Model", TagType.OBJECT); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW PresentationModel = new TagW("PesentationModel", TagType.OBJECT); //$NON-NLS-1$
     public static final TagW PresentationModelBirary = new TagW("PesentationModelBinary", TagType.BYTE); //$NON-NLS-1$
     public static final TagW SplitSeriesNumber =
-        new TagW("SplitSeriesNumber", Messages.getString("TagElement.split_no"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("SplitSeriesNumber", "Split Number", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW SeriesSelected =
-        new TagW("SeriesSelected", Messages.getString("TagElement.select"), TagType.BOOLEAN); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("SeriesSelected", "Selected", TagType.BOOLEAN); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW SeriesOpen =
-        new TagW("SeriesOpen", Messages.getString("TagElement.open"), TagType.BOOLEAN); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("SeriesOpen", "Open", TagType.BOOLEAN); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW SeriesFocused = new TagW("SeriesFocused", TagType.BOOLEAN); //$NON-NLS-1$
     public static final TagW ImageWidth =
-        new TagW("ImageWidth", Messages.getString("TagElement.img_w"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ImageWidth", "Image Width", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ImageHeight =
-        new TagW("ImageHeight", Messages.getString("TagElement.img_h"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ImageHeight", "Image Height", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ImageDepth =
-        new TagW("ImageDepth", Messages.getString("TagElement.img_d"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ImageDepth", "Image Depth", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ImageOrientationPlane =
-        new TagW("ImageOrientationPlane", Messages.getString("TagElement.img_or"), TagType.STRING); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ImageOrientationPlane", "Image Orientation", TagType.STRING); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ImageBitsPerPixel =
-        new TagW("ImageBitsPerPixel", Messages.getString("TagElement.img_bpp"), TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
+        new TagW("ImageBitsPerPixel", "Image Bits Per Pixel", TagType.INTEGER); //$NON-NLS-1$ //$NON-NLS-2$
     public static final TagW ImageCache = new TagW("ImageCache", TagType.BOOLEAN); //$NON-NLS-1$
     public static final TagW ShutterFinalShape = new TagW("ShutterFinalShape", TagType.OBJECT); //$NON-NLS-1$
     public static final TagW ShutterRGBColor = new TagW("ShutterRGBColor", TagType.COLOR); //$NON-NLS-1$
@@ -138,7 +137,7 @@ public class TagW implements Serializable {
     public static final TagW FilePath = new TagW("FilePath", TagType.STRING); //$NON-NLS-1$
     public static final TagW FileName = new TagW("FileName", TagType.STRING); //$NON-NLS-1$
     public static final TagW CurrentFolder =
-        new TagW("CurrentFolder", Messages.getString("TagElement.cur_dir"), TagType.STRING); //$NON-NLS-1$//$NON-NLS-2$
+        new TagW("CurrentFolder", "Current Folder", TagType.STRING); //$NON-NLS-1$//$NON-NLS-2$
     public static final TagW Checked = new TagW("Checked", TagType.BOOLEAN); //$NON-NLS-1$
 
     /**

@@ -20,15 +20,14 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.weasis.core.api.Messages;
 
 public class StringUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(StringUtil.class);
 
     public static final String EMPTY_STRING = ""; //$NON-NLS-1$
     public static final String SPACE = " "; //$NON-NLS-1$
-    public static final String COLON = Messages.getString("StringUtil.colon"); //$NON-NLS-1$
-    public static final String COLON_AND_SPACE = Messages.getString("StringUtil.colon_space"); //$NON-NLS-1$
+    public static final String COLON = ":"; //$NON-NLS-1$
+    public static final String COLON_AND_SPACE = ": "; //$NON-NLS-1$
 
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
     private static final int[] EMPTY_INT_ARRAY = new int[0];
