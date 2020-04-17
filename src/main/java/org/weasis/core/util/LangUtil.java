@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
-package org.weasis.core.api.util;
+package org.weasis.core.util;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;

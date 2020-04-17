@@ -9,8 +9,8 @@
 	<packaging>bundle</packaging>
 
 	<properties>
-		<java-version>1.8</java-version>
-		<jdk-version>1.8</jdk-version>
+		<java-version>1.7</java-version>
+		<jdk-version>1.7</jdk-version>
 		<enforcer.jdk-version>[${jdk-version},)</enforcer.jdk-version>
 		<enforcer.maven-version>[3.5.0,)</enforcer.maven-version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -114,7 +114,7 @@
 					<instructions>
 						<Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
 						<Bundle-Version>${project.version}</Bundle-Version>
-						<Bundle-RequiredExecutionEnvironment>JavaSE-1.8</Bundle-RequiredExecutionEnvironment>
+						<Bundle-RequiredExecutionEnvironment>JavaSE-1.7</Bundle-RequiredExecutionEnvironment>
 						<!-- Using <_exportcontents> requires to configure <Export-Package>, there is no default export (All packages, except 
 							any containing 'impl' or 'internal' -->
 						<_removeheaders>

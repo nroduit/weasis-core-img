@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  *******************************************************************************/
-package org.weasis.core.api.util;
+package org.weasis.core.util;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -252,7 +252,11 @@ public final class FileUtil {
         if (file != null && extensions != null) {
             String fileExt = getExtension(file.getName());
             if (StringUtil.hasLength(fileExt)) {
-                return Arrays.asList(extensions).stream().anyMatch(fileExt::endsWith);
+                for (int i = 0; i < extensions.length; i++) {
+                 if(fileExt.endsWith(extensions[i]))  {
+                     return true;
+                 }
+                }
             }
         }
         return false;
