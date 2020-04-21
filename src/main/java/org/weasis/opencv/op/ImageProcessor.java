@@ -54,6 +54,27 @@ import org.weasis.opencv.data.PlanarImage;
 public class ImageProcessor {
     private static final Logger LOGGER = LoggerFactory.getLogger(ImageProcessor.class);
 
+    public static MinMaxLocResult findRawMinMaxValues(PlanarImage img, boolean exclude8bitImage)
+        throws OutOfMemoryError {
+        MinMaxLocResult val;
+        if (ImageConversion.convertToDataType(img.type()) == DataBuffer.TYPE_BYTE && exclude8bitImage) {
+            val = new MinMaxLocResult();
+            val.minVal = 0.0;
+            val.maxVal = 255.0;
+        } else {
+            val = ImageProcessor.findMinMaxValues(img.toMat());
+            if (val == null) {
+                val = new MinMaxLocResult();
+            }
+            // Handle special case when min and max are equal, ex. black image
+            // + 1 to max enables to display the correct value
+            if (val.minVal == val.maxVal) {
+                val.maxVal += 1.0;
+            }
+        }
+        return val;
+    }
+
     public Mat blur(Mat input, int numberOfTimes) {
         Mat sourceImage;
         Mat destImage = input.clone();
@@ -113,10 +134,10 @@ public class ImageProcessor {
 
     public static ImageCV crop(Mat source, Rectangle area) {
         Objects.requireNonNull(source);
-        Rectangle rect = Objects.requireNonNull(area).intersection(new Rectangle(0, 0, source.width(), source.height()));
+        Rectangle rect =
+            Objects.requireNonNull(area).intersection(new Rectangle(0, 0, source.width(), source.height()));
         if (area.width > 1 && area.height > 1) {
-            return ImageCV
-                .toImageCV(source.submat(new Rect(rect.x, rect.y, rect.width, rect.height)));
+            return ImageCV.toImageCV(source.submat(new Rect(rect.x, rect.y, rect.width, rect.height)));
         }
         return ImageCV.toImageCV(source);
     }
@@ -176,12 +197,12 @@ public class ImageProcessor {
 
     public static double[][] meanStdDev(Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
         List<Mat> list = getMaskImage(source, shape, paddingValue, paddingLimit);
-        if(list.size() < 2) {
+        if (list.size() < 2) {
             return null;
         }
         Mat srcImg = list.get(0);
         Mat mask = list.get(1);
-        
+
         MatOfDouble mean = new MatOfDouble();
         MatOfDouble stddev = new MatOfDouble();
         if (mask == null) {
@@ -211,15 +232,15 @@ public class ImageProcessor {
 
         val[2] = mean.toArray();
         val[3] = stddev.toArray();
-        if(mask == null) {
-            val[4][0] = srcImg.width() * (double) srcImg.height();  
-        }
-        else {
-            val[4][0] = Core.countNonZero(mask);  
+        if (mask == null) {
+            val[4][0] = srcImg.width() * (double) srcImg.height();
+        } else {
+            val[4][0] = Core.countNonZero(mask);
         }
 
         return val;
     }
+
     public static List<Mat> getMaskImage(Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
         Objects.requireNonNull(source);
         Mat srcImg;
