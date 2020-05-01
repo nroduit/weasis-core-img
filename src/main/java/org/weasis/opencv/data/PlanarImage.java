@@ -58,33 +58,28 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
     void assignTo(Mat dstImg);
 
-    Mat toMat();
-
-    ImageCV toImageCV();
-    
     @Override
     void close();
-    // TODO required Java 8
 
-    // default Mat toMat() {
-    // if (this instanceof Mat) {
-    // return (Mat) this;
-    // } else {
-    // throw new IllegalAccessError("Not implemented yet");
-    // }
-    // }
-    //
-    // default ImageCV toImageCV() {
-    // if (this instanceof Mat) {
-    // if (this instanceof ImageCV) {
-    // return (ImageCV) this;
-    // }
-    // ImageCV dstImg = new ImageCV();
-    // this.assignTo(dstImg);
-    // return dstImg;
-    // } else {
-    // throw new IllegalAccessError("Not implemented yet");
-    // }
-    // }
+    default Mat toMat() {
+        if (this instanceof Mat) {
+            return (Mat) this;
+        } else {
+            throw new IllegalAccessError("Not implemented yet");
+        }
+    }
+
+    default ImageCV toImageCV() {
+        if (this instanceof Mat) {
+            if (this instanceof ImageCV) {
+                return (ImageCV) this;
+            }
+            ImageCV dstImg = new ImageCV();
+            this.assignTo(dstImg);
+            return dstImg;
+        } else {
+            throw new IllegalAccessError("Not implemented yet");
+        }
+    }
 
 }

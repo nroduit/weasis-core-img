@@ -13,7 +13,13 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
 
+/**
+ * @author Nicolas Roduit
+ *
+ */
 public class LangUtil {
     
     private LangUtil() {
@@ -23,16 +29,24 @@ public class LangUtil {
         return iterable == null ? Collections.<T> emptyList() : iterable;
     }
 
+    public static <T, C extends Collection<T>> C convertCollectionType(Iterable<?> from, C newCollection,
+                                                                       Class<T> listClass) {
+        for (Object item : from) {
+            newCollection.add(listClass.cast(item));
+        }
+        return newCollection;
+    }
+
     public static boolean getNULLtoFalse(Boolean val) {
         if (val != null) {
-            return val.booleanValue();
+            return val;
         }
         return false;
     }
 
     public static boolean getNULLtoTrue(Boolean val) {
         if (val != null) {
-            return val.booleanValue();
+            return val;
         }
         return true;
     }
@@ -55,14 +69,16 @@ public class LangUtil {
         return Boolean.TRUE.toString().equalsIgnoreCase(val); 
     }
 
-    public static <T, C extends Collection<T>> C convertCollectionType(Iterable<?> from, C newCollection,
-        Class<T> listClass) {
-        for (Object item : from) {
-            newCollection.add(listClass.cast(item));
-        }
-        return newCollection;
+
+
+    public static OptionalDouble getOptionalDouble(Double val) {
+        return val == null ? OptionalDouble.empty() : OptionalDouble.of(val);
     }
-    
+
+    public static OptionalInt getOptionalInteger(Integer val) {
+        return val == null ? OptionalInt.empty() : OptionalInt.of(val);
+    }
+
     /**
      * Java 9 introduces overridden methods with covariant return types for the following methods in
      * java.nio.ByteBuffer:

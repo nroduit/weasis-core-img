@@ -71,26 +71,6 @@ public class ImageCV extends Mat implements PlanarImage {
         return dstImg;
     }
 
-    // TODO remove for Java 8
-    @Override
-    public Mat toMat() {
-        return toMat(this);
-    }
-
-    @Override
-    public ImageCV toImageCV() {
-        if (this instanceof Mat) {
-            if (this instanceof ImageCV) {
-                return this;
-            }
-            ImageCV dstImg = new ImageCV();
-            this.assignTo(dstImg);
-            return dstImg;
-        } else {
-            throw new IllegalAccessError("Not implemented yet");
-        }
-    }
-
     @Override
     public void close() {
         this.release();

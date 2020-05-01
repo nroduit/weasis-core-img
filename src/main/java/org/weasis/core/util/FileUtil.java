@@ -24,14 +24,12 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.Enumeration;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -45,6 +43,10 @@ import javax.xml.stream.XMLStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @author Nicolas Roduit
+ *
+ */
 public final class FileUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
 
@@ -540,4 +542,64 @@ public final class FileUtil {
         }
     }
 
+
+    public static boolean writeStream(InputStream inputStream, Path outFile, boolean closeInputStream) {
+        try (OutputStream outputStream = Files.newOutputStream(outFile)) {
+            byte[] buf = new byte[FILE_BUFFER];
+            int offset;
+            while ((offset = inputStream.read(buf)) > 0) {
+                outputStream.write(buf, 0, offset);
+            }
+            outputStream.flush();
+            return true;
+        } catch (IOException e) {
+            FileUtil.delete(outFile);
+            LOGGER.error("Writing file: {}", outFile, e); //$NON-NLS-1$
+            return false;
+        } finally {
+            if (closeInputStream) {
+                FileUtil.safeClose(inputStream);
+            }
+        }
+    }
+
+    private static boolean deleteFile(Path path) {
+        try {
+            return Files.deleteIfExists(path);
+        } catch (IOException e) {
+            LOGGER.error("Cannot delete", e);
+        }
+        return false;
+    }
+
+    public static boolean delete(Path fileOrDirectory) {
+        if (!Files.isDirectory(fileOrDirectory)) {
+            return deleteFile(fileOrDirectory);
+        }
+
+        try (Stream<Path> walk = Files.walk(fileOrDirectory)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(FileUtil::deleteFile);
+            return true;
+        } catch (IOException e) {
+            LOGGER.error("Cannot delete", e);
+        }
+        return false;
+    }
+
+    public static Path getOutputPath(Path src, Path dst) {
+        if (Files.isDirectory(dst)) {
+            return FileSystems.getDefault().getPath(dst.toString(), src.getFileName().toString());
+        } else {
+            return dst;
+        }
+    }
+
+    public static Path addFileIndex(Path path, int index, int indexSize) {
+        if (indexSize < 1) {
+            return path;
+        }
+        String pattern = "$1-%0" + indexSize + "d$2";
+        String insert = String.format(pattern, index);
+        return path.resolveSibling(path.getFileName().toString().replaceFirst("(.*?)(\\.[^.]+)?$", insert));
+    }
 }
