@@ -74,11 +74,7 @@ public class ImageCV extends Mat implements PlanarImage {
     // TODO remove for Java 8
     @Override
     public Mat toMat() {
-        if (this instanceof Mat) {
-            return this;
-        } else {
-            throw new IllegalAccessError("Not implemented yet");
-        }
+        return toMat(this);
     }
 
     @Override

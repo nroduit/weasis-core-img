@@ -13,6 +13,7 @@ import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferShort;
 import java.awt.image.DataBufferUShort;
+import java.util.Arrays;
 import java.util.Objects;
 
 import org.opencv.core.CvType;
@@ -26,54 +27,40 @@ public class LookupTableCV {
 
     public LookupTableCV(byte[] data) {
         this.offsets = new int[1];
-        this.initOffsets(0);
+        Arrays.fill(offsets, 0);
         this.data = new DataBufferByte(Objects.requireNonNull(data), data.length);
     }
 
     public LookupTableCV(byte[] data, int offset) {
         this.offsets = new int[1];
-        this.initOffsets(offset);
+        Arrays.fill(offsets, offset);
         this.data = new DataBufferByte(Objects.requireNonNull(data), data.length);
     }
 
     public LookupTableCV(byte[][] data) {
         this.offsets = new int[data.length];
-        this.initOffsets(0);
+        Arrays.fill(offsets, 0);
         this.data = new DataBufferByte(Objects.requireNonNull(data), data[0].length);
     }
 
     public LookupTableCV(byte[][] data, int offset) {
         this.offsets = new int[data.length];
-        this.initOffsets(offset);
+        Arrays.fill(offsets, offset);
         this.data = new DataBufferByte(Objects.requireNonNull(data), data[0].length);
     }
 
     public LookupTableCV(byte[][] data, int[] offsets) {
-        this.offsets = new int[data.length];
-        this.initOffsets(offsets);
+        this.offsets = Arrays.copyOf(offsets, data.length);
         this.data = new DataBufferByte(Objects.requireNonNull(data), data[0].length);
     }
 
     public LookupTableCV(short[] data, int offset, boolean isUShort) {
         this.offsets = new int[1];
-        this.initOffsets(offset);
+        Arrays.fill(offsets, offset);
         if (isUShort) {
             this.data = new DataBufferUShort(Objects.requireNonNull(data), data.length);
         } else {
             this.data = new DataBufferShort(Objects.requireNonNull(data), data.length);
-        }
-    }
-
-    private void initOffsets(int offset) {
-
-        for (int i = 0; i < offsets.length; i++) {
-            offsets[i] = offset;
-        }
-    }
-
-    private void initOffsets(int[] offset) {
-        for (int i = 0; i < offsets.length; i++) {
-            offsets[i] = offset[i];
         }
     }
 

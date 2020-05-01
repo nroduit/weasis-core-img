@@ -53,6 +53,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
+					<showDeprecation>true</showDeprecation>
+					<showWarnings>true</showWarnings>
 					<source>${java-version}</source>
 					<target>${java-version}</target>
 				</configuration>
@@ -77,9 +79,6 @@
 								</artifactItem>
 							</artifactItems>
 							<excludes>META-INF/**</excludes>
-							<classifier>sources</classifier>
-							<includeArtifactIds>opencv</includeArtifactIds>
-							<excludeTransitive>true</excludeTransitive>
 							<outputDirectory>${project.build.directory}/sources-import</outputDirectory>
 						</configuration>
 					</execution>
@@ -115,8 +114,6 @@
 						<Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
 						<Bundle-Version>${project.version}</Bundle-Version>
 						<Bundle-RequiredExecutionEnvironment>JavaSE-1.7</Bundle-RequiredExecutionEnvironment>
-						<!-- Using <_exportcontents> requires to configure <Export-Package>, there is no default export (All packages, except 
-							any containing 'impl' or 'internal' -->
 						<_removeheaders>
 							Bnd-LastModified,Include-Resource,Private-Package,Tool,Built-By,Created-By
 						</_removeheaders>

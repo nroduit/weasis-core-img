@@ -47,7 +47,10 @@ public class ImageConversion {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ImageConversion.class);
 
-    /**
+    private ImageConversion() {
+    }
+
+        /**
      * Converts/writes a Mat into a BufferedImage.
      * 
      * @param matrix

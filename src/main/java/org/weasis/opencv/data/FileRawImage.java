@@ -10,7 +10,6 @@
 package org.weasis.opencv.data;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Objects;
 
 import org.weasis.opencv.op.ImageProcessor;
@@ -28,7 +27,7 @@ public class FileRawImage {
         return file;
     }
 
-    public ImageCV read() throws IOException {
+    public ImageCV read()  {
         return ImageProcessor.readImageWithCvException(file);
     }
 

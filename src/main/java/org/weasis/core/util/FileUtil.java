@@ -287,7 +287,7 @@ public final class FileUtil {
 
     /**
      * @param inputStream
-     * @param out
+     * @param outFile
      * @return bytes transferred. O = error, -1 = all bytes has been transferred, other = bytes transferred before
      *         interruption
      * @throws StreamIOException
