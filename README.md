@@ -6,6 +6,6 @@ This project provides a Java wrapping of OpenCV with DICOM capabilities.
 
 ## Build weasis-core-img ##
 
-Prerequisites: JDK 7 or higher and Maven 3
+Prerequisites: JDK 8 or higher and Maven 3
 
 Execute the maven command `mvn clean install` in the root directory of the project.
