@@ -140,8 +140,7 @@ public final class EscapeChars {
              * This method ensures that the output String has only valid XML unicode characters as specified by the XML
              * 1.0 standard. For reference, please see <a href="http://www.w3.org/TR/2000/REC-xml-20001006#NT-Char">
              */
-            else if ((c == 0x9) || (c == 0xA) || (c == 0xD) || ((c >= 0x20) && (c <= 0xD7FF))
-                || ((c >= 0xE000) && (c <= 0xFFFD)) || ((c >= 0x10000) && (c <= 0x10FFFF))) {
+            else if (c == 0x9 || c == 0xA || c == 0xD || c >= 0x20 && c <= 0xD7FF || c >= 0xE000 && c <= 0xFFFD) {
                 // if not special char, add it
                 result.append(c);
             }
@@ -187,7 +186,7 @@ public final class EscapeChars {
     /**
      * Converts a string contain LF, CR/LF, LF/CR or CR into a set of lines by themselves.
      *
-     * @param unformatted
+     * @param unformatted the input String
      * @return Array of strings, one per line.
      */
     public static String[] convertToLines(String unformatted) {

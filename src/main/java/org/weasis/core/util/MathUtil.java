@@ -62,11 +62,7 @@ public class MathUtil {
         return Math.copySign(a - b, 1.0) >= DOUBLE_EPSILON;
     }
 
-    public static double computeDistanceFloat(double x1, double y1, double x2, double y2) {
-        return Point2D.distance(x1, y1, x2, y2);
-    }
-
-    public static double getOrientation(Point2D p1, Point2D p2) {
+    public static Double getOrientation(Point2D p1, Point2D p2) {
         return (p1 != null && p2 != null) ? getOrientation(p1.getX(), p1.getY(), p2.getX(), p2.getY()) : null;
     }
 
@@ -83,7 +79,7 @@ public class MathUtil {
         return angle;
     }
 
-    public static double getAzimuth(Point2D p1, Point2D p2) {
+    public static Double getAzimuth(Point2D p1, Point2D p2) {
         return (p1 != null && p2 != null) ? getAzimuth(p1.getX(), p1.getY(), p2.getX(), p2.getY()) : null;
     }
 
@@ -91,36 +87,6 @@ public class MathUtil {
         double angle = Math.toDegrees(Math.atan2(y2 - y1, x2 - x1));
         angle = (angle + 450.0) % 360.0;
         return angle;
-    }
-
-    public static float checkMin0(float val) {
-        return (val < 0.0f) ? 0.0f : val;
-    }
-
-    public static float checkMax(float val, float max) {
-        return (val > max) ? max : val;
-    }
-
-    public static float checkMinMax(float val, float min, float max) {
-        float res = val;
-        if (res < min) {
-            res = min;
-        }
-        if (res > max) {
-            res = max;
-        }
-        return res;
-    }
-
-    public static int checkMinMax(int val, int min, int max) {
-        int res = val;
-        if (res < min) {
-            res = min;
-        }
-        if (res > max) {
-            res = max;
-        }
-        return res;
     }
 
     public static double round(double value, int places) {

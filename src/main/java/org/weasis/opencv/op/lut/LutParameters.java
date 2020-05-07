@@ -1,5 +1,7 @@
 package org.weasis.opencv.op.lut;
 
+import java.util.Objects;
+
 /**
  * @author Nicolas Roduit
  *
@@ -32,73 +34,25 @@ public class LutParameters {
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        LutParameters other = (LutParameters) obj;
-        if (applyPadding != other.applyPadding) {
-            return false;
-        }
-        if (bitsOutput != other.bitsOutput) {
-            return false;
-        }
-        if (bitsStored != other.bitsStored) {
-            return false;
-        }
-        if (Double.doubleToLongBits(intercept) != Double.doubleToLongBits(other.intercept)) {
-            return false;
-        }
-        if (inversePaddingMLUT != other.inversePaddingMLUT) {
-            return false;
-        }
-        if (outputSigned != other.outputSigned) {
-            return false;
-        }
-        if (paddingMaxValue == null) {
-            if (other.paddingMaxValue != null) {
-                return false;
-            }
-        } else if (!paddingMaxValue.equals(other.paddingMaxValue)) {
-            return false;
-        }
-        if (paddingMinValue == null) {
-            if (other.paddingMinValue != null) {
-                return false;
-            }
-        } else if (!paddingMinValue.equals(other.paddingMinValue)) {
-            return false;
-        }
-        if (signed != other.signed) {
-            return false;
-        }
-        return Double.doubleToLongBits(slope) == Double.doubleToLongBits(other.slope);
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        LutParameters that = (LutParameters) o;
+        return Double.compare(that.intercept, intercept) == 0 &&
+                Double.compare(that.slope, slope) == 0 &&
+                bitsStored == that.bitsStored &&
+                signed == that.signed &&
+                applyPadding == that.applyPadding &&
+                outputSigned == that.outputSigned &&
+                bitsOutput == that.bitsOutput &&
+                inversePaddingMLUT == that.inversePaddingMLUT &&
+                Objects.equals(paddingMinValue, that.paddingMinValue) &&
+                Objects.equals(paddingMaxValue, that.paddingMaxValue);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + (applyPadding ? 1231 : 1237);
-        result = prime * result + bitsOutput;
-        result = prime * result + bitsStored;
-        long temp;
-        temp = Double.doubleToLongBits(intercept);
-        result = prime * result + (int) (temp ^ (temp >>> 32));
-        result = prime * result + (inversePaddingMLUT ? 1231 : 1237);
-        result = prime * result + (outputSigned ? 1231 : 1237);
-        result = prime * result + ((paddingMaxValue == null) ? 0 : paddingMaxValue.hashCode());
-        result = prime * result + ((paddingMinValue == null) ? 0 : paddingMinValue.hashCode());
-        result = prime * result + (signed ? 1231 : 1237);
-        temp = Double.doubleToLongBits(slope);
-        result = prime * result + (int) (temp ^ (temp >>> 32));
-        return result;
+        return Objects.hash(intercept, slope, paddingMinValue, paddingMaxValue, bitsStored, signed, applyPadding, outputSigned, bitsOutput, inversePaddingMLUT);
     }
 
     public double getIntercept() {

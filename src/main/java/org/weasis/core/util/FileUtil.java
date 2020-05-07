@@ -111,7 +111,7 @@ public final class FileUtil {
         throw new IllegalStateException("Failed to create directory"); //$NON-NLS-1$
     }
 
-    public static final void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
+    public static void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
         if ((dir == null) || !dir.isDirectory()) {
             return;
         }
@@ -136,11 +136,13 @@ public final class FileUtil {
 
     public static void getAllFilesInDirectory(File directory, List<File> files, boolean recursive) {
         File[] fList = directory.listFiles();
-        for (File f : fList) {
-            if (f.isFile()) {
-                files.add(f);
-            } else if (recursive && f.isDirectory()) {
-                getAllFilesInDirectory(f, files, recursive);
+        if (fList != null) {
+            for (File f : fList) {
+                if (f.isFile()) {
+                    files.add(f);
+                } else if (recursive && f.isDirectory()) {
+                    getAllFilesInDirectory(f, files, true);
+                }
             }
         }
     }
@@ -254,10 +256,10 @@ public final class FileUtil {
         if (file != null && extensions != null) {
             String fileExt = getExtension(file.getName());
             if (StringUtil.hasLength(fileExt)) {
-                for (int i = 0; i < extensions.length; i++) {
-                 if(fileExt.endsWith(extensions[i]))  {
-                     return true;
-                 }
+                for (String extension : extensions) {
+                    if (fileExt.endsWith(extension)) {
+                        return true;
+                    }
                 }
             }
         }
@@ -457,18 +459,22 @@ public final class FileUtil {
         try (OutputStream out = new FileOutputStream(zipfile); ZipOutputStream zout = new ZipOutputStream(out)) {
             while (!queue.isEmpty()) {
                 File dir = queue.pop();
-                for (File entry : dir.listFiles()) {
-                    String name = base.relativize(entry.toURI()).getPath();
-                    if (entry.isDirectory()) {
-                        queue.push(entry);
-                        if (entry.list().length == 0) {
-                            name = name.endsWith("/") ? name : name + "/"; //$NON-NLS-1$ //$NON-NLS-2$
+                File[] files = dir.listFiles();
+                if (files != null) {
+                    for (File entry : files) {
+                        String name = base.relativize(entry.toURI()).getPath();
+                        if (entry.isDirectory()) {
+                            queue.push(entry);
+                            String[] flist = entry.list();
+                            if (flist == null || flist.length == 0) {
+                                name = name.endsWith("/") ? name : name + "/"; //$NON-NLS-1$ //$NON-NLS-2$
+                                zout.putNextEntry(new ZipEntry(name));
+                            }
+                        } else {
                             zout.putNextEntry(new ZipEntry(name));
+                            copyZip(entry, zout);
+                            zout.closeEntry();
                         }
-                    } else {
-                        zout.putNextEntry(new ZipEntry(name));
-                        copyZip(entry, zout);
-                        zout.closeEntry();
                     }
                 }
             }

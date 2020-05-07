@@ -26,7 +26,7 @@ public class LangUtil {
     }
 
     public static <T> Iterable<T> emptyIfNull(Iterable<T> iterable) {
-        return iterable == null ? Collections.<T> emptyList() : iterable;
+        return iterable == null ? Collections.emptyList() : iterable;
     }
 
     public static <T, C extends Collection<T>> C convertCollectionType(Iterable<?> from, C newCollection,

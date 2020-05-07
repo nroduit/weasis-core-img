@@ -162,15 +162,11 @@ public class LookupTableCV {
         if (lkbBands < channels) {
             byte[] b = bTblData[0];
             bTblData = new byte[channels][];
-            for (int i = 0; i < bTblData.length; i++) {
-                bTblData[i] = b;
-            }
+            Arrays.fill(bTblData, b);
 
             int t = tblOffsets[0];
             tblOffsets = new int[channels];
-            for (int i = 0; i < tblOffsets.length; i++) {
-                tblOffsets[i] = t;
-            }
+            Arrays.fill(tblOffsets, t);
             lkbBands = channels;
         }
 

@@ -24,7 +24,6 @@ import java.awt.image.MultiPixelPackedSampleModel;
 import java.awt.image.RenderedImage;
 import java.awt.image.SampleModel;
 import java.io.File;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -48,6 +47,7 @@ import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
@@ -164,7 +164,7 @@ public class ImageProcessor {
             switch (segType) {
                 case PathIterator.SEG_MOVETO:
                     if (p != null) {
-                        p.fromArray(cvPts.toArray(new Point[cvPts.size()]));
+                        p.fromArray(cvPts.toArray(new Point[0]));
                         points.add(p);
                     }
                     p = new MatOfPoint();
@@ -181,7 +181,7 @@ public class ImageProcessor {
         }
 
         if (p != null) {
-            p.fromArray(cvPts.toArray(new Point[cvPts.size()]));
+            p.fromArray(cvPts.toArray(new Point[0]));
             points.add(p);
         }
         return points;
@@ -290,8 +290,8 @@ public class ImageProcessor {
         result.minVal = Double.MAX_VALUE;
         result.maxVal = -Double.MAX_VALUE;
 
-        for (int i = 0; i < channels.size(); i++) {
-            MinMaxLocResult minMax = Core.minMaxLoc(channels.get(i), mask);
+        for (Mat channel : channels) {
+            MinMaxLocResult minMax = Core.minMaxLoc(channel, mask);
             result.minVal = Math.min(result.minVal, minMax.minVal);
             if (result.minVal == minMax.minVal) {
                 result.minLoc = minMax.minLoc;
@@ -420,27 +420,7 @@ public class ImageProcessor {
     }
 
     public static ImageCV applyShutter(Mat source, RenderedImage imgOverlay, Color color) {
-        ImageCV srcImg = ImageCV.toImageCV(Objects.requireNonNull(source));
-        Mat mask = ImageConversion.toMat(Objects.requireNonNull(imgOverlay));
-        if (isGray(color) && srcImg.channels() == 1) {
-            Mat grayImg = new Mat(srcImg.size(), CvType.CV_8UC1, new Scalar(color.getRed()));
-            ImageCV dstImg = new ImageCV();
-            srcImg.copyTo(dstImg);
-            grayImg.copyTo(dstImg, mask);
-            return dstImg;
-        }
-
-        ImageCV dstImg = new ImageCV();
-        if (srcImg.channels() < 3) {
-            Imgproc.cvtColor(srcImg, dstImg, Imgproc.COLOR_GRAY2BGR);
-        } else {
-            srcImg.copyTo(dstImg);
-        }
-
-        Mat colorImg =
-            new Mat(dstImg.size(), CvType.CV_8UC3, new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
-        colorImg.copyTo(dstImg, mask);
-        return dstImg;
+        return overlay(source,imgOverlay, color);
     }
 
     public static BufferedImage getAsImage(Area shape, RenderedImage source) {
@@ -516,14 +496,6 @@ public class ImageProcessor {
         return dstImg;
     }
 
-    /**
-     * Computes Min/Max values from Image excluding range of values provided
-     *
-     * @param img
-     * @param paddingValueMin
-     * @param paddingValueMax
-     * @return
-     */
     public static MinMaxLocResult findMinMaxValues(Mat source) {
         if (source != null) {
             return minMaxLoc(source, null);
@@ -531,6 +503,14 @@ public class ImageProcessor {
         return null;
     }
 
+    /**
+     * Computes Min/Max values from Image excluding range of values provided
+     *
+     * @param source
+     * @param paddingValue
+     * @param paddingLimit
+     * @return
+     */
     public static MinMaxLocResult findMinMaxValues(Mat source, Integer paddingValue, Integer paddingLimit) {
         if (source != null) {
             Mat mask = new Mat(source.size(), CvType.CV_8UC1, new Scalar(0));
@@ -581,7 +561,7 @@ public class ImageProcessor {
             return Imgcodecs.imwrite(file.getPath(), source);
         } catch (OutOfMemoryError | CvException e) {
             LOGGER.error("Writing Image", e); //$NON-NLS-1$
-            delete(file);
+            FileUtil.delete(file);
             return false;
         }
     }
@@ -600,7 +580,7 @@ public class ImageProcessor {
             return false;
         } catch (OutOfMemoryError | CvException e) {
             LOGGER.error("Writing thumbnail", e); //$NON-NLS-1$
-            delete(file);
+            FileUtil.delete(file);
             return false;
         }
     }
@@ -627,7 +607,7 @@ public class ImageProcessor {
             return Imgcodecs.imwrite(file.getPath(), srcImg);
         } catch (OutOfMemoryError | CvException e) {
             LOGGER.error("", e); //$NON-NLS-1$
-            delete(file);
+            FileUtil.delete(file);
             return false;
         } finally {
             ImageConversion.releaseMat(dstImg);
@@ -656,7 +636,7 @@ public class ImageProcessor {
             return Imgcodecs.imwrite(file.getPath(), source, params);
         } catch (OutOfMemoryError | CvException e) {
             LOGGER.error("Writing image", e); //$NON-NLS-1$
-            delete(file);
+            FileUtil.delete(file);
             return false;
         }
     }
@@ -680,32 +660,6 @@ public class ImageProcessor {
             throw new CvException("OpenCV cannot read " + file.getPath());
         }
         return ImageCV.toImageCV(img);
-    }
-
-    private static boolean deleteFile(File fileOrDirectory) {
-        try {
-            Files.delete(fileOrDirectory.toPath());
-        } catch (Exception e) {
-            LOGGER.error("Cannot delete", e); //$NON-NLS-1$
-            return false;
-        }
-        return true;
-    }
-
-    private static boolean delete(File fileOrDirectory) {
-        if (fileOrDirectory == null || !fileOrDirectory.exists()) {
-            return false;
-        }
-
-        if (fileOrDirectory.isDirectory()) {
-            final File[] files = fileOrDirectory.listFiles();
-            if (files != null) {
-                for (File child : files) {
-                    delete(child);
-                }
-            }
-        }
-        return deleteFile(fileOrDirectory);
     }
 
     public void process(Mat sourceImage, Mat resultImage, int tileSize) {

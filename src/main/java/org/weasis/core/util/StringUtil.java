@@ -46,7 +46,7 @@ public class StringUtil {
 
         private final String value;
 
-        private Suffix(String suffix) {
+        Suffix(String suffix) {
             this.value = suffix;
         }
 
@@ -80,7 +80,7 @@ public class StringUtil {
 
     public static Character getFirstCharacter(String val) {
         if (StringUtil.hasText(val)) {
-            return Character.valueOf(val.charAt(0));
+            return val.charAt(0);
         }
         return null;
     }
@@ -127,7 +127,6 @@ public class StringUtil {
     }
 
     public static int getInt(String value, int defaultValue) {
-        int result = defaultValue;
         if (value != null) {
             try {
                 return Integer.parseInt(value.trim());
@@ -135,7 +134,7 @@ public class StringUtil {
                 LOGGER.warn("Cannot parse {} to int", value); //$NON-NLS-1$
             }
         }
-        return result;
+        return defaultValue;
     }
 
     public static Double getDouble(String val) {

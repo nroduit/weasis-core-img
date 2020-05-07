@@ -17,9 +17,9 @@ import org.opencv.core.Mat;
 // we want to store close to each other
 class MyAlgorithm extends TiledAlgorithm {
     private Mat mBuffer;
-    private Mat a;
-    private Mat b;
-    private Mat c;
+    private final Mat a;
+    private final Mat b;
+    private final Mat c;
 
     public MyAlgorithm(int tileSize, int padding) {
         super(tileSize, padding, Core.BORDER_DEFAULT);
