@@ -2,7 +2,9 @@
 
 [![License](https://img.shields.io/badge/License-EPL%202.0-blue.svg)](https://opensource.org/licenses/EPL-2.0) [![Build Status](https://travis-ci.com/nroduit/weasis-core-img.svg?branch=master)](https://travis-ci.com/nroduit/weasis-core-img)   
  
-This project provides a Java wrapping of OpenCV with DICOM capabilities.  
+This project provides a Java wrapping of OpenCV with DICOM capabilities. 
+
+Code formatter: google-java-format 1.8 
 
 ## Build weasis-core-img ##
 
