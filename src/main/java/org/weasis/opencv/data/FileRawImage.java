@@ -12,27 +12,26 @@ package org.weasis.opencv.data;
 
 import java.io.File;
 import java.util.Objects;
-
 import org.weasis.opencv.op.ImageProcessor;
 
 public class FileRawImage {
-    public static final int HEADER_LENGTH = 46;
+  public static final int HEADER_LENGTH = 46;
 
-    private final File file;
+  private final File file;
 
-    public FileRawImage(File file) {
-        this.file = Objects.requireNonNull(file);
-    }
+  public FileRawImage(File file) {
+    this.file = Objects.requireNonNull(file);
+  }
 
-    public File getFile() {
-        return file;
-    }
+  public File getFile() {
+    return file;
+  }
 
-    public ImageCV read()  {
-        return ImageProcessor.readImageWithCvException(file);
-    }
+  public ImageCV read() {
+    return ImageProcessor.readImageWithCvException(file);
+  }
 
-    public boolean write(PlanarImage mat) {
-        return ImageProcessor.writeImage(mat.toMat(), file);
-    }
+  public boolean write(PlanarImage mat) {
+    return ImageProcessor.writeImage(mat.toMat(), file);
+  }
 }

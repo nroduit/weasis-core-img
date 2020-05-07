@@ -12,19 +12,19 @@ package org.weasis.opencv.op.lut;
 
 public interface WlParams extends WlPresentation {
 
-    double getWindow();
+  double getWindow();
 
-    double getLevel();
+  double getLevel();
 
-    double getLevelMin();
+  double getLevelMin();
 
-    double getLevelMax();
+  double getLevelMax();
 
-    boolean isInverseLut();
+  boolean isInverseLut();
 
-    boolean isFillOutsideLutRange();
+  boolean isFillOutsideLutRange();
 
-    boolean isAllowWinLevelOnColorImage();
+  boolean isAllowWinLevelOnColorImage();
 
-    LutShape getLutShape();
+  LutShape getLutShape();
 }

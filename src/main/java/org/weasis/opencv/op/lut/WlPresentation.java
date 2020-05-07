@@ -12,7 +12,7 @@ package org.weasis.opencv.op.lut;
 
 public interface WlPresentation {
 
-    boolean isPixelPadding();
+  boolean isPixelPadding();
 
-    PresentationStateLut getPresentationState();
+  PresentationStateLut getPresentationState();
 }

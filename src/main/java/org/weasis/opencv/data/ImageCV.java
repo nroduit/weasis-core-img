@@ -18,63 +18,62 @@ import org.opencv.core.Size;
 
 public class ImageCV extends Mat implements PlanarImage {
 
-    public ImageCV() {
-        super();
-    }
+  public ImageCV() {
+    super();
+  }
 
-    public ImageCV(int rows, int cols, int type) {
-        super(rows, cols, type);
-    }
+  public ImageCV(int rows, int cols, int type) {
+    super(rows, cols, type);
+  }
 
-    public ImageCV(Size size, int type, Scalar s) {
-        super(size, type, s);
-    }
+  public ImageCV(Size size, int type, Scalar s) {
+    super(size, type, s);
+  }
 
-    public ImageCV(int rows, int cols, int type, Scalar s) {
-        super(rows, cols, type, s);
-    }
+  public ImageCV(int rows, int cols, int type, Scalar s) {
+    super(rows, cols, type, s);
+  }
 
-    public ImageCV(Mat m, Range rowRange, Range colRange) {
-        super(m, rowRange, colRange);
-    }
+  public ImageCV(Mat m, Range rowRange, Range colRange) {
+    super(m, rowRange, colRange);
+  }
 
-    public ImageCV(Mat m, Range rowRange) {
-        super(m, rowRange);
-    }
+  public ImageCV(Mat m, Range rowRange) {
+    super(m, rowRange);
+  }
 
-    public ImageCV(Mat m, Rect roi) {
-        super(m, roi);
-    }
+  public ImageCV(Mat m, Rect roi) {
+    super(m, roi);
+  }
 
-    public ImageCV(Size size, int type) {
-        super(size, type);
-    }
+  public ImageCV(Size size, int type) {
+    super(size, type);
+  }
 
-    @Override
-    public long physicalBytes() {
-        return total() * elemSize();
-    }
+  @Override
+  public long physicalBytes() {
+    return total() * elemSize();
+  }
 
-    public static Mat toMat(PlanarImage source) {
-        if (source instanceof Mat) {
-            return (Mat) source;
-        } else {
-            throw new IllegalAccessError("Not implemented yet");
-        }
+  public static Mat toMat(PlanarImage source) {
+    if (source instanceof Mat) {
+      return (Mat) source;
+    } else {
+      throw new IllegalAccessError("Not implemented yet");
     }
+  }
 
-    public static ImageCV toImageCV(Mat source) {
-        if (source instanceof ImageCV) {
-            return (ImageCV) source;
-        }
-        ImageCV dstImg = new ImageCV();
-        source.assignTo(dstImg);
-        return dstImg;
+  public static ImageCV toImageCV(Mat source) {
+    if (source instanceof ImageCV) {
+      return (ImageCV) source;
     }
+    ImageCV dstImg = new ImageCV();
+    source.assignTo(dstImg);
+    return dstImg;
+  }
 
-    @Override
-    public void close() {
-        this.release();
-    }
-
+  @Override
+  public void close() {
+    this.release();
+  }
 }
