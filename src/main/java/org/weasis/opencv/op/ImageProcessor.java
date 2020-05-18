@@ -10,39 +10,9 @@
 
 package org.weasis.opencv.op;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.RenderingHints;
-import java.awt.Shape;
-import java.awt.geom.Area;
-import java.awt.geom.FlatteningPathIterator;
-import java.awt.geom.PathIterator;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.MultiPixelPackedSampleModel;
-import java.awt.image.RenderedImage;
-import java.awt.image.SampleModel;
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import org.opencv.core.Core;
-import org.opencv.core.Core.MinMaxLocResult;
-import org.opencv.core.CvException;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfDouble;
-import org.opencv.core.MatOfInt;
-import org.opencv.core.MatOfPoint;
+import org.opencv.core.*;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
-import org.opencv.core.RotatedRect;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
+import org.opencv.core.Core.MinMaxLocResult;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.slf4j.Logger;
@@ -51,13 +21,22 @@ import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
+import java.awt.*;
+import java.awt.geom.Area;
+import java.awt.geom.FlatteningPathIterator;
+import java.awt.geom.PathIterator;
+import java.awt.image.*;
+import java.io.File;
+import java.util.List;
+import java.util.*;
+
 public class ImageProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageProcessor.class);
 
   public static MinMaxLocResult findRawMinMaxValues(PlanarImage img, boolean exclude8bitImage)
       throws OutOfMemoryError {
     MinMaxLocResult val;
-    if (ImageConversion.convertToDataType(img.type()) == DataBuffer.TYPE_BYTE && exclude8bitImage) {
+    if (Objects.requireNonNull(img).type() <= CvType.CV_8S && exclude8bitImage) {
       val = new MinMaxLocResult();
       val.minVal = 0.0;
       val.maxVal = 255.0;
@@ -73,17 +52,6 @@ public class ImageProcessor {
       }
     }
     return val;
-  }
-
-  public Mat blur(Mat input, int numberOfTimes) {
-    Mat sourceImage;
-    Mat destImage = input.clone();
-    for (int i = 0; i < numberOfTimes; i++) {
-      sourceImage = destImage.clone();
-      // Imgproc.blur(sourceImage, destImage, new Size(3.0, 3.0));
-      process(sourceImage, destImage, 256);
-    }
-    return destImage;
   }
 
   public static ImageCV applyLUT(Mat source, byte[][] lut) {
@@ -368,14 +336,14 @@ public class ImageProcessor {
     return r == color.getGreen() && r == color.getBlue();
   }
 
-  public static ImageCV overlay(Mat source, RenderedImage imgOverlay, Color color) {
+  public static ImageCV overlay(Mat source, Mat imgOverlay, Color color) {
     ImageCV srcImg = ImageCV.toImageCV(Objects.requireNonNull(source));
-    Mat mask = ImageConversion.toMat(Objects.requireNonNull(imgOverlay));
+    Objects.requireNonNull(imgOverlay);
     if (isGray(color) && srcImg.channels() == 1) {
       Mat grayImg = new Mat(srcImg.size(), CvType.CV_8UC1, new Scalar(color.getRed()));
       ImageCV dstImg = new ImageCV();
       srcImg.copyTo(dstImg);
-      grayImg.copyTo(dstImg, mask);
+      grayImg.copyTo(dstImg, imgOverlay);
       return dstImg;
     }
 
@@ -391,8 +359,12 @@ public class ImageProcessor {
             dstImg.size(),
             CvType.CV_8UC3,
             new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
-    colorImg.copyTo(dstImg, mask);
+    colorImg.copyTo(dstImg, imgOverlay);
     return dstImg;
+  }
+
+  public static ImageCV overlay(Mat source, RenderedImage imgOverlay, Color color) {
+    return overlay(source, ImageConversion.toMat(Objects.requireNonNull(imgOverlay)), color);
   }
 
   public static BufferedImage drawShape(RenderedImage source, Shape shape, Color color) {
@@ -699,117 +671,5 @@ public class ImageProcessor {
       throw new CvException("OpenCV cannot read " + file.getPath());
     }
     return ImageCV.toImageCV(img);
-  }
-
-  public void process(Mat sourceImage, Mat resultImage, int tileSize) {
-
-    if (sourceImage.rows() != resultImage.rows() || sourceImage.cols() != resultImage.cols()) {
-      throw new IllegalStateException("");
-    }
-
-    final int rowTiles =
-        (sourceImage.rows() / tileSize) + (sourceImage.rows() % tileSize != 0 ? 1 : 0);
-    final int colTiles =
-        (sourceImage.cols() / tileSize) + (sourceImage.cols() % tileSize != 0 ? 1 : 0);
-
-    Mat tileInput = new Mat(tileSize, tileSize, sourceImage.type());
-    Mat tileOutput = new Mat(tileSize, tileSize, sourceImage.type());
-
-    int boderType = Core.BORDER_DEFAULT;
-    int mPadding = 3;
-
-    for (int rowTile = 0; rowTile < rowTiles; rowTile++) {
-      for (int colTile = 0; colTile < colTiles; colTile++) {
-        Rect srcTile =
-            new Rect(
-                colTile * tileSize - mPadding,
-                rowTile * tileSize - mPadding,
-                tileSize + 2 * mPadding,
-                tileSize + 2 * mPadding);
-        Rect dstTile = new Rect(colTile * tileSize, rowTile * tileSize, tileSize, tileSize);
-        copyTileFromSource(sourceImage, tileInput, srcTile, boderType);
-        processTileImpl(tileInput, tileOutput);
-        copyTileToResultImage(
-            tileOutput, resultImage, new Rect(mPadding, mPadding, tileSize, tileSize), dstTile);
-      }
-    }
-  }
-
-  private void copyTileToResultImage(Mat tileOutput, Mat resultImage, Rect srcTile, Rect dstTile) {
-    Point br = dstTile.br();
-
-    if (br.x >= resultImage.cols()) {
-      dstTile.width -= br.x - resultImage.cols();
-      srcTile.width -= br.x - resultImage.cols();
-    }
-
-    if (br.y >= resultImage.rows()) {
-      dstTile.height -= br.y - resultImage.rows();
-      srcTile.height -= br.y - resultImage.rows();
-    }
-
-    Mat tileView = tileOutput.submat(srcTile);
-    Mat dstView = resultImage.submat(dstTile);
-
-    assert (tileView.rows() == dstView.rows());
-    assert (tileView.cols() == dstView.cols());
-
-    tileView.copyTo(dstView);
-  }
-
-  private void processTileImpl(Mat tileInput, Mat tileOutput) {
-    Imgproc.blur(tileInput, tileOutput, new Size(7.0, 7.0));
-  }
-
-  private void copyTileFromSource(Mat sourceImage, Mat tileInput, Rect tile, int mBorderType) {
-    Point tl = tile.tl();
-    Point br = tile.br();
-
-    Point tloffset = new Point();
-    Point broffset = new Point();
-
-    // Take care of border cases
-    if (tile.x < 0) {
-      tloffset.x = -tile.x;
-      tile.x = 0;
-    }
-
-    if (tile.y < 0) {
-      tloffset.y = -tile.y;
-      tile.y = 0;
-    }
-
-    if (br.x >= sourceImage.cols()) {
-      broffset.x = br.x - sourceImage.cols() + 1;
-      tile.width -= broffset.x;
-    }
-
-    if (br.y >= sourceImage.rows()) {
-      broffset.y = br.y - sourceImage.rows() + 1;
-      tile.height -= broffset.y;
-    }
-
-    // If any of the tile sides exceed source image boundary we must use copyMakeBorder to make
-    // proper paddings
-    // for this side
-    if (tloffset.x > 0 || tloffset.y > 0 || broffset.x > 0 || broffset.y > 0) {
-      Rect paddedTile = new Rect(tile.tl(), tile.br());
-      assert (paddedTile.x >= 0);
-      assert (paddedTile.y >= 0);
-      assert (paddedTile.br().x < sourceImage.cols());
-      assert (paddedTile.br().y < sourceImage.rows());
-
-      Core.copyMakeBorder(
-          sourceImage.submat(paddedTile),
-          tileInput,
-          (int) tloffset.y,
-          (int) broffset.y,
-          (int) tloffset.x,
-          (int) broffset.x,
-          mBorderType);
-    } else {
-      // Entire tile (with paddings lies inside image and it's safe to just take a region:
-      sourceImage.submat(tile).copyTo(tileInput);
-    }
   }
 }
