@@ -4,7 +4,7 @@
  
 This project provides a Java wrapping of OpenCV with DICOM capabilities. 
 
-Code formatter: google-java-format 1.8 
+Code formatter: [google-java-format](https://github.com/google/google-java-format) 
 
 ## Build weasis-core-img ##
 

@@ -10,9 +10,39 @@
 
 package org.weasis.opencv.op;
 
-import org.opencv.core.*;
-import org.opencv.core.Point;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.geom.Area;
+import java.awt.geom.FlatteningPathIterator;
+import java.awt.geom.PathIterator;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.MultiPixelPackedSampleModel;
+import java.awt.image.RenderedImage;
+import java.awt.image.SampleModel;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import org.opencv.core.Core;
 import org.opencv.core.Core.MinMaxLocResult;
+import org.opencv.core.CvException;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfDouble;
+import org.opencv.core.MatOfInt;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.slf4j.Logger;
@@ -20,15 +50,6 @@ import org.slf4j.LoggerFactory;
 import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
-
-import java.awt.*;
-import java.awt.geom.Area;
-import java.awt.geom.FlatteningPathIterator;
-import java.awt.geom.PathIterator;
-import java.awt.image.*;
-import java.io.File;
-import java.util.List;
-import java.util.*;
 
 public class ImageProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageProcessor.class);
