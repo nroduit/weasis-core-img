@@ -16,7 +16,7 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
   <name>Image processing (OpenCV)</name>
-  <version>4.3.0</version>
+  <version>4.4.0</version>
   <packaging>bundle</packaging>
 
   <properties>
@@ -28,7 +28,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
     <slf4j.version>1.7.29</slf4j.version>
-    <weasis.opencv.native.version>4.2.0-dcm</weasis.opencv.native.version>
+    <weasis.opencv.native.version>4.4.0-dcm</weasis.opencv.native.version>
   </properties>
 
   <licenses>
