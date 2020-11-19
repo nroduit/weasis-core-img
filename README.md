@@ -1,6 +1,6 @@
 # weasis-core-img #
 
-[![License](https://img.shields.io/badge/License-EPL%202.0-blue.svg)](https://opensource.org/licenses/EPL-2.0) [![Build Status](https://travis-ci.com/nroduit/weasis-core-img.svg?branch=master)](https://travis-ci.com/nroduit/weasis-core-img)   
+[![License](https://img.shields.io/badge/License-EPL%202.0-blue.svg)](https://opensource.org/licenses/EPL-2.0) ![Maven build](https://github.com/nroduit/weasis-core-img/workflows/Maven%20build/badge.svg?branch=master)
  
 This project provides a Java wrapping of OpenCV with DICOM capabilities. 
 
