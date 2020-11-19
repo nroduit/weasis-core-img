@@ -27,8 +27,11 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
-    <slf4j.version>1.7.29</slf4j.version>
     <weasis.opencv.native.version>4.5.0-dcm</weasis.opencv.native.version>
+    <slf4j.version>1.7.29</slf4j.version>
+    <sonar.projectKey>nroduit_weasis-core-img</sonar.projectKey>
+    <sonar.organization>nroduit-github</sonar.organization>
+    <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
 
   <licenses>
