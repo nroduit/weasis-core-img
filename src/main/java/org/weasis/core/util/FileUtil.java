@@ -57,6 +57,7 @@ public final class FileUtil {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     26, 27, 28, 29, 30, 31, 34, 42, 47, 58, 60, 62, 63, 92, 124
   };
+  public static final String CANNOT_DELETE = "Cannot delete";
 
   private FileUtil() {}
 
@@ -154,7 +155,7 @@ public final class FileUtil {
     try {
       Files.delete(fileOrDirectory.toPath());
     } catch (Exception e) {
-      LOGGER.error("Cannot delete", e); // $NON-NLS-1$
+      LOGGER.error(CANNOT_DELETE, e);
       return false;
     }
     return true;
@@ -523,7 +524,7 @@ public final class FileUtil {
           file.mkdirs();
         } else {
           file.getParentFile().mkdirs();
-          try (InputStream in = zfile.getInputStream(entry)) {
+          try (InputStream in = zfile.getInputStream(entry)) { // NOSONAR false positive
             copyZip(in, file);
           }
         }
@@ -580,7 +581,7 @@ public final class FileUtil {
     try {
       return Files.deleteIfExists(path);
     } catch (IOException e) {
-      LOGGER.error("Cannot delete", e);
+      LOGGER.error(CANNOT_DELETE, e);
     }
     return false;
   }
@@ -594,7 +595,7 @@ public final class FileUtil {
       walk.sorted(Comparator.reverseOrder()).forEach(FileUtil::deleteFile);
       return true;
     } catch (IOException e) {
-      LOGGER.error("Cannot delete", e);
+      LOGGER.error(CANNOT_DELETE, e);
     }
     return false;
   }

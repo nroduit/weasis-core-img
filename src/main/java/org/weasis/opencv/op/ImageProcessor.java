@@ -53,6 +53,10 @@ import org.weasis.opencv.data.PlanarImage;
 
 public class ImageProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageProcessor.class);
+  public static final String UNSUPPORTED_SIZE = "Unsupported size: ";
+
+  private ImageProcessor(){
+  }
 
   public static MinMaxLocResult findRawMinMaxValues(PlanarImage img, boolean exclude8bitImage)
       throws OutOfMemoryError {
@@ -316,7 +320,7 @@ public class ImageProcessor {
 
   public static ImageCV scale(Mat source, Dimension dim) {
     if (Objects.requireNonNull(dim).width < 1 || dim.height < 1) {
-      throw new IllegalArgumentException("Unsupported size: " + dim);
+      throw new IllegalArgumentException(UNSUPPORTED_SIZE + dim);
     }
     ImageCV dstImg = new ImageCV();
     Imgproc.resize(
@@ -331,7 +335,7 @@ public class ImageProcessor {
       return scale(source, dim);
     }
     if (Objects.requireNonNull(dim).width < 1 || dim.height < 1) {
-      throw new IllegalArgumentException("Unsupported size: " + dim);
+      throw new IllegalArgumentException(UNSUPPORTED_SIZE + dim);
     }
     ImageCV dstImg = new ImageCV();
     Imgproc.resize(
@@ -560,7 +564,7 @@ public class ImageProcessor {
   public static ImageCV buildThumbnail(PlanarImage source, Dimension iconDim, boolean keepRatio) {
     Objects.requireNonNull(source);
     if (Objects.requireNonNull(iconDim).width < 1 || iconDim.height < 1) {
-      throw new IllegalArgumentException("Unsupported size: " + iconDim);
+      throw new IllegalArgumentException(UNSUPPORTED_SIZE + iconDim);
     }
 
     final double scale =

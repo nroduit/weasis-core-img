@@ -207,11 +207,11 @@ public class LookupTableCV {
       boolean scrByte = srcDataType == DataBuffer.TYPE_BYTE;
       short[] sDstData =
           !scrByte && channels >= lkbBands ? sSrcData : new short[width * height * lkbBands];
-      if (scrByte) {
+      if (scrByte && bSrcData != null && sTblData != null) {
         lookup(bSrcData, sDstData, tblOffsets, sTblData);
-      } else if (srcDataType == DataBuffer.TYPE_USHORT) {
+      } else if (srcDataType == DataBuffer.TYPE_USHORT && sSrcData != null && sTblData != null) {
         lookupU(sSrcData, sDstData, tblOffsets, sTblData);
-      } else if (srcDataType == DataBuffer.TYPE_SHORT) {
+      } else if (srcDataType == DataBuffer.TYPE_SHORT && sSrcData != null && sTblData != null) {
         lookup(sSrcData, sDstData, tblOffsets, sTblData);
       } else {
         throw new IllegalArgumentException(
