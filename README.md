@@ -1,6 +1,6 @@
 # weasis-core-img #
 
-[![License](https://img.shields.io/badge/License-EPL%202.0-blue.svg)](https://opensource.org/licenses/EPL-2.0) ![Maven build](https://github.com/nroduit/weasis-core-img/workflows/Maven%20build/badge.svg?branch=master)
+[![License](https://img.shields.io/badge/License-EPL%202.0-blue.svg)](https://opensource.org/licenses/EPL-2.0) ![Maven build](https://github.com/nroduit/weasis-core-img/workflows/Build/badge.svg?branch=master)
  
 [![Sonar](https://sonarcloud.io/api/project_badges/measure?project=weasis-core-img&metric=ncloc)](https://sonarcloud.io/component_measures?id=weasis-core-img) [![Sonar](https://sonarcloud.io/api/project_badges/measure?project=weasis-core-img&metric=reliability_rating)](https://sonarcloud.io/component_measures?id=weasis-core-img) [![Sonar](https://sonarcloud.io/api/project_badges/measure?project=weasis-core-img&metric=sqale_rating)](https://sonarcloud.io/component_measures?id=weasis-core-img) [![Sonar](https://sonarcloud.io/api/project_badges/measure?project=weasis-core-img&metric=security_rating)](https://sonarcloud.io/component_measures?id=weasis-core-img) [![Sonar](https://sonarcloud.io/api/project_badges/measure?project=weasis-core-img&metric=alert_status)](https://sonarcloud.io/dashboard?id=weasis-core-img)   
  
