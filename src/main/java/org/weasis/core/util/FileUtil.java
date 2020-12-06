@@ -496,9 +496,14 @@ public final class FileUtil {
 
     try (BufferedInputStream bufInStream = new BufferedInputStream(inputStream);
         ZipInputStream zis = new ZipInputStream(bufInStream)) {
+      String canonicalDirPath = directory.getCanonicalPath();
       ZipEntry entry;
       while ((entry = zis.getNextEntry()) != null) {
         File file = new File(directory, entry.getName());
+        String canonicalDestPath = file.getCanonicalPath();
+        if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
+          throw new IOException("Security issue: Entry is trying to leave the target dir: " + entry.getName());
+        }
         if (entry.isDirectory()) {
           file.mkdirs();
         } else {
@@ -516,15 +521,20 @@ public final class FileUtil {
       return;
     }
     try (ZipFile zfile = new ZipFile(zipfile)) {
+      String canonicalDirPath = directory.getCanonicalPath();
       Enumeration<? extends ZipEntry> entries = zfile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
         File file = new File(directory, entry.getName());
+        String canonicalDestPath = file.getCanonicalPath();
+        if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
+          throw new IOException("Security issue: Entry is trying to leave the target dir: " + entry.getName());
+        }
         if (entry.isDirectory()) {
           file.mkdirs();
         } else {
           file.getParentFile().mkdirs();
-          try (InputStream in = zfile.getInputStream(entry)) { // NOSONAR false positive
+          try (InputStream in = zfile.getInputStream(entry)) {
             copyZip(in, file);
           }
         }
