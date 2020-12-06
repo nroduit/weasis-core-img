@@ -240,7 +240,7 @@ public class StringUtil {
   }
 
   public static String bytesToMD5(byte[] val) throws NoSuchAlgorithmException {
-    MessageDigest md = MessageDigest.getInstance("MD5"); // $NON-NLS-1$
+    MessageDigest md = MessageDigest.getInstance("MD5"); //NOSONAR not a security issue
     return bytesToHex(md.digest(val));
   }
 
@@ -253,14 +253,14 @@ public class StringUtil {
 
   public static String getEmptyStringIfNull(Object object) {
     if (object == null) {
-      return ""; //$NON-NLS-1$
+      return EMPTY_STRING;
     }
     return object.toString();
   }
 
   public static String getEmptyStringIfNullEnum(Enum<?> object) {
     if (object == null) {
-      return ""; //$NON-NLS-1$
+      return EMPTY_STRING;
     }
     return object.name();
   }

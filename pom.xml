@@ -91,6 +91,10 @@
         <configuration>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
+          <!-- until next release of sonar parser -->
+          <source>${java-version}</source>
+          <target>${java-version}</target>
+          <source></source>
           <!-- Only required when JAVA_HOME isn't at least Java ${jdk-version} and when haven't configured the maven-toolchains-plugin -->
           <jdkToolchain>
             <version>${jdk-version}</version>
