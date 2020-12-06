@@ -16,19 +16,20 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
   <name>Image processing (OpenCV)</name>
-  <version>4.5.0</version>
+  <version>4.5.0.1</version>
   <packaging>bundle</packaging>
 
   <properties>
-    <java-version>1.8</java-version>
-    <jdk-version>1.8</jdk-version>
+    <java-version>8</java-version>
+    <jdk-version>11</jdk-version>
     <enforcer.jdk-version>[${jdk-version},)</enforcer.jdk-version>
     <enforcer.maven-version>[3.5.0,)</enforcer.maven-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
     <weasis.opencv.native.version>4.5.0-dcm</weasis.opencv.native.version>
-    <slf4j.version>1.7.29</slf4j.version>
+    <slf4j.version>1.7.30</slf4j.version>
+
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -66,11 +67,35 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.1</version>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <!-- compile everything to ensure module-info contains right entries -->
+              <release>${jdk-version}</release>
+            </configuration>
+          </execution>
+          <execution>
+            <id>base-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <!-- recompile everything for target VM except the module-info.java -->
+            <configuration>
+              <excludes>
+                <exclude>module-info.java</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
         <configuration>
           <showDeprecation>true</showDeprecation>
           <showWarnings>true</showWarnings>
-          <source>${java-version}</source>
-          <target>${java-version}</target>
+          <!-- Only required when JAVA_HOME isn't at least Java ${jdk-version} and when haven't configured the maven-toolchains-plugin -->
+          <jdkToolchain>
+            <version>${jdk-version}</version>
+          </jdkToolchain>
+          <release>${java-version}</release>
         </configuration>
       </plugin>
       <plugin>
