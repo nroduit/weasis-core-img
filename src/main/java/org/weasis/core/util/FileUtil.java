@@ -502,7 +502,8 @@ public final class FileUtil {
         File file = new File(directory, entry.getName());
         String canonicalDestPath = file.getCanonicalPath();
         if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
-          throw new IOException("Security issue: Entry is trying to leave the target dir: " + entry.getName());
+          throw new IOException(
+              "Security issue: Entry is trying to leave the target dir: " + entry.getName());
         }
         if (entry.isDirectory()) {
           file.mkdirs();
@@ -528,7 +529,8 @@ public final class FileUtil {
         File file = new File(directory, entry.getName());
         String canonicalDestPath = file.getCanonicalPath();
         if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
-          throw new IOException("Security issue: Entry is trying to leave the target dir: " + entry.getName());
+          throw new IOException(
+              "Security issue: Entry is trying to leave the target dir: " + entry.getName());
         }
         if (entry.isDirectory()) {
           file.mkdirs();

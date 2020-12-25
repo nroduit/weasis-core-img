@@ -8,7 +8,6 @@ module weasis.core.img {
   exports org.weasis.opencv.op;
   exports org.weasis.opencv.op.lut;
   exports org.weasis.opencv.op.tile;
-
   exports org.opencv.core;
   exports org.opencv.imgcodecs;
   exports org.opencv.img_hash;

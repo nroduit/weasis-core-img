@@ -240,7 +240,7 @@ public class StringUtil {
   }
 
   public static String bytesToMD5(byte[] val) throws NoSuchAlgorithmException {
-    MessageDigest md = MessageDigest.getInstance("MD5"); //NOSONAR not a security issue
+    MessageDigest md = MessageDigest.getInstance("MD5"); // NOSONAR not a security issue
     return bytesToHex(md.digest(val));
   }
 

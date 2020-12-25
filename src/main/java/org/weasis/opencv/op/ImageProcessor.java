@@ -55,8 +55,7 @@ public class ImageProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageProcessor.class);
   public static final String UNSUPPORTED_SIZE = "Unsupported size: ";
 
-  private ImageProcessor(){
-  }
+  private ImageProcessor() {}
 
   public static MinMaxLocResult findRawMinMaxValues(PlanarImage img, boolean exclude8bitImage)
       throws OutOfMemoryError {
