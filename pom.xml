@@ -209,6 +209,9 @@
         <configuration>
           <java>
             <googleJavaFormat/>
+            <licenseHeader>
+              <file>${basedir}/license-header.txt</file>
+            </licenseHeader>
           </java>
         </configuration>
         <executions>
