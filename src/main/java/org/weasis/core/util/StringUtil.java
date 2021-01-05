@@ -23,10 +23,10 @@ import org.slf4j.LoggerFactory;
 public class StringUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(StringUtil.class);
 
-  public static final String EMPTY_STRING = ""; // $NON-NLS-1$
-  public static final String SPACE = " "; // $NON-NLS-1$
-  public static final String COLON = ":"; // $NON-NLS-1$
-  public static final String COLON_AND_SPACE = ": "; // $NON-NLS-1$
+  public static final String EMPTY_STRING = "";
+  public static final String SPACE = " ";
+  public static final String COLON = ":";
+  public static final String COLON_AND_SPACE = ": ";
 
   private static final String[] EMPTY_STRING_ARRAY = new String[0];
   private static final int[] EMPTY_INT_ARRAY = new int[0];
@@ -36,13 +36,13 @@ public class StringUtil {
   };
 
   public enum Suffix {
-    NO(""), // $NON-NLS-1$
+    NO(""),
 
-    UNDERSCORE("_"), // $NON-NLS-1$
+    UNDERSCORE("_"),
 
-    ONE_PTS("."), // $NON-NLS-1$
+    ONE_PTS("."),
 
-    THREE_PTS("..."); // $NON-NLS-1$
+    THREE_PTS("...");
 
     private final String value;
 
@@ -108,7 +108,7 @@ public class StringUtil {
       try {
         return Integer.parseInt(val.trim());
       } catch (NumberFormatException e) {
-        LOGGER.warn("Cannot parse {} to Integer", val); // $NON-NLS-1$
+        LOGGER.warn("Cannot parse {} to Integer", val);
       }
     }
     return null;
@@ -119,7 +119,7 @@ public class StringUtil {
       try {
         return Integer.parseInt(val.trim());
       } catch (NumberFormatException e) {
-        LOGGER.warn("Cannot parse {} to int", val); // $NON-NLS-1$
+        LOGGER.warn("Cannot parse {} to int", val);
       }
     }
     return 0;
@@ -130,7 +130,7 @@ public class StringUtil {
       try {
         return Integer.parseInt(value.trim());
       } catch (NumberFormatException e) {
-        LOGGER.warn("Cannot parse {} to int", value); // $NON-NLS-1$
+        LOGGER.warn("Cannot parse {} to int", value);
       }
     }
     return defaultValue;
@@ -141,7 +141,7 @@ public class StringUtil {
       try {
         return Double.parseDouble(val.trim());
       } catch (NumberFormatException e) {
-        LOGGER.warn("Cannot parse {} to Double", val); // $NON-NLS-1$
+        LOGGER.warn("Cannot parse {} to Double", val);
       }
     }
     return null;
@@ -149,7 +149,7 @@ public class StringUtil {
 
   public static String splitCamelCaseString(String s) {
     StringBuilder builder = new StringBuilder();
-    for (String w : s.split("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])")) { // $NON-NLS-1$
+    for (String w : s.split("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])")) {
       builder.append(w);
       builder.append(' ');
     }
@@ -189,8 +189,8 @@ public class StringUtil {
    */
   public static String deAccent(String str) {
     String nfdNormalizedString = Normalizer.normalize(str, Normalizer.Form.NFD);
-    Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+"); // $NON-NLS-1$
-    return pattern.matcher(nfdNormalizedString).replaceAll(""); // $NON-NLS-1$
+    Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+    return pattern.matcher(nfdNormalizedString).replaceAll("");
   }
 
   /**
@@ -202,7 +202,7 @@ public class StringUtil {
       return Collections.emptyList();
     }
     List<String> matchList = new ArrayList<>();
-    Pattern patternSpaceExceptQuotes = Pattern.compile("'[^']*'|\"[^\"]*\"|( )"); // $NON-NLS-1$
+    Pattern patternSpaceExceptQuotes = Pattern.compile("'[^']*'|\"[^\"]*\"|( )");
     Matcher m = patternSpaceExceptQuotes.matcher(s);
     StringBuffer b = new StringBuffer();
     while (m.find()) {

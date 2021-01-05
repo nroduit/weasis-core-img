@@ -14,27 +14,27 @@ import java.text.StringCharacterIterator;
 
 public final class EscapeChars {
 
-  public static final String AMPERSAND = "&amp;"; // $NON-NLS-1$
+  public static final String AMPERSAND = "&amp;";
 
   private EscapeChars() {}
 
   /** Escape characters for HTML string. */
   public static String forHTML(String aText) {
     if (!StringUtil.hasText(aText)) {
-      return ""; //$NON-NLS-1$
+      return "";
     }
     final StringBuilder result = new StringBuilder();
     final StringCharacterIterator iterator = new StringCharacterIterator(aText);
     char character = iterator.current();
     while (character != CharacterIterator.DONE) {
       if (character == '<') {
-        result.append("&lt;"); // $NON-NLS-1$
+        result.append("&lt;");
       } else if (character == '>') {
-        result.append("&gt;"); // $NON-NLS-1$
+        result.append("&gt;");
       } else if (character == '&') {
         result.append(AMPERSAND);
       } else if (character == '\"') {
-        result.append("&quot;"); // $NON-NLS-1$
+        result.append("&quot;");
       } else if (character == '\t') {
         addChar(9, result);
       } else if (character == '!') {
@@ -103,26 +103,26 @@ public final class EscapeChars {
 
   /** Escape all ampersand characters in a URL. */
   public static String forUrlAmpersand(String aURL) {
-    return aURL.replace("&", AMPERSAND); // $NON-NLS-1$
+    return aURL.replace("&", AMPERSAND);
   }
 
   /** Escape characters for XML 1.0 data. */
   public static String forXML(String aText) {
     if (!StringUtil.hasText(aText)) {
-      return ""; //$NON-NLS-1$
+      return "";
     }
     final StringBuilder result = new StringBuilder();
     final StringCharacterIterator iterator = new StringCharacterIterator(aText);
     char c = iterator.current();
     while (c != CharacterIterator.DONE) {
       if (c == '<') {
-        result.append("&lt;"); // $NON-NLS-1$
+        result.append("&lt;");
       } else if (c == '>') {
-        result.append("&gt;"); // $NON-NLS-1$
+        result.append("&gt;");
       } else if (c == '\"') {
-        result.append("&quot;"); // $NON-NLS-1$
+        result.append("&quot;");
       } else if (c == '\'') {
-        result.append("&apos;"); // $NON-NLS-1$
+        result.append("&apos;");
       } else if (c == '&') {
         result.append(AMPERSAND);
       }
@@ -150,9 +150,9 @@ public final class EscapeChars {
     char character = iterator.current();
     while (character != CharacterIterator.DONE) {
       if (character == '<') {
-        result.append("&lt;"); // $NON-NLS-1$
+        result.append("&lt;");
       } else if (character == '>') {
-        result.append("&gt;"); // $NON-NLS-1$
+        result.append("&gt;");
       } else {
         result.append(character);
       }
@@ -162,17 +162,17 @@ public final class EscapeChars {
   }
 
   private static void addChar(Integer aIdx, StringBuilder aBuilder) {
-    String padding = ""; // $NON-NLS-1$
+    String padding = "";
     if (aIdx <= 9) {
-      padding = "00"; // $NON-NLS-1$
+      padding = "00";
     } else if (aIdx <= 99) {
-      padding = "0"; // $NON-NLS-1$
+      padding = "0";
     }
 
-    aBuilder.append("&#"); // $NON-NLS-1$
+    aBuilder.append("&#");
     aBuilder.append(padding);
     aBuilder.append(aIdx.toString());
-    aBuilder.append(";"); // $NON-NLS-1$
+    aBuilder.append(";");
   }
 
   /**
@@ -192,13 +192,13 @@ public final class EscapeChars {
     }
     String regex;
     if (lfPos == -1) {
-      regex = "\r"; // $NON-NLS-1$
+      regex = "\r";
     } else if (crPos == -1) {
-      regex = "\n"; // $NON-NLS-1$
+      regex = "\n";
     } else if (crPos < lfPos) {
-      regex = "\r\n"; // $NON-NLS-1$
+      regex = "\r\n";
     } else {
-      regex = "\n\r"; // $NON-NLS-1$
+      regex = "\n\r";
     }
     return unformatted.split(regex);
   }

@@ -593,7 +593,7 @@ public class ImageProcessor {
     try {
       return Imgcodecs.imwrite(file.getPath(), source);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing Image", e); // $NON-NLS-1$
+      LOGGER.error("Writing Image", e);
       FileUtil.delete(file);
       return false;
     }
@@ -613,7 +613,7 @@ public class ImageProcessor {
       }
       return false;
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing thumbnail", e); // $NON-NLS-1$
+      LOGGER.error("Writing thumbnail", e);
       FileUtil.delete(file);
       return false;
     }
@@ -640,7 +640,7 @@ public class ImageProcessor {
     try {
       return Imgcodecs.imwrite(file.getPath(), srcImg);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("", e); // $NON-NLS-1$
+      LOGGER.error("", e);
       FileUtil.delete(file);
       return false;
     } finally {
@@ -656,7 +656,7 @@ public class ImageProcessor {
     try (ImageCV dstImg = ImageConversion.toMat(source)) {
       return Imgcodecs.imwrite(file.getPath(), dstImg);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("", e); // $NON-NLS-1$
+      LOGGER.error("", e);
       return false;
     }
   }
@@ -669,7 +669,7 @@ public class ImageProcessor {
     try {
       return Imgcodecs.imwrite(file.getPath(), source, params);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing image", e); // $NON-NLS-1$
+      LOGGER.error("Writing image", e);
       FileUtil.delete(file);
       return false;
     }
@@ -679,7 +679,7 @@ public class ImageProcessor {
     try {
       return readImageWithCvException(file);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Reading image", e); // $NON-NLS-1$
+      LOGGER.error("Reading image", e);
       return null;
     }
   }

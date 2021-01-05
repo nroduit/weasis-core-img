@@ -86,7 +86,7 @@ public final class FileUtil {
     String val = null;
     if (fileName != null) {
       // Force to remove html tags
-      val = fileName.replaceAll("\\<.*?>", ""); // $NON-NLS-1$ //$NON-NLS-2$
+      val = fileName.replaceAll("\\<.*?>", "");
     }
     return getValidFileName(val);
   }
@@ -96,7 +96,7 @@ public final class FileUtil {
       try {
         object.close();
       } catch (Exception e) {
-        LOGGER.error("Cannot close AutoCloseable", e); // $NON-NLS-1$
+        LOGGER.error("Cannot close AutoCloseable", e);
       }
     }
   }
@@ -111,7 +111,7 @@ public final class FileUtil {
         }
       }
     }
-    throw new IllegalStateException("Failed to create directory"); // $NON-NLS-1$
+    throw new IllegalStateException("Failed to create directory");
   }
 
   public static void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
@@ -206,7 +206,7 @@ public final class FileUtil {
       try {
         writer.close();
       } catch (XMLStreamException e) {
-        LOGGER.error("Cannot close XMLStreamWriter", e); // $NON-NLS-1$
+        LOGGER.error("Cannot close XMLStreamWriter", e);
       }
     }
   }
@@ -216,7 +216,7 @@ public final class FileUtil {
       try {
         xmler.close();
       } catch (XMLStreamException e) {
-        LOGGER.error("Cannot close XMLStreamException", e); // $NON-NLS-1$
+        LOGGER.error("Cannot close XMLStreamException", e);
       }
     }
   }
@@ -228,7 +228,7 @@ public final class FileUtil {
       File outputDir = file.getParentFile();
       // necessary to check exists otherwise mkdirs() is false when dir exists
       if (outputDir != null && !outputDir.exists() && !outputDir.mkdirs()) {
-        throw new IOException("Cannot write parent directory of " + file.getPath()); // $NON-NLS-1$
+        throw new IOException("Cannot write parent directory of " + file.getPath());
       }
     }
   }
@@ -246,13 +246,13 @@ public final class FileUtil {
 
   public static String getExtension(String fn) {
     if (fn == null) {
-      return ""; //$NON-NLS-1$
+      return "";
     }
     int i = fn.lastIndexOf('.');
     if (i > 0) {
       return fn.substring(i);
     }
-    return ""; //$NON-NLS-1$
+    return "";
   }
 
   public static boolean isFileExtensionMatching(File file, String[] extensions) {
@@ -320,7 +320,7 @@ public final class FileUtil {
     } catch (InterruptedIOException e) {
       FileUtil.delete(outFile);
       // Specific for SeriesProgressMonitor
-      LOGGER.error("Interruption when writing file: {}", e.getMessage()); // $NON-NLS-1$
+      LOGGER.error("Interruption when writing file: {}", e.getMessage());
       return e.bytesTransferred;
     } catch (IOException e) {
       FileUtil.delete(outFile);
@@ -347,7 +347,7 @@ public final class FileUtil {
     } catch (InterruptedIOException e) {
       FileUtil.delete(outFile);
       // Specific for SeriesProgressMonitor
-      LOGGER.error("Interruption when writing image {}", e.getMessage()); // $NON-NLS-1$
+      LOGGER.error("Interruption when writing image {}", e.getMessage());
       return e.bytesTransferred;
     } catch (IOException e) {
       FileUtil.delete(outFile);
@@ -361,18 +361,16 @@ public final class FileUtil {
   public static String humanReadableByte(long bytes, boolean si) {
     int unit = si ? 1000 : 1024;
     long absBytes = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-    if (absBytes < unit) return bytes + " B"; // $NON-NLS-1$
+    if (absBytes < unit) return bytes + " B";
     int exp = (int) (Math.log(absBytes) / Math.log(unit));
     long th = (long) (Math.pow(unit, exp) * (unit - 0.05));
     if (exp < 6 && absBytes >= th - ((th & 0xfff) == 0xd00 ? 52 : 0)) exp++;
-    String pre =
-        (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1)
-            + (si ? "" : "i"); // $NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+    String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
     if (exp > 4) {
       bytes /= unit;
       exp -= 1;
     }
-    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre); // $NON-NLS-1$
+    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
   }
 
   public static boolean nioWriteFile(FileInputStream inputStream, FileOutputStream out) {
@@ -384,7 +382,7 @@ public final class FileUtil {
       fco.transferFrom(fci, 0, fci.size());
       return true;
     } catch (Exception e) {
-      LOGGER.error("Write file", e); // $NON-NLS-1$
+      LOGGER.error("Write file", e);
       return false;
     } finally {
       FileUtil.safeClose(inputStream);
@@ -408,7 +406,7 @@ public final class FileUtil {
       }
       return true;
     } catch (IOException e) {
-      LOGGER.error("Write file", e); // $NON-NLS-1$
+      LOGGER.error("Write file", e);
       return false;
     } finally {
       FileUtil.safeClose(in);
@@ -424,7 +422,7 @@ public final class FileUtil {
       Files.copy(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
       return true;
     } catch (Exception e) {
-      LOGGER.error("Copy file", e); // $NON-NLS-1$
+      LOGGER.error("Copy file", e);
       return false;
     }
   }
@@ -435,7 +433,7 @@ public final class FileUtil {
       try (FileInputStream fileStream = new FileInputStream(propsFile)) {
         p.load(fileStream);
       } catch (IOException e) {
-        LOGGER.error("Error when reading properties", e); // $NON-NLS-1$
+        LOGGER.error("Error when reading properties", e);
       }
     }
     return p;
@@ -446,7 +444,7 @@ public final class FileUtil {
       try (FileOutputStream fout = new FileOutputStream(propsFile)) {
         props.store(fout, comments);
       } catch (IOException e) {
-        LOGGER.error("Error when writing properties", e); // $NON-NLS-1$
+        LOGGER.error("Error when writing properties", e);
       }
     }
   }
@@ -474,7 +472,7 @@ public final class FileUtil {
               queue.push(entry);
               String[] flist = entry.list();
               if (flist == null || flist.length == 0) {
-                name = name.endsWith("/") ? name : name + "/"; // $NON-NLS-1$ //$NON-NLS-2$
+                name = name.endsWith("/") ? name : name + "/";
                 zout.putNextEntry(new ZipEntry(name));
               }
             } else {
@@ -579,7 +577,7 @@ public final class FileUtil {
       return true;
     } catch (IOException e) {
       FileUtil.delete(outFile);
-      LOGGER.error("Writing file: {}", outFile, e); // $NON-NLS-1$
+      LOGGER.error("Writing file: {}", outFile, e);
       return false;
     } finally {
       if (closeInputStream) {
