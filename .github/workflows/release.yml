@@ -25,6 +25,9 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build weasis-core-img
         run: mvn -B clean install -f main
+      - name: Extract Maven project version
+        run: echo ::set-output name=version::$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+        id: project
       - name: Checkout mvn-repo repository
         uses: actions/checkout@v2
         with:
@@ -36,11 +39,24 @@ jobs:
           cd mvn-repo
           REPO=$(pwd)
           PKGFOLDER="org/weasis/core/weasis-core-img"
+          TAG_VERSION=${{ steps.project.outputs.version }}
+          F_META="maven-metadata.xml"
           cd ~/.m2/repository/${PKGFOLDER}
           find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${PKGFOLDER}
           cd ${REPO}/${PKGFOLDER}
+
+          xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
+          -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
+
           IFS=$'\n'
-          paths=($(find . -name "*.jar" -o -name "*.pom"))
+          versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ${F_META})
+          if printf '%s\n' "${versions[@]}" | grep -q -P "^${TAG_VERSION}$"; then
+              :
+          else
+              xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
+          fi
+
+          paths=($(find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}"))
           for file in ${paths[@]}; do
             $(sha1sum "${file}" | awk '{printf $1}' > "${file}".sha1)
             $(md5sum "${file}" | awk '{printf $1}' > "${file}".md5)
