@@ -26,7 +26,9 @@ jobs:
       - name: Build weasis-core-img
         run: mvn -B clean install -f main
       - name: Extract Maven project version
-        run: echo ::set-output name=version::$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+        run: |
+          cd main
+          echo ::set-output name=version::$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
         id: project
       - name: Checkout mvn-repo repository
         uses: actions/checkout@v2
