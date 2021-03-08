@@ -47,6 +47,7 @@ jobs:
           find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${PKGFOLDER}
           cd ${REPO}/${PKGFOLDER}
 
+          apt install xmlstarlet
           xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
           -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
 
