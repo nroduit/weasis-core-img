@@ -46,6 +46,8 @@ public class NativeLibrary {
       osArch = "x86";
     } else if (osArch.equals("amd64") || osArch.equals("em64t") || osArch.equals("x86_64")) {
       osArch = "x86-64";
+    } else if (osArch.equals("arm")) {
+      osArch = "armv7a";
     } else if (osArch.equals("power ppc")) {
       osArch = "powerpc";
     } else if (osArch.equals("psc1k")) {
