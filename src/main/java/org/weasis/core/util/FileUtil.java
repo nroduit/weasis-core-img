@@ -257,7 +257,7 @@ public final class FileUtil {
 
   public static boolean isFileExtensionMatching(File file, String[] extensions) {
     if (file != null && extensions != null) {
-      String fileExt = getExtension(file.getName());
+      String fileExt = getExtension(file.getName()).toLowerCase();
       if (StringUtil.hasLength(fileExt)) {
         for (String extension : extensions) {
           if (fileExt.endsWith(extension)) {
