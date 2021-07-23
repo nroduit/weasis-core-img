@@ -27,7 +27,7 @@ public class FileRawImage {
   }
 
   public ImageCV read() {
-    return ImageProcessor.readImageWithCvException(file);
+    return ImageProcessor.readImageWithCvException(file, null);
   }
 
   public boolean write(PlanarImage mat) {
