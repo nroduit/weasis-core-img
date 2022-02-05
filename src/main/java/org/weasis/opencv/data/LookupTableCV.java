@@ -154,8 +154,7 @@ public class LookupTableCV {
       sSrcData = new short[width * height * channels];
       src.get(0, 0, sSrcData);
     } else {
-      throw new IllegalArgumentException(
-          "Not suported dataType for LUT transformation:" + src.toString());
+      throw new IllegalArgumentException("Not supported dataType for LUT transformation:" + src);
     }
 
     int lkbBands = getNumBands();

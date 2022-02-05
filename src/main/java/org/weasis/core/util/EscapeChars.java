@@ -171,7 +171,7 @@ public final class EscapeChars {
 
     aBuilder.append("&#");
     aBuilder.append(padding);
-    aBuilder.append(aIdx.toString());
+    aBuilder.append(aIdx);
     aBuilder.append(";");
   }
 
