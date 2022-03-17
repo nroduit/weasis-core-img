@@ -362,8 +362,15 @@ public class ImageProcessor {
   public static ImageCV overlay(Mat source, Mat imgOverlay, Color color) {
     ImageCV srcImg = ImageCV.toImageCV(Objects.requireNonNull(source));
     Objects.requireNonNull(imgOverlay);
-    if (isGray(color) && srcImg.channels() == 1) {
-      Mat grayImg = new Mat(srcImg.size(), CvType.CV_8UC1, new Scalar(color.getRed()));
+    boolean type16bit = CvType.depth(srcImg.type()) == CvType.CV_16U || CvType.depth(srcImg.type()) == CvType.CV_16S;
+
+    if ((type16bit || isGray(color)) && srcImg.channels() == 1) {
+      int maxColor = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
+      if (type16bit) {
+        int max = CvType.depth(srcImg.type()) == CvType.CV_16S ? Short.MAX_VALUE :  65535;
+        maxColor = maxColor * max / 255;
+      }
+      Mat grayImg = new Mat(srcImg.size(), srcImg.type(), new Scalar(maxColor));
       ImageCV dstImg = new ImageCV();
       srcImg.copyTo(dstImg);
       grayImg.copyTo(dstImg, imgOverlay);

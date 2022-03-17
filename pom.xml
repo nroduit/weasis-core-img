@@ -16,7 +16,7 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
   <name>Image processing (OpenCV)</name>
-  <version>4.5.5</version>
+  <version>4.5.5.1</version>
   <packaging>bundle</packaging>
 
   <properties>
@@ -231,12 +231,12 @@
           </java>
         </configuration>
         <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
+<!--          <execution>-->
+<!--            <phase>verify</phase>-->
+<!--            <goals>-->
+<!--              <goal>check</goal>-->
+<!--            </goals>-->
+<!--          </execution>-->
         </executions>
       </plugin>
     </plugins>
