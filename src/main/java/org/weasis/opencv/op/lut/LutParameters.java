@@ -11,7 +11,9 @@ package org.weasis.opencv.op.lut;
 
 import java.util.Objects;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public class LutParameters {
   private final double intercept;
   private final double slope;

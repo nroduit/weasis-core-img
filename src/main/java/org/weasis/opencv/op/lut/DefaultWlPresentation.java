@@ -9,7 +9,9 @@
  */
 package org.weasis.opencv.op.lut;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public class DefaultWlPresentation implements WlPresentation {
 
   private final boolean pixelPadding;

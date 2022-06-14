@@ -19,7 +19,9 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
   private static final long serialVersionUID = 1354029864973587614L;
 

@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.weasis.opencv.data.LookupTableCV;
 
-/** @author Benoit Jacquemoud, Nicolas Roduit */
+/**
+ * @author Benoit Jacquemoud, Nicolas Roduit
+ */
 public final class LutShape {
 
   public static final LutShape LINEAR = new LutShape(eFunction.LINEAR);

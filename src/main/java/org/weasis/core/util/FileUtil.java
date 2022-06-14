@@ -24,10 +24,8 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
@@ -47,7 +45,9 @@ import javax.xml.stream.XMLStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public final class FileUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
 
@@ -551,6 +551,27 @@ public final class FileUtil {
       out.write(buf, 0, offset);
     }
     out.flush();
+  }
+
+  public void copyFolder(Path source, Path target, CopyOption... options) throws IOException {
+    Files.walkFileTree(
+        source,
+        new SimpleFileVisitor<Path>() {
+
+          @Override
+          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+              throws IOException {
+            Files.createDirectories(target.resolve(source.relativize(dir)));
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            Files.copy(file, target.resolve(source.relativize(file)), options);
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 
   private static void copyZip(File file, OutputStream out) throws IOException {

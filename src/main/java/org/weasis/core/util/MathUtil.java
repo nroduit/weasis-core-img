@@ -13,7 +13,9 @@ import java.awt.geom.Point2D;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public class MathUtil {
   public static final double DOUBLE_EPSILON = 1e-6;
   public static final double FLOAT_EPSILON = 1e-5;

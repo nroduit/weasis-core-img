@@ -16,7 +16,7 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
   <name>Image processing (OpenCV)</name>
-  <version>4.5.5.1</version>
+  <version>4.5.5.2</version>
   <packaging>bundle</packaging>
 
   <properties>
@@ -205,7 +205,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>2.12.3</version>
+        <version>2.22.8</version>
         <configuration>
           <java>
             <googleJavaFormat/>

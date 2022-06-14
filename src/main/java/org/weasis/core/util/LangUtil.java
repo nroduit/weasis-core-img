@@ -16,7 +16,9 @@ import java.util.Collections;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 
-/** @author Nicolas Roduit */
+/**
+ * @author Nicolas Roduit
+ */
 public class LangUtil {
 
   private LangUtil() {}
