@@ -58,6 +58,12 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   void assignTo(Mat dstImg);
 
+  boolean isHasBeenReleased();
+
+  boolean isReleasedAfterWriting();
+
+  void setReleasedAfterWriting(boolean releasedAfterWriting);
+
   @Override
   void close();
 
