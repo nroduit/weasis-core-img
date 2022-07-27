@@ -23,12 +23,12 @@
     <java-version>8</java-version>
     <jdk-version>11</jdk-version>
     <enforcer.jdk-version>[${jdk-version},)</enforcer.jdk-version>
-    <enforcer.maven-version>[3.5.0,)</enforcer.maven-version>
+    <enforcer.maven-version>[3.5.3,)</enforcer.maven-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
     <weasis.opencv.native.version>4.5.5-dcm</weasis.opencv.native.version>
-    <slf4j.version>1.7.32</slf4j.version>
+    <slf4j.version>1.7.36</slf4j.version>
 
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
@@ -68,7 +68,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.9.0</version>
+        <version>3.10.1</version>
         <executions>
           <execution>
             <id>default-compile</id>
@@ -128,7 +128,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <phase>generate-sources</phase>
@@ -169,7 +169,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
         <executions>
           <execution>
             <id>min-requirement</id>
@@ -205,7 +205,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>2.22.8</version>
+        <version>2.23.0</version>
         <configuration>
           <java>
             <googleJavaFormat/>
