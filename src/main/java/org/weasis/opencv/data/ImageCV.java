@@ -18,7 +18,7 @@ import org.opencv.core.Size;
 public class ImageCV extends Mat implements PlanarImage {
 
   private boolean releasedAfterWriting;
-  private boolean hasBeenReleased;
+  private boolean hasBeenReleased = false;
 
   public ImageCV() {
     super();
@@ -76,8 +76,10 @@ public class ImageCV extends Mat implements PlanarImage {
 
   @Override
   public void release() {
-    super.release();
-    this.hasBeenReleased = true;
+    if (!hasBeenReleased) {
+      super.release();
+      this.hasBeenReleased = true;
+    }
   }
 
   public boolean isHasBeenReleased() {
@@ -94,8 +96,6 @@ public class ImageCV extends Mat implements PlanarImage {
 
   @Override
   public void close() {
-    if (!hasBeenReleased) {
-      release();
-    }
+    release();
   }
 }
