@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.function.Supplier;
 
 /**
  * @author Nicolas Roduit
@@ -33,6 +34,26 @@ public class LangUtil {
       newCollection.add(listClass.cast(item));
     }
     return newCollection;
+  }
+
+  public static <T> Supplier<T> memoize(Supplier<T> original) {
+    return new Supplier<T>() {
+      Supplier<T> delegate = this::firstTime;
+      boolean initialized;
+
+      public T get() {
+        return delegate.get();
+      }
+
+      private synchronized T firstTime() {
+        if (!initialized) {
+          T value = original.get();
+          delegate = () -> value;
+          initialized = true;
+        }
+        return delegate.get();
+      }
+    };
   }
 
   public static boolean getNULLtoFalse(Boolean val) {

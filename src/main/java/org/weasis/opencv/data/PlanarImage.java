@@ -60,9 +60,9 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   boolean isHasBeenReleased();
 
-  boolean isReleasedAfterWriting();
+  boolean isReleasedAfterProcessing();
 
-  void setReleasedAfterWriting(boolean releasedAfterWriting);
+  void setReleasedAfterProcessing(boolean releasedAfterProcessing);
 
   @Override
   void close();

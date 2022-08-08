@@ -17,7 +17,7 @@ import org.opencv.core.Size;
 
 public class ImageCV extends Mat implements PlanarImage {
 
-  private boolean releasedAfterWriting;
+  private boolean releasedAfterProcessing;
   private boolean hasBeenReleased = false;
 
   public ImageCV() {
@@ -86,12 +86,12 @@ public class ImageCV extends Mat implements PlanarImage {
     return hasBeenReleased;
   }
 
-  public boolean isReleasedAfterWriting() {
-    return releasedAfterWriting;
+  public boolean isReleasedAfterProcessing() {
+    return releasedAfterProcessing;
   }
 
-  public void setReleasedAfterWriting(boolean releasedAfterWriting) {
-    this.releasedAfterWriting = releasedAfterWriting;
+  public void setReleasedAfterProcessing(boolean releasedAfterProcessing) {
+    this.releasedAfterProcessing = releasedAfterProcessing;
   }
 
   @Override
