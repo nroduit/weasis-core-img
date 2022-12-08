@@ -210,7 +210,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>2.23.0</version>
+        <version>2.27.2</version>
         <configuration>
           <java>
             <googleJavaFormat/>
@@ -236,12 +236,12 @@
           </java>
         </configuration>
         <executions>
-<!--          <execution>-->
-<!--            <phase>verify</phase>-->
-<!--            <goals>-->
-<!--              <goal>check</goal>-->
-<!--            </goals>-->
-<!--          </execution>-->
+          <!--          <execution>-->
+          <!--            <phase>verify</phase>-->
+          <!--            <goals>-->
+          <!--              <goal>check</goal>-->
+          <!--            </goals>-->
+          <!--          </execution>-->
         </executions>
       </plugin>
     </plugins>
@@ -268,7 +268,8 @@
                   <configuration>
                     <release>9</release>
                     <compileSourceRoots>
-                      <compileSourceRoot>${project.build.directory}/sources-import/java9</compileSourceRoot>
+                      <compileSourceRoot>${project.build.directory}/sources-import/java9
+                      </compileSourceRoot>
                       <compileSourceRoot>${project.basedir}/src/main/java9</compileSourceRoot>
                     </compileSourceRoots>
                     <multiReleaseOutput>true</multiReleaseOutput>
@@ -278,6 +279,138 @@
             </plugin>
           </plugins>
         </pluginManagement>
+      </build>
+    </profile>
+
+    <profile>
+      <id>jdk11</id>
+      <activation>
+        <jdk>[11,)</jdk>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <inherited>false</inherited>
+              <executions>
+                <execution>
+                  <id>jdk11</id>
+                  <goals>
+                    <goal>compile</goal>
+                  </goals>
+                  <configuration>
+                    <fork>true</fork>
+                    <outputDirectory>${project.build.outputDirectory}_jdk11</outputDirectory>
+                    <release>11</release>
+                    <compileSourceRoots>
+                      <compileSourceRoot>${project.build.directory}/java11</compileSourceRoot>
+                    </compileSourceRoots>
+                  </configuration>
+                </execution>
+              </executions>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+        <plugins>
+          <plugin>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.2.0</version>
+            <executions>
+              <execution>
+                <id>copy-sources</id>
+                <phase>process-sources</phase>
+                <goals>
+                  <goal>copy-resources</goal>
+                </goals>
+                <configuration>
+                  <overwrite>true</overwrite>
+                  <outputDirectory>${project.build.directory}/java11/org</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>${project.build.directory}/sources-import/org</directory>
+                      <filtering>false</filtering>
+                    </resource>
+                    <resource>
+                      <directory>${project.build.directory}/sources-import/java9/org</directory>
+                      <filtering>false</filtering>
+                    </resource>
+                    <resource>
+                      <directory>${project.basedir}/src/main/java/org</directory>
+                      <filtering>false</filtering>
+                    </resource>
+                    <resource>
+                      <directory>${project.basedir}/src/main/java</directory>
+                      <includes>
+                        <include>module-info.java</include>
+                      </includes>
+                      <filtering>false</filtering>
+                    </resource>
+                    <resource>
+                      <directory>${project.basedir}/src/main/java9/org</directory>
+                      <filtering>false</filtering>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>maven-bundle-plugin</artifactId>
+            <version>5.1.8</version>
+            <extensions>true</extensions>
+            <executions>
+              <execution>
+                <id>jar-jdk11</id>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>bundle</goal>
+                </goals>
+                <configuration>
+                  <instructions>
+                    <Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
+                    <Bundle-Version>${project.version}</Bundle-Version>
+                    <Bundle-RequiredExecutionEnvironment>JavaSE-11
+                    </Bundle-RequiredExecutionEnvironment>
+                    <_removeheaders>
+                      Bnd-LastModified,Include-Resource,Private-Package,Tool,Built-By,Created-By
+                    </_removeheaders>
+                    <_noee>true</_noee>
+                    <_nouses>true</_nouses>
+                    <Embed-Dependency>*;scope=compile;inline=true</Embed-Dependency>
+                    <Embed-Directory>lib</Embed-Directory>
+                    <Embed-StripGroup>true</Embed-StripGroup>
+                    <Multi-Release>false</Multi-Release>
+                  </instructions>
+                  <outputDirectory>${project.build.outputDirectory}_jdk11</outputDirectory>
+                  <manifestLocation>${project.build.outputDirectory}_jdk11/META-INF
+                  </manifestLocation>
+                  <classifier>jdk11</classifier>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.1.2</version>
+            <executions>
+              <execution>
+                <id>jar-jdk11</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <classifier>jdk11-sources</classifier>
+                  <classesDirectory>${project.build.directory}/java11</classesDirectory>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
       </build>
     </profile>
   </profiles>
