@@ -159,6 +159,11 @@ public class ImageConversion {
   }
 
   public static ImageCV toMat(RenderedImage img, Rectangle region, boolean toBGR) {
+    return toMat(img, region, toBGR, false);
+  }
+
+  public static ImageCV toMat(
+      RenderedImage img, Rectangle region, boolean toBGR, boolean forceShortType) {
     Raster raster = region == null ? img.getData() : img.getData(region);
     DataBuffer buf = raster.getDataBuffer();
     int[] samples = raster.getSampleModel().getSampleSize();
@@ -209,7 +214,10 @@ public class ImageConversion {
       return mat;
     } else if (buf instanceof DataBufferUShort) {
       ImageCV mat =
-          new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_16UC(samples.length));
+          new ImageCV(
+              raster.getHeight(),
+              raster.getWidth(),
+              forceShortType ? CvType.CV_16SC(samples.length) : CvType.CV_16UC(samples.length));
       mat.put(0, 0, ((DataBufferUShort) buf).getData());
       return mat;
     } else if (buf instanceof DataBufferShort) {
