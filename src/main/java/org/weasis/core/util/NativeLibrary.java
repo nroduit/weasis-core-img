@@ -12,24 +12,22 @@ package org.weasis.core.util;
 public class NativeLibrary {
 
   public static String getNativeLibSpecification() {
-    // http://www.osgi.org/Specifications/Reference
+    // See naming conventions at https://docs.osgi.org/reference/osnames.html
     String osName = System.getProperty("os.name");
     String osArch = System.getProperty("os.arch");
     if (osName.toLowerCase().startsWith("win")) {
       // All Windows versions with a specific processor architecture (x86 or x86-64) are grouped
-      // under
-      // windows. If you need to make different native libraries for the Windows versions, define it
-      // in the
-      // Bundle-NativeCode tag of the bundle fragment.
+      // under windows. If you need to make different native libraries for the Windows versions,
+      // define it in the Bundle-NativeCode tag of the bundle fragment.
       osName = "windows";
-    } else if (osName.equals("Mac OS X")) {
+    } else if (osName.toLowerCase().startsWith("mac")) {
       osName = "macosx";
+    } else if (osName.toLowerCase().startsWith("linux")) {
+      osName = "linux";
     } else if (osName.equals("SymbianOS")) {
       osName = "epoc32";
     } else if (osName.equals("hp-ux")) {
       osName = "hpux";
-    } else if (osName.equals("Mac OS")) {
-      osName = "macos";
     } else if (osName.equals("OS/2")) {
       osName = "os2";
     } else if (osName.equals("procnto")) {
