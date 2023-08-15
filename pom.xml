@@ -107,6 +107,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.0</version>
         <executions>
           <execution>
             <id>src-dependencies</id>
@@ -132,7 +133,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.3.0</version>
+        <version>3.4.0</version>
         <executions>
           <execution>
             <phase>generate-sources</phase>
@@ -151,7 +152,7 @@
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>5.1.8</version>
+        <version>5.1.9</version>
         <extensions>true</extensions>
         <configuration>
           <obrRepository>NONE</obrRepository>
@@ -174,7 +175,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.2.1</version>
         <executions>
           <execution>
             <id>min-requirement</id>
@@ -197,7 +198,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <id>bind-sources</id>
@@ -210,7 +211,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>2.37.0</version>
+        <version>2.38.0</version>
         <configuration>
           <java>
             <googleJavaFormat/>
@@ -236,12 +237,6 @@
           </java>
         </configuration>
         <executions>
-          <!--          <execution>-->
-          <!--            <phase>verify</phase>-->
-          <!--            <goals>-->
-          <!--              <goal>check</goal>-->
-          <!--            </goals>-->
-          <!--          </execution>-->
         </executions>
       </plugin>
     </plugins>
@@ -259,6 +254,7 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.11.0</version>
               <executions>
                 <execution>
                   <id>jdk9</id>
@@ -293,6 +289,7 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.11.0</version>
               <inherited>false</inherited>
               <executions>
                 <execution>
@@ -316,7 +313,7 @@
         <plugins>
           <plugin>
             <artifactId>maven-resources-plugin</artifactId>
-            <version>3.2.0</version>
+            <version>3.3.1</version>
             <executions>
               <execution>
                 <id>copy-sources</id>
@@ -359,7 +356,7 @@
           <plugin>
             <groupId>org.apache.felix</groupId>
             <artifactId>maven-bundle-plugin</artifactId>
-            <version>5.1.8</version>
+            <version>5.1.9</version>
             <extensions>true</extensions>
             <executions>
               <execution>
