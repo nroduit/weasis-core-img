@@ -14,4 +14,5 @@ module weasis.core.img {
   exports org.opencv.imgproc;
   exports org.opencv.osgi;
   exports org.opencv.utils;
+  exports org.weasis.core.annotations;
 }
