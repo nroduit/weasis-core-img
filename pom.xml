@@ -356,7 +356,7 @@
           <reuseForks>true</reuseForks>
           <forkCount>1</forkCount>
           <!--suppress UnresolvedMavenProperty -->
-          <argLine>${argLine} -Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
+          <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
         </configuration>
       </plugin>
     </plugins>
