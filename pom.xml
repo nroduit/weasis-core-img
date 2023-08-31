@@ -16,7 +16,7 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
   <name>Image processing (OpenCV)</name>
-  <version>4.8.0</version>
+  <version>4.8.0.1</version>
   <packaging>bundle</packaging>
 
   <properties>
@@ -33,8 +33,10 @@
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+    <sonar.language>java</sonar.language>
     <sonar.java.source>${java-version}</sonar.java.source>
     <sonar.java.target>${java-version}</sonar.java.target>
+    <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco-aggregate/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
   </properties>
 
   <licenses>
@@ -47,28 +49,97 @@
 
   <repositories>
     <repository>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
       <id>central</id>
       <name>Central Repository</name>
       <url>https://repo.maven.apache.org/maven2</url>
-    </repository>
-    <repository>
       <snapshots>
         <enabled>false</enabled>
       </snapshots>
+    </repository>
+    <repository>
       <id>mvn-repo-master</id>
       <url>https://raw.github.com/nroduit/mvn-repo/master/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>www.dcm4che.org</id>
+      <name>dcm4che Repository</name>
+      <url>https://www.dcm4che.org/maven2</url>
     </repository>
   </repositories>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.11.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.3.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <version>5.1.9</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.6.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.1.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.3.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.3.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>4.0.0-M9</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.10</version>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>2.38.0</version>
+        </plugin>
+
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
         <executions>
           <execution>
             <id>default-compile</id>
@@ -77,7 +148,21 @@
                 <exclude>java9/**</exclude>
               </excludes>
               <!-- compile everything to ensure module-info contains right entries -->
-              <release>${jdk-version}</release>
+              <source>${jdk-version}</source>
+              <target>${jdk-version}</target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <phase>test-compile</phase>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+            <configuration>
+              <showDeprecation>true</showDeprecation>
+              <showWarnings>true</showWarnings>
+              <source>${jdk-version}</source>
+              <target>${jdk-version}</target>
             </configuration>
           </execution>
           <execution>
@@ -101,13 +186,13 @@
           <jdkToolchain>
             <version>${jdk-version}</version>
           </jdkToolchain>
-          <release>${java-version}</release>
+          <source>${java-version}</source>
+          <target>${java-version}</target>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.6.0</version>
         <executions>
           <execution>
             <id>src-dependencies</id>
@@ -128,12 +213,32 @@
               <outputDirectory>${project.build.directory}/sources-import</outputDirectory>
             </configuration>
           </execution>
+          <execution>
+            <id>copy</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>org.weasis.thirdparty.org.opencv</groupId>
+                  <artifactId>${lib-file-name}</artifactId>
+                  <version>${weasis.opencv.native.version}</version>
+                  <type>${lib-file-ext}</type>
+                  <classifier>${os-name}-${cpu-name}</classifier>
+                  <overWrite>false</overWrite>
+                  <outputDirectory>${project.build.directory}/lib/${os-name}-${cpu-name}</outputDirectory>
+                  <destFileName>${lib-file-name}.${lib-file-ext}</destFileName>
+                </artifactItem>
+              </artifactItems>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.4.0</version>
         <executions>
           <execution>
             <phase>generate-sources</phase>
@@ -152,30 +257,37 @@
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>5.1.9</version>
         <extensions>true</extensions>
-        <configuration>
-          <obrRepository>NONE</obrRepository>
-          <instructions>
-            <Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
-            <Bundle-Version>${project.version}</Bundle-Version>
-            <Bundle-RequiredExecutionEnvironment>JavaSE-1.8</Bundle-RequiredExecutionEnvironment>
-            <_removeheaders>
-              Bnd-LastModified,Include-Resource,Private-Package,Tool,Built-By,Created-By
-            </_removeheaders>
-            <_noee>true</_noee>
-            <_nouses>true</_nouses>
-            <Embed-Dependency>*;scope=compile;inline=true</Embed-Dependency>
-            <Embed-Directory>lib</Embed-Directory>
-            <Embed-StripGroup>true</Embed-StripGroup>
-            <Multi-Release>true</Multi-Release>
-          </instructions>
-        </configuration>
+        <executions>
+          <execution>
+            <id>default-bundle</id>
+            <phase>package</phase>
+            <goals>
+              <goal>bundle</goal>
+            </goals>
+            <configuration>
+              <instructions>
+                <Bundle-SymbolicName>${bundle.symbolicName}</Bundle-SymbolicName>
+                <Bundle-Version>${project.version}</Bundle-Version>
+                <Bundle-RequiredExecutionEnvironment>JavaSE-1.8
+                </Bundle-RequiredExecutionEnvironment>
+                <_removeheaders>
+                  Bnd-LastModified,Include-Resource,Private-Package,Tool,Built-By,Created-By
+                </_removeheaders>
+                <_noee>true</_noee>
+                <_nouses>true</_nouses>
+                <Embed-Dependency>*;scope=compile;inline=true</Embed-Dependency>
+                <Embed-Directory>lib</Embed-Directory>
+                <Embed-StripGroup>true</Embed-StripGroup>
+                <Multi-Release>true</Multi-Release>
+              </instructions>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
         <executions>
           <execution>
             <id>min-requirement</id>
@@ -198,7 +310,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.0</version>
         <executions>
           <execution>
             <id>bind-sources</id>
@@ -211,7 +322,6 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>2.38.0</version>
         <configuration>
           <java>
             <googleJavaFormat/>
@@ -239,10 +349,156 @@
         <executions>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <reuseForks>true</reuseForks>
+          <forkCount>1</forkCount>
+          <!--suppress UnresolvedMavenProperty -->
+          <argLine>${argLine} -Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 
   <profiles>
+
+    <profile>
+      <id>mac</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>macosx</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>dylib</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>mac-aarch64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>macosx</os-name>
+        <cpu-name>aarch64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>dylib</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>unix</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>linux</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>so</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>unix2</id>
+      <activation>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>linux</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>so</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>windows</family>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>windows</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>opencv_java</lib-file-name>
+        <lib-file-ext>dll</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>windows2</id>
+      <activation>
+        <os>
+          <family>windows</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <skipTests>false</skipTests>
+        <os-name>windows</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>opencv_java</lib-file-name>
+        <lib-file-ext>dll</lib-file-ext>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>coverage</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <configuration>
+              <excludes>
+                <exclude>**/package-info.java</exclude>
+                <exclude>**/versions/9/**/*.*</exclude>
+                <exclude>org/weasis/core/annotations/*.*</exclude>
+              </excludes>
+            </configuration>
+            <executions>
+              <execution>
+                <id>prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>report</id>
+                <goals>
+                  <goal>report</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
     <profile>
       <id>jdk9</id>
       <activation>
@@ -254,7 +510,6 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-compiler-plugin</artifactId>
-              <version>3.11.0</version>
               <executions>
                 <execution>
                   <id>jdk9</id>
@@ -262,6 +517,8 @@
                     <goal>compile</goal>
                   </goals>
                   <configuration>
+                    <source>9</source>
+                    <target>9</target>
                     <release>9</release>
                     <compileSourceRoots>
                       <compileSourceRoot>${project.build.directory}/sources-import/java9
@@ -283,13 +540,15 @@
       <activation>
         <jdk>[11,)</jdk>
       </activation>
+      <properties>
+        <java11-classes>${project.build.outputDirectory}_jdk11</java11-classes>
+      </properties>
       <build>
         <pluginManagement>
           <plugins>
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-compiler-plugin</artifactId>
-              <version>3.11.0</version>
               <inherited>false</inherited>
               <executions>
                 <execution>
@@ -299,11 +558,12 @@
                   </goals>
                   <configuration>
                     <fork>true</fork>
-                    <outputDirectory>${project.build.outputDirectory}_jdk11</outputDirectory>
-                    <release>11</release>
+                    <source>11</source>
+                    <target>11</target>
                     <compileSourceRoots>
                       <compileSourceRoot>${project.build.directory}/java11</compileSourceRoot>
                     </compileSourceRoots>
+                    <outputDirectory>${java11-classes}</outputDirectory>
                   </configuration>
                 </execution>
               </executions>
@@ -313,7 +573,6 @@
         <plugins>
           <plugin>
             <artifactId>maven-resources-plugin</artifactId>
-            <version>3.3.1</version>
             <executions>
               <execution>
                 <id>copy-sources</id>
@@ -356,7 +615,6 @@
           <plugin>
             <groupId>org.apache.felix</groupId>
             <artifactId>maven-bundle-plugin</artifactId>
-            <version>5.1.9</version>
             <extensions>true</extensions>
             <executions>
               <execution>
@@ -381,9 +639,8 @@
                     <Embed-StripGroup>true</Embed-StripGroup>
                     <Multi-Release>false</Multi-Release>
                   </instructions>
-                  <outputDirectory>${project.build.outputDirectory}_jdk11</outputDirectory>
-                  <manifestLocation>${project.build.outputDirectory}_jdk11/META-INF
-                  </manifestLocation>
+                  <outputDirectory>${java11-classes}</outputDirectory>
+                  <manifestLocation>${java11-classes}/META-INF</manifestLocation>
                   <classifier>jdk11</classifier>
                 </configuration>
               </execution>
@@ -393,7 +650,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-jar-plugin</artifactId>
-            <version>3.3.0</version>
             <executions>
               <execution>
                 <id>jar-jdk11</id>
@@ -414,9 +670,59 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>libopencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>so</type>
+      <classifier>linux-x86-64</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>libopencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>dylib</type>
+      <classifier>macosx-x86-64</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>opencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>dll</type>
+      <classifier>windows-x86-64</classifier>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- FOR TESTS -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>3.24.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-inline</artifactId>
+      <version>5.2.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <version>5.4.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit-pioneer</groupId>
+      <artifactId>junit-pioneer</artifactId>
+      <version>2.0.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
+      <version>1.7.36</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

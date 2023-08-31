@@ -13,22 +13,22 @@ public class NativeLibrary {
 
   public static String getNativeLibSpecification() {
     // See naming conventions at https://docs.osgi.org/reference/osnames.html
-    String osName = System.getProperty("os.name");
-    String osArch = System.getProperty("os.arch");
-    if (osName.toLowerCase().startsWith("win")) {
+    String osName = System.getProperty("os.name").toLowerCase();
+    String osArch = System.getProperty("os.arch").toLowerCase();
+    if (osName.startsWith("win")) {
       // All Windows versions with a specific processor architecture (x86 or x86-64) are grouped
       // under windows. If you need to make different native libraries for the Windows versions,
       // define it in the Bundle-NativeCode tag of the bundle fragment.
       osName = "windows";
-    } else if (osName.toLowerCase().startsWith("mac")) {
+    } else if (osName.startsWith("mac")) {
       osName = "macosx";
-    } else if (osName.toLowerCase().startsWith("linux")) {
+    } else if (osName.startsWith("linux")) {
       osName = "linux";
-    } else if (osName.equals("SymbianOS")) {
+    } else if (osName.equals("symbianos")) {
       osName = "epoc32";
     } else if (osName.equals("hp-ux")) {
       osName = "hpux";
-    } else if (osName.equals("OS/2")) {
+    } else if (osName.equals("os/2")) {
       osName = "os2";
     } else if (osName.equals("procnto")) {
       osName = "qnx";
@@ -36,22 +36,25 @@ public class NativeLibrary {
       osName = osName.toLowerCase();
     }
 
-    if (osArch.equals("pentium")
+    if (osArch.equals("x86-64")
+        || osArch.equals("amd64")
+        || osArch.equals("em64t")
+        || osArch.equals("x86_64")) {
+      osArch = "x86-64";
+    } else if (osArch.equals("aarch64") || osArch.equals("arm64")) {
+      osArch = "aarch64";
+    } else if (osArch.equals("arm")) {
+      osArch = "armv7a";
+    } else if (osArch.equals("pentium")
         || osArch.equals("i386")
         || osArch.equals("i486")
         || osArch.equals("i586")
         || osArch.equals("i686")) {
       osArch = "x86";
-    } else if (osArch.equals("amd64") || osArch.equals("em64t") || osArch.equals("x86_64")) {
-      osArch = "x86-64";
-    } else if (osArch.equals("arm")) {
-      osArch = "armv7a";
     } else if (osArch.equals("power ppc")) {
       osArch = "powerpc";
     } else if (osArch.equals("psc1k")) {
       osArch = "ignite";
-    } else {
-      osArch = osArch.toLowerCase();
     }
     return osName + "-" + osArch;
   }

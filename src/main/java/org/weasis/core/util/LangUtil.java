@@ -11,7 +11,6 @@ package org.weasis.core.util;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
@@ -26,14 +25,6 @@ public class LangUtil {
 
   public static <T> Iterable<T> emptyIfNull(Iterable<T> iterable) {
     return iterable == null ? Collections.emptyList() : iterable;
-  }
-
-  public static <T, C extends Collection<T>> C convertCollectionType(
-      Iterable<?> from, C newCollection, Class<T> listClass) {
-    for (Object item : from) {
-      newCollection.add(listClass.cast(item));
-    }
-    return newCollection;
   }
 
   public static <T> Supplier<T> memoize(Supplier<T> original) {
