@@ -30,6 +30,7 @@
     <weasis.opencv.native.version>4.8.0-dcm</weasis.opencv.native.version>
     <slf4j.version>1.7.36</slf4j.version>
 
+    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -355,8 +356,6 @@
         <configuration>
           <reuseForks>true</reuseForks>
           <forkCount>1</forkCount>
-          <!--suppress UnresolvedMavenProperty -->
-          <argLine>-ea -Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name} ${argLine}</argLine>
         </configuration>
       </plugin>
     </plugins>
