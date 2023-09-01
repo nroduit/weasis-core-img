@@ -10,10 +10,14 @@
 package org.weasis.opencv.op.lut;
 
 import java.util.Objects;
+import org.weasis.core.util.annotations.Generated;
 
 /**
+ * Implementation of the LUT parameters. No test is required for this class
+ *
  * @author Nicolas Roduit
  */
+@Generated
 public class LutParameters {
   private final double intercept;
   private final double slope;

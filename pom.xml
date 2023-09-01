@@ -34,6 +34,7 @@
     <sonar.organization>nroduit-github</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.language>java</sonar.language>
+    <sonar.test.exclusions>src/test/**/*</sonar.test.exclusions>
 
     <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
     <skipTests>false</skipTests>
@@ -472,7 +473,7 @@
             <configuration>
               <excludes>
                 <exclude>**/package-info.java</exclude>
-                <exclude>**/versions/9/**/*.*</exclude>
+                <exclude>**/org/opencv/**/*.*</exclude>
                 <exclude>org/weasis/core/annotations/*.*</exclude>
               </excludes>
             </configuration>
@@ -691,12 +692,6 @@
     </dependency>
 
     <!-- FOR TESTS -->
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.24.2</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-inline</artifactId>

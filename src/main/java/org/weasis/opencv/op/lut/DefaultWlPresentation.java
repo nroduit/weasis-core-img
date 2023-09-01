@@ -9,9 +9,14 @@
  */
 package org.weasis.opencv.op.lut;
 
+import org.weasis.core.util.annotations.Generated;
+
 /**
+ * Implementation of {@link WlPresentation}. No test is required for this class
+ *
  * @author Nicolas Roduit
  */
+@Generated
 public class DefaultWlPresentation implements WlPresentation {
 
   private final boolean pixelPadding;

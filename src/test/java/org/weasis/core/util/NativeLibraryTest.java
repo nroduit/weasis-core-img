@@ -9,7 +9,6 @@
  */
 package org.weasis.core.util;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
@@ -22,6 +21,7 @@ import org.junitpioneer.jupiter.SetSystemProperty;
 import org.opencv.osgi.OpenCVNativeLoader;
 
 class NativeLibraryTest {
+
   private final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
 
   @BeforeAll
@@ -45,21 +45,35 @@ class NativeLibraryTest {
   @SetSystemProperty(key = "os.name", value = "Linux")
   @SetSystemProperty(key = "os.arch", value = "amd64")
   void getNativeLibSpecificationLinux() {
-    assertThat(NativeLibrary.getNativeLibSpecification()).hasToString("linux-x86-64");
+    assertEquals("linux-x86-64", NativeLibrary.getNativeLibSpecification());
   }
 
   @Test
   @SetSystemProperty(key = "os.name", value = "WindowsServer2019")
   @SetSystemProperty(key = "os.arch", value = "x86_64")
   void getNativeLibSpecificationWindows() {
-    assertThat(NativeLibrary.getNativeLibSpecification()).hasToString("windows-x86-64");
+    assertEquals("windows-x86-64", NativeLibrary.getNativeLibSpecification());
   }
 
   @Test
   @SetSystemProperty(key = "os.name", value = "Mac OS X")
   @SetSystemProperty(key = "os.arch", value = "AArch64")
   void getNativeLibSpecificationMac() {
-    assertThat(NativeLibrary.getNativeLibSpecification()).hasToString("macosx-aarch64");
+    assertEquals("macosx-aarch64", NativeLibrary.getNativeLibSpecification());
+  }
+
+  @Test
+  @SetSystemProperty(key = "os.name", value = "SymbianOS")
+  @SetSystemProperty(key = "os.arch", value = "i686")
+  void getNativeLibSpecificationSymbianOS() {
+    assertEquals("epoc32-x86", NativeLibrary.getNativeLibSpecification());
+  }
+
+  @Test
+  @SetSystemProperty(key = "os.name", value = "OS/2")
+  @SetSystemProperty(key = "os.arch", value = "power ppc")
+  void getNativeLibSpecificationPowerppc() {
+    assertEquals("os2-powerpc", NativeLibrary.getNativeLibSpecification());
   }
 
   @Test
@@ -68,6 +82,6 @@ class NativeLibraryTest {
   void mainMethod() {
     NativeLibrary.main(null);
     String capturedOutput = outputStreamCaptor.toString().trim();
-    assertThat("windows-aarch64").hasToString(capturedOutput);
+    assertEquals("windows-aarch64", capturedOutput);
   }
 }

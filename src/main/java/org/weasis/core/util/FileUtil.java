@@ -73,8 +73,8 @@ public final class FileUtil {
       for (int i = 0; i < fileName.length(); i++) {
         char c = fileName.charAt(i);
         if (!(Arrays.binarySearch(ILLEGAL_CHARS, c) >= 0
-            || (c < '\u0020') // ctrls
-            || (c > '\u007e' && c < '\u00a0'))) { // ctrls
+            || (c < ' ') // ctrls
+            || (c > '~' && c < '\u00a0'))) { // ctrls
           cleanName.append(c);
         }
       }
@@ -86,7 +86,7 @@ public final class FileUtil {
     String val = null;
     if (fileName != null) {
       // Force to remove html tags
-      val = fileName.replaceAll("\\<.*?>", "");
+      val = fileName.replaceAll("<[^>]*>", "");
     }
     return getValidFileName(val);
   }
@@ -102,7 +102,7 @@ public final class FileUtil {
   }
 
   public static File createTempDir(File baseDir) {
-    if (baseDir != null) {
+    if (baseDir != null && baseDir.isDirectory()) {
       String baseName = String.valueOf(System.currentTimeMillis());
       for (int counter = 0; counter < 1000; counter++) {
         File tempDir = new File(baseDir, baseName + counter);
@@ -553,7 +553,8 @@ public final class FileUtil {
     out.flush();
   }
 
-  public void copyFolder(Path source, Path target, CopyOption... options) throws IOException {
+  public static void copyFolder(Path source, Path target, CopyOption... options)
+      throws IOException {
     Files.walkFileTree(
         source,
         new SimpleFileVisitor<Path>() {

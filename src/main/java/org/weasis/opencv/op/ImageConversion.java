@@ -37,14 +37,10 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
 public class ImageConversion {
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(ImageConversion.class);
 
   private ImageConversion() {}
 

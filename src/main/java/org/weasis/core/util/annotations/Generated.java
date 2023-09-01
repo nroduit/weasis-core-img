@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
-package org.weasis.core.annotations;
+package org.weasis.core.util.annotations;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;

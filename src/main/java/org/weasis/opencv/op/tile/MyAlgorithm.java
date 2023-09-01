@@ -12,9 +12,10 @@ package org.weasis.opencv.op.tile;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.weasis.core.util.annotations.Generated;
 
-// Our algorithm need three intermediate buffers: a,b,c that
-// we want to store close to each other
+/** Not an API. This class is under development and can be changed or removed at any moment. */
+@Generated
 class MyAlgorithm extends TiledAlgorithm {
   private Mat mBuffer;
   private final Mat a;

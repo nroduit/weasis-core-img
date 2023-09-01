@@ -10,7 +10,9 @@
 package org.weasis.core.util;
 
 import java.io.IOException;
+import org.weasis.core.util.annotations.Generated;
 
+@Generated
 public class StreamIOException extends IOException {
   private static final long serialVersionUID = -8606733870761909715L;
 

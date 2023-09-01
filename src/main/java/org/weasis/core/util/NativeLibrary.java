@@ -11,6 +11,8 @@ package org.weasis.core.util;
 
 public class NativeLibrary {
 
+  private NativeLibrary() {}
+
   public static String getNativeLibSpecification() {
     // See naming conventions at https://docs.osgi.org/reference/osnames.html
     String osName = System.getProperty("os.name").toLowerCase();

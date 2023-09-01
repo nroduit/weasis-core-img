@@ -31,10 +31,6 @@ public class StringUtil {
   private static final String[] EMPTY_STRING_ARRAY = new String[0];
   private static final int[] EMPTY_INT_ARRAY = new int[0];
 
-  private static final char[] HEX_DIGIT = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-  };
-
   public enum Suffix {
     NO(""),
 
@@ -67,11 +63,12 @@ public class StringUtil {
   private StringUtil() {}
 
   public static String getTruncatedString(String name, int limit, Suffix suffix) {
-    if (name != null && name.length() > limit) {
-      int sLength = suffix.getLength();
+    if (name != null && limit >= 0 && name.length() > limit) {
+      Suffix s = suffix == null ? Suffix.NO : suffix;
+      int sLength = s.getLength();
       int end = limit - sLength;
       if (end > 0 && end + sLength < name.length()) {
-        return name.substring(0, end).concat(suffix.getValue());
+        return name.substring(0, end).concat(s.getValue());
       }
     }
     return name;
@@ -177,10 +174,6 @@ public class StringUtil {
     return false;
   }
 
-  public static boolean hasText(String str) {
-    return hasText((CharSequence) str);
-  }
-
   /**
    * Removing diacritical marks aka accents
    *
@@ -195,16 +188,16 @@ public class StringUtil {
 
   /**
    * @param s
-   * @return the list of words or part with quotes
+   * @return the list of the split string after the ending quote
    */
-  public static List<String> splitSpaceExceptInQuotes(String s) {
+  public static List<String> splitAfterEndingQuote(String s) {
     if (s == null) {
       return Collections.emptyList();
     }
     List<String> matchList = new ArrayList<>();
     Pattern patternSpaceExceptQuotes = Pattern.compile("'[^']*'|\"[^\"]*\"|( )");
     Matcher m = patternSpaceExceptQuotes.matcher(s);
-    StringBuffer b = new StringBuffer();
+    StringBuilder b = new StringBuilder();
     while (m.find()) {
       if (m.group(1) == null) {
         m.appendReplacement(b, m.group(0));
@@ -225,13 +218,11 @@ public class StringUtil {
   }
 
   public static String bytesToHex(byte[] bytes) {
-    char[] hexChars = new char[bytes.length * 2];
-    for (int j = 0; j < bytes.length; j++) {
-      int v = bytes[j] & 0xFF;
-      hexChars[j * 2] = HEX_DIGIT[v >>> 4];
-      hexChars[j * 2 + 1] = HEX_DIGIT[v & 0x0f];
+    StringBuilder hexString = new StringBuilder();
+    for (byte b : bytes) {
+      hexString.append(String.format("%02X", b));
     }
-    return new String(hexChars);
+    return hexString.toString();
   }
 
   public static String integerToHex(int val) {

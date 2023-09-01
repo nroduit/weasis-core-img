@@ -11,9 +11,11 @@ package org.weasis.opencv.op.tile;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
-import org.opencv.core.Point;
 import org.opencv.core.Rect;
+import org.weasis.core.util.annotations.Generated;
 
+/** Not an API. This class is under development and can be changed or removed at any moment. */
+@Generated
 public class TiledAlgorithm {
   private final int mTileSize;
   private final int mPadding;
@@ -58,16 +60,17 @@ public class TiledAlgorithm {
   private void copyTileToResultImage(Mat tileOutput, Mat resultImage, Rect dstTile) {
     Rect srcTile = new Rect(mPadding, mPadding, mTileSize, mTileSize);
 
-    Point br = dstTile.br();
+    int x = dstTile.x;
+    int y = dstTile.y;
 
-    if (br.x >= resultImage.cols()) {
-      dstTile.width -= br.x - resultImage.cols();
-      srcTile.width -= br.x - resultImage.cols();
+    if (x >= resultImage.cols()) {
+      dstTile.width -= x - resultImage.cols();
+      srcTile.width -= x - resultImage.cols();
     }
 
-    if (br.y >= resultImage.rows()) {
-      dstTile.height -= br.y - resultImage.rows();
-      srcTile.height -= br.y - resultImage.rows();
+    if (y >= resultImage.rows()) {
+      dstTile.height -= y - resultImage.rows();
+      srcTile.height -= y - resultImage.rows();
     }
 
     Mat tileView = tileOutput.submat(srcTile);
@@ -85,51 +88,47 @@ public class TiledAlgorithm {
   }
 
   private void copySourceTile(Mat sourceImage, Mat tileInput, Rect tile) {
-    Point tl = tile.tl();
-    Point br = tile.br();
+    int x = tile.x;
+    int y = tile.y;
 
-    Point tloffset = new Point();
-    Point broffset = new Point();
+    int tx = 0;
+    int ty = 0;
+
+    int bx = 0;
+    int by = 0;
 
     // Take care of border cases
     if (tile.x < 0) {
-      tloffset.x = -tile.x;
+      tx = -tile.x;
       tile.x = 0;
     }
 
     if (tile.y < 0) {
-      tloffset.y = -tile.y;
+      ty = -tile.y;
       tile.y = 0;
     }
 
-    if (br.x >= sourceImage.cols()) {
-      broffset.x = br.x - sourceImage.cols() + 1;
-      tile.width -= broffset.x;
+    if (x >= sourceImage.cols()) {
+      bx = x - sourceImage.cols() + 1;
+      tile.width -= bx;
     }
 
-    if (br.y >= sourceImage.rows()) {
-      broffset.y = br.y - sourceImage.rows() + 1;
-      tile.height -= broffset.y;
+    if (y >= sourceImage.rows()) {
+      by = y - sourceImage.rows() + 1;
+      tile.height -= by;
     }
 
     // If any of the tile sides exceed source image boundary we must use copyMakeBorder to make
     // proper paddings
     // for this side
-    if (tloffset.x > 0 || tloffset.y > 0 || broffset.x > 0 || broffset.y > 0) {
+    if (tx > 0 || ty > 0 || bx > 0 || by > 0) {
       Rect paddedTile = new Rect(tile.tl(), tile.br());
       assert (paddedTile.x >= 0);
       assert (paddedTile.y >= 0);
       assert (paddedTile.br().x < sourceImage.cols());
       assert (paddedTile.br().y < sourceImage.rows());
 
-      Core.copyMakeBorder(
-          sourceImage.submat(paddedTile),
-          tileInput,
-          (int) tloffset.y,
-          (int) broffset.y,
-          (int) tloffset.x,
-          (int) broffset.x,
-          mBorderType);
+      Core.copyMakeBorder(sourceImage.submat(paddedTile), tileInput, ty, by, tx, bx, mBorderType);
     } else {
       // Entire tile (with paddings lies inside image and it's safe to just take a region:
       sourceImage.submat(tile).copyTo(tileInput);

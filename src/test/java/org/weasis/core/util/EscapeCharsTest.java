@@ -22,6 +22,10 @@ class EscapeCharsTest {
     assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(StringUtil.EMPTY_STRING));
     assertEquals("&amp;amp&#059;", EscapeChars.forHTML(EscapeChars.AMPERSAND));
     assertEquals("&lt;html&gt;", EscapeChars.forHTML("<html>"));
+
+    assertEquals(
+        "&quot; &#009; &#033; &#035; &#036; &#037; &#039; &#040;&#042;&#041; &#043; &#044; &#059; &#045; &#046; &#047; &#058; &#061; &#063; &#064; &#091;&#092;&#093; &#094; &#095; &#096; &#123; &#124; &#125; &#126;",
+        EscapeChars.forHTML("\" \t ! # $ % ' (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~"));
   }
 
   /** Method under test: {@link EscapeChars#forUrlAmpersand(String)} */
@@ -38,8 +42,8 @@ class EscapeCharsTest {
     assertEquals("A Text", EscapeChars.forXML("A Text"));
     assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forXML(StringUtil.EMPTY_STRING));
     assertEquals("&amp;amp;", EscapeChars.forXML(EscapeChars.AMPERSAND));
-    assertEquals("&lt;xml&gt;", EscapeChars.forHTML("<xml>"));
-    assertEquals("&quot;A Text&quot;", EscapeChars.forXML("\"A Text\""));
+    assertEquals("&lt;xml&gt;", EscapeChars.forXML("<xml>"));
+    assertEquals("&quot;A Text&quot; &apos;test&apos;", EscapeChars.forXML("\"A Text\" 'test'"));
     assertEquals("A Text", EscapeChars.forXML("A Text" + (char) 0xFFFE));
   }
 
@@ -52,20 +56,14 @@ class EscapeCharsTest {
 
   /** Method under test: {@link EscapeChars#convertToLines(String)} */
   @Test
-  void testConvertToLines2() {
+  void testConvertToLines() {
     assertEquals(0, EscapeChars.convertToLines(null).length);
     String[] actualConvertToLinesResult = EscapeChars.convertToLines("Unformatted");
     assertEquals(1, actualConvertToLinesResult.length);
     assertEquals(2, EscapeChars.convertToLines("text\ntext2").length);
+    assertEquals(2, EscapeChars.convertToLines("text\rtext2").length);
+    assertEquals(2, EscapeChars.convertToLines("text\n\rtext2").length);
     assertEquals("Unformatted", actualConvertToLinesResult[0]);
     assertEquals(4, EscapeChars.convertToLines("text\r\ntext2\r\ntext3\r\ntext4").length);
-  }
-
-  /** Method under test: {@link EscapeChars#convertToLines(String)} */
-  @Test
-  void testConvertToLines() {
-    String[] actualConvertToLinesResult = EscapeChars.convertToLines("Unformatted");
-    assertEquals(1, actualConvertToLinesResult.length);
-    assertEquals("Unformatted", actualConvertToLinesResult[0]);
   }
 }

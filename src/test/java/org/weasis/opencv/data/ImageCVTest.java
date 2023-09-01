@@ -9,7 +9,6 @@
  */
 package org.weasis.opencv.data;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -29,34 +28,25 @@ class ImageCVTest {
 
   @Test
   void physicalBytes() {
-    try (ImageCV img = new ImageCV(new Size(3, 3), CvType.CV_8UC3, new Scalar(7))) {
-      assertThat(img.physicalBytes()).isEqualTo(27);
+    try (ImageCV img = new ImageCV(3, 3, CvType.CV_8UC3, new Scalar(7))) {
+      assertEquals(27, img.physicalBytes());
+      assertEquals(img, ImageCV.toImageCV(img.toMat()));
     }
 
     try (ImageCV img = new ImageCV(new Size(4, 4), CvType.CV_8UC1, new Scalar(255))) {
-      assertThat(img.physicalBytes()).isEqualTo(16);
+      assertEquals(16, img.physicalBytes());
+      assertEquals(img, ImageCV.toMat(img));
+      assertEquals(img, img.toImageCV());
     }
 
     try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_16SC1, new Scalar(-1024))) {
-      assertThat(img.physicalBytes()).isEqualTo(98);
+      assertEquals(98, img.physicalBytes());
+      assertFalse(img.isHasBeenReleased());
+      assertFalse(img.isReleasedAfterProcessing());
+      img.setReleasedAfterProcessing(true);
+      assertTrue(img.isReleasedAfterProcessing());
+      img.release();
+      assertTrue(img.isHasBeenReleased());
     }
   }
-
-  @Test
-  void toMat() {}
-
-  @Test
-  void toImageCV() {}
-
-  @Test
-  void release() {}
-
-  @Test
-  void isHasBeenReleased() {}
-
-  @Test
-  void isReleasedAfterProcessing() {}
-
-  @Test
-  void setReleasedAfterProcessing() {}
 }

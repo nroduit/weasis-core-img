@@ -9,8 +9,6 @@
  */
 package org.weasis.opencv.op.lut;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.weasis.opencv.data.LookupTableCV;
 
 /**
@@ -47,32 +45,22 @@ public final class LutShape {
     }
   }
 
-  public static final List<LutShape> DEFAULT_FACTORY_FUNCTIONS = new ArrayList<>();
-
-  static {
-    DEFAULT_FACTORY_FUNCTIONS.add(LutShape.LINEAR);
-    DEFAULT_FACTORY_FUNCTIONS.add(LutShape.SIGMOID);
-    DEFAULT_FACTORY_FUNCTIONS.add(LutShape.SIGMOID_NORM);
-    DEFAULT_FACTORY_FUNCTIONS.add(LutShape.LOG);
-    DEFAULT_FACTORY_FUNCTIONS.add(LutShape.LOG_INV);
-  }
-
   /**
    * A LutShape can be either a predefined function or a custom shape with a provided lookup table.
    * <br>
    * That is a LutShape can be defined as a function or by a lookup but not both
    */
-  protected final eFunction function;
+  private final eFunction function;
 
-  protected final String explanantion;
-  protected final LookupTableCV lookup;
+  private final String explanation;
+  private final LookupTableCV lookup;
 
-  public LutShape(LookupTableCV lookup, String explanantion) {
+  public LutShape(LookupTableCV lookup, String explanation) {
     if (lookup == null) {
       throw new IllegalArgumentException();
     }
     this.function = null;
-    this.explanantion = explanantion;
+    this.explanation = explanation;
     this.lookup = lookup;
   }
 
@@ -80,12 +68,12 @@ public final class LutShape {
     this(function, function.toString());
   }
 
-  public LutShape(eFunction function, String explanantion) {
+  public LutShape(eFunction function, String explanation) {
     if (function == null) {
       throw new IllegalArgumentException();
     }
     this.function = function;
-    this.explanantion = explanantion;
+    this.explanation = explanation;
     this.lookup = null;
   }
 
@@ -99,7 +87,7 @@ public final class LutShape {
 
   @Override
   public String toString() {
-    return explanantion;
+    return explanation;
   }
 
   /**
