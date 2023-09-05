@@ -12,10 +12,6 @@ package org.weasis.core.util;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -174,6 +170,10 @@ public class StringUtil {
     return false;
   }
 
+  public static boolean hasText(String str) {
+    return hasText((CharSequence) str);
+  }
+
   /**
    * Removing diacritical marks aka accents
    *
@@ -184,37 +184,6 @@ public class StringUtil {
     String nfdNormalizedString = Normalizer.normalize(str, Normalizer.Form.NFD);
     Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
     return pattern.matcher(nfdNormalizedString).replaceAll("");
-  }
-
-  /**
-   * @param s
-   * @return the list of the split string after the ending quote
-   */
-  public static List<String> splitAfterEndingQuote(String s) {
-    if (s == null) {
-      return Collections.emptyList();
-    }
-    List<String> matchList = new ArrayList<>();
-    Pattern patternSpaceExceptQuotes = Pattern.compile("'[^']*'|\"[^\"]*\"|( )");
-    Matcher m = patternSpaceExceptQuotes.matcher(s);
-    StringBuilder b = new StringBuilder();
-    while (m.find()) {
-      if (m.group(1) == null) {
-        m.appendReplacement(b, m.group(0));
-        String arg = b.toString();
-        b.setLength(0);
-        if (StringUtil.hasText(arg)) {
-          matchList.add(arg);
-        }
-      }
-    }
-    b.setLength(0);
-    m.appendTail(b);
-    String arg = b.toString();
-    if (StringUtil.hasText(arg)) {
-      matchList.add(arg);
-    }
-    return matchList;
   }
 
   public static String bytesToHex(byte[] bytes) {

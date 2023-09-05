@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.weasis.core.util.StringUtil.Suffix;
@@ -136,28 +135,6 @@ class StringUtilTest {
   @Test
   void testDeAccent() {
     assertEquals("A E I O U", StringUtil.deAccent("Á É Í Ó Ú"));
-  }
-
-  /** Method under test: {@link StringUtil#splitAfterEndingQuote(String)} */
-  @Test
-  void testSplitSpaceExceptInQuotes() {
-    List<String> result = StringUtil.splitAfterEndingQuote(null);
-    assertTrue(result.isEmpty());
-
-    result = StringUtil.splitAfterEndingQuote("foo \"foo2 text\" test");
-    assertEquals(2, result.size());
-    assertEquals("foo \"foo2 text\"", result.get(0));
-    assertEquals(" test", result.get(1));
-
-    result = StringUtil.splitAfterEndingQuote(" \"foo2 text\" ");
-    // Keeps space before quote
-    assertEquals(" \"foo2 text\"", result.get(0));
-
-    result = StringUtil.splitAfterEndingQuote("command --test -i \"url1\" --i \"url2\"");
-    // Keeps space before quote
-    assertEquals(2, result.size());
-    assertEquals("command --test -i \"url1\"", result.get(0));
-    assertEquals(" --i \"url2\"", result.get(1));
   }
 
   /** Method under test: {@link StringUtil#bytesToHex(byte[])} */
