@@ -9,6 +9,8 @@
  */
 package org.weasis.opencv.op.tile;
 
+import javax.swing.JEditorPane;
+import javax.swing.JFrame;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
@@ -135,5 +137,25 @@ public class TiledProcessor {
       // Entire tile (with paddings lies inside image and it's safe to just take a region:
       sourceImage.submat(tile).copyTo(tileInput);
     }
+  }
+
+  public static void main(String[] args) {
+    JEditorPane ep = new JEditorPane();
+    ep.setContentType("text/html");
+    ep.setText(
+        "&lsquo;\n"
+            + "&rsquo;\n"
+            + "&#8216;\n"
+            + "&#8217;\n"
+            + "'\n"
+            + "&apos;\n"
+            + "&#145;\n"
+            + "&#39;");
+
+    JFrame frame = new JFrame();
+    frame.add(ep);
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    frame.setSize(400, 400);
+    frame.setVisible(true);
   }
 }

@@ -10,6 +10,7 @@
 package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.junit.jupiter.api.Test;
 
@@ -20,11 +21,24 @@ class EscapeCharsTest {
   void testForHTML() {
     assertEquals("A Text", EscapeChars.forHTML("A Text"));
     assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(StringUtil.EMPTY_STRING));
-    assertEquals("&amp;amp&#059;", EscapeChars.forHTML(EscapeChars.AMPERSAND));
+    assertEquals("&amp;amp;", EscapeChars.forHTML(EscapeChars.AMPERSAND));
     assertEquals("&lt;html&gt;", EscapeChars.forHTML("<html>"));
+    assertEquals("&quot;test&quot;", EscapeChars.forHTML("\"test\""));
+    assertEquals("&#39;test&#39;", EscapeChars.forHTML("\'test'"));
+    assertEquals("test &amp; test &amp; test", EscapeChars.forHTML("test & test & test"));
+    assertEquals("test &lt;&lt; 1", EscapeChars.forHTML("test << 1"));
+    assertEquals("a&quot;b&lt;c&gt;d&amp;", EscapeChars.forHTML("a\"b<c>d&"));
+    assertEquals("foo&amp;&amp;bar", EscapeChars.forHTML("foo&&bar"));
+    assertEquals("&eacute;&agrave;&egrave;&ccedil;%&not;&deg;", EscapeChars.forHTML("éàèç%¬°"));
+    // Non-escaped characters.
+    String s =
+        "!@#$%^*()_+=-/?\\|]}[{,.;:"
+            + "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            + "1234567890";
+    assertSame(s, EscapeChars.forHTML(s));
 
     assertEquals(
-        "&quot; &#009; &#033; &#035; &#036; &#037; &#039; &#040;&#042;&#041; &#043; &#044; &#059; &#045; &#046; &#047; &#058; &#061; &#063; &#064; &#091;&#092;&#093; &#094; &#095; &#096; &#123; &#124; &#125; &#126;",
+        "&quot; \t ! # $ % &#39; (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~",
         EscapeChars.forHTML("\" \t ! # $ % ' (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~"));
   }
 
@@ -45,6 +59,7 @@ class EscapeCharsTest {
     assertEquals("&lt;xml&gt;", EscapeChars.forXML("<xml>"));
     assertEquals("&quot;A Text&quot; &apos;test&apos;", EscapeChars.forXML("\"A Text\" 'test'"));
     assertEquals("A Text", EscapeChars.forXML("A Text" + (char) 0xFFFE));
+    assertEquals("&lt;xml&gt;", EscapeChars.forXML("<\u0000\uD800x\u0018\u0019ml\uDC00>"));
   }
 
   /** Method under test: {@link EscapeChars#toDisableTags(String)} */
