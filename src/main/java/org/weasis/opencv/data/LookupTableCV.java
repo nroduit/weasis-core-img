@@ -267,33 +267,18 @@ public class LookupTableCV {
 
   // ushort to byte
   private void lookupU(short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData) {
-    int bOffset = tblData.length;
-
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = (srcData[i] & 0xFFFF);
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
-        }
-      }
-    } else {
-      for (int b = 0; b < bOffset; b++) {
-        byte[] t = tblData[b];
-        int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
-
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & 0xFFFF), tblOffset, maxLength)];
-        }
-      }
-    }
+    lookupByte(srcData, dstData, tblOffsets, tblData, 0xFFFF);
   }
 
   // short to byte
   private void lookup(short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData) {
-    int bOffset = tblData.length;
     int mask = forceReadingUnsigned ? 0xFFFF : 0xFFFFFFFF;
+    lookupByte(srcData, dstData, tblOffsets, tblData, mask);
+  }
 
+  private static void lookupByte(
+      short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData, int mask) {
+    int bOffset = tblData.length;
     if (srcData.length < dstData.length) {
       for (int i = 0; i < srcData.length; i++) {
         int val = srcData[i] & mask;
@@ -317,7 +302,6 @@ public class LookupTableCV {
   // byte to short or ushort
   private void lookup(byte[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
     int bOffset = tblData.length;
-
     if (srcData.length < dstData.length) {
       for (int i = 0; i < srcData.length; i++) {
         int val = (srcData[i] & 0xFF);
@@ -340,32 +324,18 @@ public class LookupTableCV {
 
   // ushort to short or ushort
   private void lookupU(short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
-    int bOffset = tblData.length;
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = (srcData[i] & 0xFFFF);
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
-        }
-      }
-    } else {
-      for (int b = 0; b < bOffset; b++) {
-        short[] t = tblData[b];
-        int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
-
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & 0xFFFF), tblOffset, maxLength)];
-        }
-      }
-    }
+    lookupShort(srcData, dstData, tblOffsets, tblData, 0xFFFF);
   }
 
   // short to short or ushort
   private void lookup(short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
-    int bOffset = tblData.length;
     int mask = forceReadingUnsigned ? 0xFFFF : 0xFFFFFFFF;
+    lookupShort(srcData, dstData, tblOffsets, tblData, mask);
+  }
 
+  private static void lookupShort(
+      short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData, int mask) {
+    int bOffset = tblData.length;
     if (srcData.length < dstData.length) {
       for (int i = 0; i < srcData.length; i++) {
         int val = (srcData[i] & mask);
