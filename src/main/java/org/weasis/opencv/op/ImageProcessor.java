@@ -11,18 +11,12 @@ package org.weasis.opencv.op;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.Shape;
-import java.awt.geom.Area;
 import java.awt.geom.FlatteningPathIterator;
 import java.awt.geom.PathIterator;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.MultiPixelPackedSampleModel;
 import java.awt.image.RenderedImage;
-import java.awt.image.SampleModel;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,7 +33,6 @@ import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
-import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -56,10 +49,19 @@ public class ImageProcessor {
 
   private ImageProcessor() {}
 
+  /**
+   * Computes Min/Max values from Image.
+   *
+   * @param img the image
+   * @param exclude8bitImage if true, exclude 8 bit image and return 0 and 255.
+   * @return the min/max values and their locations. Max is not inferior to min + 1 to avoid
+   *     division by 0.
+   * @throws OutOfMemoryError if the image is too large to be processed.
+   */
   public static MinMaxLocResult findRawMinMaxValues(PlanarImage img, boolean exclude8bitImage)
       throws OutOfMemoryError {
     MinMaxLocResult val;
-    if (Objects.requireNonNull(img).type() <= CvType.CV_8S && exclude8bitImage) {
+    if (CvType.depth(Objects.requireNonNull(img).type()) <= 1 && exclude8bitImage) {
       val = new MinMaxLocResult();
       val.minVal = 0.0;
       val.maxVal = 255.0;
@@ -77,6 +79,16 @@ public class ImageProcessor {
     return val;
   }
 
+  /**
+   * Performs a look-up table transform of an image.
+   *
+   * @param source the image. Only 8-bit images are supported.
+   * @param lut the lookup table of 256 elements; in case of multi-channels input array, the table
+   *     should either have a single channel (in this case the same table is used for all channels)
+   *     or the same number of channels as in the input array.
+   * @return the result image with the same size and number of channels as src, and the same depth
+   *     as lut.
+   */
   public static ImageCV applyLUT(Mat source, byte[][] lut) {
     Mat srcImg = Objects.requireNonNull(source);
     int lutCh = Objects.requireNonNull(lut).length;
@@ -84,13 +96,13 @@ public class ImageProcessor {
 
     if (lutCh > 1) {
       lutMat = new Mat();
-      List<Mat> luts = new ArrayList<>(lutCh);
+      List<Mat> lutList = new ArrayList<>(lutCh);
       for (int i = 0; i < lutCh; i++) {
         Mat l = new Mat(1, 256, CvType.CV_8U);
         l.put(0, 0, lut[i]);
-        luts.add(l);
+        lutList.add(l);
       }
-      Core.merge(luts, lutMat);
+      Core.merge(lutList, lutMat);
       if (srcImg.channels() < lut.length) {
         Imgproc.cvtColor(srcImg.clone(), srcImg, Imgproc.COLOR_GRAY2BGR);
       }
@@ -104,18 +116,39 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  /**
+   * Rescale image to 8 bit image with alpha and beta parameters.
+   *
+   * @param source the image.
+   * @param alpha the scale factor.
+   * @param beta the shift factor.
+   * @return the rescaled image with 8 bit depth.
+   */
   public static ImageCV rescaleToByte(Mat source, double alpha, double beta) {
     ImageCV dstImg = new ImageCV();
     Objects.requireNonNull(source).convertTo(dstImg, CvType.CV_8U, alpha, beta);
     return dstImg;
   }
 
+  /**
+   * Inverts every bit of the image data.
+   *
+   * @param source the image.
+   * @return the image with inverted values.
+   */
   public static ImageCV invertLUT(ImageCV source) {
-    Objects.requireNonNull(source);
-    Core.bitwise_not(source, source);
-    return source;
+    ImageCV dstImg = new ImageCV();
+    Core.bitwise_not(Objects.requireNonNull(source), dstImg);
+    return dstImg;
   }
 
+  /**
+   * Performs a look-up table transform of an image.
+   *
+   * @param source the image.
+   * @param src2Cst the mask value to apply the bitwise operation.
+   * @return the result image.
+   */
   public static ImageCV bitwiseAnd(Mat source, int src2Cst) {
     Objects.requireNonNull(source);
     ImageCV mask = new ImageCV(source.size(), source.type(), new Scalar(src2Cst));
@@ -123,6 +156,13 @@ public class ImageProcessor {
     return mask;
   }
 
+  /**
+   * Crops the image to the specified rectangle.
+   *
+   * @param source the image.
+   * @param area the rectangle to crop.
+   * @return the cropped image.
+   */
   public static ImageCV crop(Mat source, Rectangle area) {
     Objects.requireNonNull(source);
     Rectangle rect =
@@ -131,14 +171,29 @@ public class ImageProcessor {
     if (area.width > 1 && area.height > 1) {
       return ImageCV.toImageCV(source.submat(new Rect(rect.x, rect.y, rect.width, rect.height)));
     }
-    return ImageCV.toImageCV(source);
+    return ImageCV.toImageCV(source.clone());
   }
 
+  /**
+   * Returns Min/Max values and their locations.
+   *
+   * @param source the image.
+   * @param area the rectangle to search for min/max values.
+   * @return the min/max values and their locations. Max is not inferior to min + 1 to avoid
+   *     division by 0.
+   */
   public static MinMaxLocResult minMaxLoc(RenderedImage source, Rectangle area) {
     Mat srcImg = ImageConversion.toMat(Objects.requireNonNull(source), area);
     return Core.minMaxLoc(srcImg);
   }
 
+  /**
+   * Converts a shape to a list of contours compliant with OpenCV.
+   *
+   * @param shape the shape to transform.
+   * @param keepImageCoordinates if true, the coordinates are not translated to the shape bounds.
+   * @return the list of contours.
+   */
   public static List<MatOfPoint> transformShapeToContour(
       Shape shape, boolean keepImageCoordinates) {
     Rectangle b = shape.getBounds();
@@ -180,14 +235,24 @@ public class ImageProcessor {
     return points;
   }
 
+  /** See {@link #meanStdDev(Mat, Shape, Integer, Integer)}. */
   public static double[][] meanStdDev(Mat source) {
     return meanStdDev(source, null, null, null);
   }
 
+  /** See {@link #meanStdDev(Mat, Shape, Integer, Integer)}. */
   public static double[][] meanStdDev(Mat source, Shape shape) {
     return meanStdDev(source, shape, null, null);
   }
 
+  /**
+   * @param source the image.
+   * @param shape the shape to apply on the image. If null, the whole image is processed.
+   * @param paddingValue the starting value to exclude. PaddingValue is applied only with one
+   *     channel image.
+   * @param paddingLimit the last value to exclude. If null only paddingValue is excluded.
+   * @return a 5 double arrays: min, max, mean, standard deviation, pixel count.
+   */
   public static double[][] meanStdDev(
       Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
     List<Mat> list = getMaskImage(source, shape, paddingValue, paddingLimit);
@@ -235,6 +300,16 @@ public class ImageProcessor {
     return val;
   }
 
+  /**
+   * Create the mask image from the shape and exclude the pixel padding values.
+   *
+   * @param source the image.
+   * @param shape the shape to apply on the image. If null, the whole image is processed.
+   * @param paddingValue the starting value to exclude. PaddingValue is applied only with one
+   *     channel image.
+   * @param paddingLimit the last value to exclude. If null only paddingValue is excluded.
+   * @return the source and mask images.
+   */
   public static List<Mat> getMaskImage(
       Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
     Objects.requireNonNull(source);
@@ -255,7 +330,7 @@ public class ImageProcessor {
       Imgproc.fillPoly(mask, pts, new Scalar(255));
     }
 
-    if (paddingValue != null) {
+    if (paddingValue != null && source.channels() == 1) {
       if (paddingLimit == null) {
         paddingLimit = paddingValue;
       } else if (paddingLimit < paddingValue) {
@@ -264,7 +339,7 @@ public class ImageProcessor {
         paddingLimit = temp;
       }
       Mat maskPix = new Mat(srcImg.size(), CvType.CV_8UC1, new Scalar(0));
-      exludePaddingValue(srcImg, maskPix, paddingValue, paddingLimit);
+      excludePaddingValue(srcImg, maskPix, paddingValue, paddingLimit);
       if (mask == null) {
         mask = maskPix;
       } else {
@@ -274,6 +349,15 @@ public class ImageProcessor {
     return Arrays.asList(srcImg, mask);
   }
 
+  /**
+   * Returns the minimum and maximum pixel values and their locations according to the mask
+   * selection.
+   *
+   * @param srcImg the image.
+   * @param mask the mask selection. If null, the whole image is processed.
+   * @return the min/max values and their locations. Max is not inferior to min + 1 to avoid
+   *     division by 0.
+   */
   public static MinMaxLocResult minMaxLoc(Mat srcImg, Mat mask) {
     List<Mat> channels = new ArrayList<>(Objects.requireNonNull(srcImg).channels());
     if (srcImg.channels() > 1) {
@@ -300,22 +384,20 @@ public class ImageProcessor {
     return result;
   }
 
-  private static void exludePaddingValue(Mat src, Mat mask, int paddingValue, int paddingLimit) {
+  private static void excludePaddingValue(Mat src, Mat mask, int paddingValue, int paddingLimit) {
     Mat dst = new Mat();
     Core.inRange(src, new Scalar(paddingValue), new Scalar(paddingLimit), dst);
     Core.bitwise_not(dst, dst);
     Core.add(dst, mask, mask);
   }
 
-  public static List<MatOfPoint> findContours(RenderedImage source, Rectangle area) {
-    Mat srcImg = ImageConversion.toMat(Objects.requireNonNull(source), area);
-    List<MatOfPoint> contours = new ArrayList<>();
-    Mat hierachy = new Mat();
-    Imgproc.findContours(
-        srcImg, contours, hierachy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
-    return contours;
-  }
-
+  /**
+   * Resize the image to the specified dimension.
+   *
+   * @param source the image.
+   * @param dim the expected dimension.
+   * @return the resized image.
+   */
   public static ImageCV scale(Mat source, Dimension dim) {
     if (Objects.requireNonNull(dim).width < 1 || dim.height < 1) {
       throw new IllegalArgumentException(UNSUPPORTED_SIZE + dim);
@@ -326,6 +408,14 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  /**
+   * Resize the image to the specified dimension with a specific interpolation.
+   *
+   * @param source the image.
+   * @param dim the expected dimension. param interpolation the interpolation method. See
+   *     cv.InterpolationFlags
+   * @return the resized image.
+   */
   public static ImageCV scale(Mat source, Dimension dim, Integer interpolation) {
     if (interpolation == null
         || interpolation < Imgproc.INTER_NEAREST
@@ -346,11 +436,20 @@ public class ImageProcessor {
     return dstImg;
   }
 
-  public static ImageCV combineTwoImages(Mat source, Mat imgOverlay, int transparency) {
-    Mat srcImg = Objects.requireNonNull(source);
-    Mat src2Img = Objects.requireNonNull(imgOverlay);
+  /**
+   * Merge two images with specific opacity values.
+   *
+   * @param source1 the first image.
+   * @param source2 the second image.
+   * @param opacity1 the opacity value between 0 and 1 applied to the first image.
+   * @param opacity2 the opacity value between 0 and 1 applied to the second image.
+   * @return the merged image.
+   */
+  public static ImageCV mergeImages(Mat source1, Mat source2, double opacity1, double opacity2) {
+    Mat srcImg = Objects.requireNonNull(source1);
+    Mat src2Img = Objects.requireNonNull(source2);
     ImageCV dstImg = new ImageCV();
-    Core.addWeighted(srcImg, 1.0, src2Img, transparency, 0.0, dstImg);
+    Core.addWeighted(srcImg, opacity1, src2Img, opacity2, 0.0, dstImg);
     return dstImg;
   }
 
@@ -359,6 +458,14 @@ public class ImageProcessor {
     return r == color.getGreen() && r == color.getBlue();
   }
 
+  /**
+   * Overlays an image on top of another image.
+   *
+   * @param source the image.
+   * @param imgOverlay the mask image to overlay. Byte image where 255 is the overlay selection.
+   * @param color the overlay color to use for the output image.
+   * @return the image with overlays.
+   */
   public static ImageCV overlay(Mat source, Mat imgOverlay, Color color) {
     ImageCV srcImg = ImageCV.toImageCV(Objects.requireNonNull(source));
     Objects.requireNonNull(imgOverlay);
@@ -395,21 +502,39 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  /** See {@link #overlay(Mat, Mat, Color)}. */
   public static ImageCV overlay(Mat source, RenderedImage imgOverlay, Color color) {
     return overlay(source, ImageConversion.toMat(Objects.requireNonNull(imgOverlay)), color);
   }
 
+  /**
+   * Draw a shape on top of an image with a specific color.
+   *
+   * @param source the image.
+   * @param shape the shape to draw.
+   * @param color the color to use for the output image.
+   * @return the image with drawings.
+   */
   public static BufferedImage drawShape(RenderedImage source, Shape shape, Color color) {
     Mat srcImg = ImageConversion.toMat(Objects.requireNonNull(source));
     List<MatOfPoint> pts = transformShapeToContour(shape, true);
-    Imgproc.fillPoly(srcImg, pts, new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
+    Imgproc.fillPoly(srcImg, pts, getMaxColor(srcImg, color));
     return ImageConversion.toBufferedImage(srcImg);
   }
 
+  /**
+   * Returns an image with the area outside the rectangle set to a certain opacity.
+   *
+   * @param source the image.
+   * @param b the rectangle to draw.
+   * @param alpha the opacity value between 0 and 1 applied to the area outside the rectangle.
+   * @return the resulting image.
+   */
   public static ImageCV applyCropMask(Mat source, Rectangle b, double alpha) {
     Mat srcImg = Objects.requireNonNull(source);
     ImageCV dstImg = new ImageCV();
     source.copyTo(dstImg);
+    b.grow(1, 1);
     if (b.getY() > 0) {
       Imgproc.rectangle(
           dstImg, new Point(0.0, 0.0), new Point(dstImg.width(), b.getMinY()), new Scalar(0), -1);
@@ -442,40 +567,66 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  private static Scalar getMaxColor(Mat source, Color color) {
+    int depth = CvType.depth(source.type());
+    boolean type16bit = depth == CvType.CV_16U || depth == CvType.CV_16S;
+    Scalar scalar;
+    if (type16bit) {
+      int maxColor = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
+      int max = CvType.depth(source.type()) == CvType.CV_16S ? Short.MAX_VALUE : 65535;
+      max = maxColor * max / 255;
+      scalar = new Scalar(max);
+    } else {
+      scalar = new Scalar(color.getBlue(), color.getGreen(), color.getRed());
+    }
+    return scalar;
+  }
+
+  /**
+   * Returns an image with the area outside the rectangle set to a certain color.
+   *
+   * @param source the image.
+   * @param shape the shape of the shutter
+   * @param color the shutter color.
+   * @return the resulting image.
+   */
   public static ImageCV applyShutter(Mat source, Shape shape, Color color) {
     Mat srcImg = Objects.requireNonNull(source);
     Mat mask = Mat.zeros(srcImg.size(), CvType.CV_8UC1);
     List<MatOfPoint> pts = transformShapeToContour(shape, true);
     Imgproc.fillPoly(mask, pts, new Scalar(1));
-    ImageCV dstImg =
-        new ImageCV(
-            srcImg.size(),
-            srcImg.type(),
-            new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
+
+    ImageCV dstImg = new ImageCV(srcImg.size(), srcImg.type(), getMaxColor(srcImg, color));
     srcImg.copyTo(dstImg, mask);
     return dstImg;
   }
 
+  /**
+   * Apply a shutter effect on the image.
+   *
+   * @param source the image.
+   * @param imgOverlay the mask image. Byte image where 255 is the shutter.
+   * @param color the shutter color.
+   * @return the image with overlays.
+   */
   public static ImageCV applyShutter(Mat source, RenderedImage imgOverlay, Color color) {
     return overlay(source, imgOverlay, color);
   }
 
-  public static BufferedImage getAsImage(Area shape, RenderedImage source) {
-    SampleModel sm =
-        new MultiPixelPackedSampleModel(
-            DataBuffer.TYPE_BYTE, source.getWidth(), source.getHeight(), 1);
-    BufferedImage ti = new BufferedImage(source.getWidth(), source.getHeight(), sm.getDataType());
-    Graphics2D g2d = ti.createGraphics();
-    // Write the Shape into the TiledImageGraphics.
-    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-    g2d.fill(shape);
-    g2d.dispose();
-    return ti;
-  }
-
+  /**
+   * Rotates the image in multiples of 90 degrees in three different ways: Rotate by 90 degrees
+   * clockwise (rotateCode = ROTATE_90_CLOCKWISE). Rotate by 180 degrees clockwise (rotateCode =
+   * ROTATE_180). Rotate by 270 degrees clockwise (rotateCode = ROTATE_90_COUNTERCLOCKWISE).
+   *
+   * @param source the image.
+   * @param rotateCvType an enum to specify how to rotate the image; Core.ROTATE_90_CLOCKWISE,
+   *     Core.ROTATE_180 and Core.ROTATE_90_COUNTERCLOCKWISE.
+   * @return the rotated image. The size is the same with ROTATE_180, and the rows and cols are
+   *     switched for ROTATE_90_CLOCKWISE and ROTATE_90_COUNTERCLOCKWISE.
+   */
   public static ImageCV getRotatedImage(Mat source, int rotateCvType) {
-    if (rotateCvType < 0) {
-      return ImageCV.toImageCV(source);
+    if (rotateCvType < 0 || rotateCvType > 2) {
+      return ImageCV.toImageCV(source.clone());
     }
     Mat srcImg = Objects.requireNonNull(source);
     ImageCV dstImg = new ImageCV();
@@ -483,57 +634,55 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  /**
+   * Flips the image around vertical, horizontal, or both axes.
+   *
+   * @param source the image.
+   * @param flipCvType a flag to specify how to flip the array; 0 means flipping around the x-axis
+   *     (vertical flip), positive (e.g., 1) means flipping around y-axis (horizontal flip), and
+   *     negative (e.g., -1) means flipping around both axes.
+   * @return the flipped image.
+   */
   public static ImageCV flip(Mat source, int flipCvType) {
-    if (flipCvType < 0) {
-      return ImageCV.toImageCV(source);
-    }
     Objects.requireNonNull(source);
     ImageCV dstImg = new ImageCV();
     Core.flip(source, dstImg, flipCvType);
     return dstImg;
   }
 
-  private static boolean isEqualToZero(double val) {
-    return Math.copySign(val, 1.0) < 1e-6;
-  }
-
-  public static ImageCV getRotatedImage(Mat source, double angle, double centerx, double centery) {
-    if (isEqualToZero(angle)) {
-      return ImageCV.toImageCV(source);
-    }
-    Mat srcImg = Objects.requireNonNull(source);
-    Point ptCenter = new Point(centerx, centery);
-    Mat rot = Imgproc.getRotationMatrix2D(ptCenter, -angle, 1.0);
-    ImageCV dstImg = new ImageCV();
-    // determine bounding rectangle
-    Rect bbox = new RotatedRect(ptCenter, srcImg.size(), -angle).boundingRect();
-    // double[] matrix = new double[rot.cols() * rot.rows()];
-    // // adjust transformation matrix
-    // rot.get(0, 0, matrix);
-    // matrix[2] += bbox.width / 2.0 - centerx;
-    // matrix[rot.cols() + 2] += bbox.height / 2.0 - centery;
-    // rot.put(0, 0, matrix);
-    Imgproc.warpAffine(srcImg, dstImg, rot, bbox.size());
-
-    return dstImg;
-  }
-
+  /**
+   * Applies an affine transformation to an image.
+   *
+   * @param source the image.
+   * @param matrix the 2x3 transformation matrix.
+   * @param boxSize the size of the output image.
+   * @param interpolation an interpolation method. See cv::InterpolationFlags
+   * @return the transformed image.
+   */
   public static ImageCV warpAffine(Mat source, Mat matrix, Size boxSize, Integer interpolation) {
-    if (matrix == null) {
-      return (ImageCV) source;
-    }
-    // System.out.println(matrix.dump());
     Mat srcImg = Objects.requireNonNull(source);
     ImageCV dstImg = new ImageCV();
 
     if (interpolation == null) {
       interpolation = Imgproc.INTER_LINEAR;
     }
-    Imgproc.warpAffine(srcImg, dstImg, matrix, boxSize, interpolation);
+    Imgproc.warpAffine(
+        srcImg,
+        dstImg,
+        Objects.requireNonNull(matrix),
+        Objects.requireNonNull(boxSize),
+        interpolation);
 
     return dstImg;
   }
 
+  /**
+   * Returns Min/Max values and their locations.
+   *
+   * @param source the image.
+   * @return the min/max values and their locations. Max is not inferior to min + 1 to avoid
+   *     division by 0.
+   */
   public static MinMaxLocResult findMinMaxValues(Mat source) {
     if (source != null) {
       return minMaxLoc(source, null);
@@ -542,18 +691,21 @@ public class ImageProcessor {
   }
 
   /**
-   * Computes Min/Max values from Image excluding range of values provided
+   * Returns Min/Max values and their locations excluding range of values provided.
    *
-   * @param source
-   * @param paddingValue
-   * @param paddingLimit
-   * @return
+   * @param source the image.
+   * @param paddingValue the starting value to exclude. PaddingValue is applied only with one
+   *     channel image.
+   * @param paddingLimit the last value to exclude. If null only paddingValue is excluded.
+   * @return the min/max values and their locations. Max is not inferior to min + 1 to avoid
+   *     division by 0.
    */
   public static MinMaxLocResult findMinMaxValues(
       Mat source, Integer paddingValue, Integer paddingLimit) {
     if (source != null) {
-      Mat mask = new Mat(source.size(), CvType.CV_8UC1, new Scalar(0));
-      if (paddingValue != null) {
+      Mat mask = null;
+      if (paddingValue != null && source.channels() == 1) {
+        mask = new Mat(source.size(), CvType.CV_8UC1, new Scalar(0));
         if (paddingLimit == null) {
           paddingLimit = paddingValue;
         } else if (paddingLimit < paddingValue) {
@@ -561,13 +713,21 @@ public class ImageProcessor {
           paddingValue = paddingLimit;
           paddingLimit = temp;
         }
-        exludePaddingValue(source, mask, paddingValue, paddingLimit);
+        excludePaddingValue(source, mask, paddingValue, paddingLimit);
       }
       return minMaxLoc(source, mask);
     }
     return null;
   }
 
+  /**
+   * Creates a thumbnail of the image with the specified dimension.
+   *
+   * @param source the image.
+   * @param iconDim the expected dimension. If keepRatio is true, the min value is kept.
+   * @param keepRatio if true, the ratio of the image is kept.
+   * @return the thumbnail image. Do not return an image with a size larger than the original image.
+   */
   public static ImageCV buildThumbnail(PlanarImage source, Dimension iconDim, boolean keepRatio) {
     Objects.requireNonNull(source);
     if (Objects.requireNonNull(iconDim).width < 1 || iconDim.height < 1) {
@@ -577,10 +737,7 @@ public class ImageProcessor {
     final double scale =
         Math.min(iconDim.getHeight() / source.height(), iconDim.getWidth() / source.width());
     if (scale >= 1.0) {
-      return source.toImageCV();
-    }
-    if (scale < 0.005) {
-      return null; // Image is too large to be converted
+      return ImageCV.toImageCV(source.toMat().clone());
     }
 
     Size dim =
@@ -594,96 +751,140 @@ public class ImageProcessor {
     return dstImg;
   }
 
+  private static boolean writeExceptReadOnly(File file) {
+    return !file.exists() || file.canWrite();
+  }
+
+  /**
+   * Write image with OpenCV and returns false if the image cannot be written.
+   *
+   * @param source the image to write
+   * @param file the output image file
+   * @return true if the image is written
+   */
   public static boolean writeImage(Mat source, File file) {
-    if (file.exists() && !file.canWrite()) {
-      return false;
-    }
-
-    try {
-      return Imgcodecs.imwrite(file.getPath(), source);
-    } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing Image", e);
-      FileUtil.delete(file);
-      return false;
-    }
-  }
-
-  public static boolean writeThumbnail(Mat source, File file, int maxSize) {
-    try {
-      final double scale =
-          Math.min(maxSize / (double) source.height(), (double) maxSize / source.width());
-      if (scale < 1.0) {
-        Size dim = new Size((int) (scale * source.width()), (int) (scale * source.height()));
-        try (ImageCV thumbnail = new ImageCV()) {
-          Imgproc.resize(source, thumbnail, dim, 0, 0, Imgproc.INTER_AREA);
-          MatOfInt map = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 80);
-          return Imgcodecs.imwrite(file.getPath(), thumbnail, map);
-        }
+    if (writeExceptReadOnly(file)) {
+      try {
+        return Imgcodecs.imwrite(file.getPath(), source);
+      } catch (OutOfMemoryError | CvException e) {
+        LOGGER.error("Writing Image", e);
+        FileUtil.delete(file);
       }
-      return false;
-    } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing thumbnail", e);
-      FileUtil.delete(file);
-      return false;
     }
+    return false;
   }
 
+  /**
+   * Write a thumbnail image with OpenCV and returns false if the image cannot be written.
+   *
+   * @param source the image to write
+   * @param file the output image file
+   * @param maxSize the maximum size of the thumbnail. The ratio of the image is preserved.
+   * @return true if the image is written
+   */
+  public static boolean writeThumbnail(Mat source, File file, int maxSize) {
+    if (writeExceptReadOnly(file)) {
+      try {
+        final double scale =
+            Math.min(maxSize / (double) source.height(), (double) maxSize / source.width());
+        if (scale < 1.0) {
+          Size dim = new Size((int) (scale * source.width()), (int) (scale * source.height()));
+          try (ImageCV thumbnail = new ImageCV()) {
+            Imgproc.resize(source, thumbnail, dim, 0, 0, Imgproc.INTER_AREA);
+            MatOfInt map = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 80);
+            return Imgcodecs.imwrite(file.getPath(), thumbnail, map);
+          }
+        }
+      } catch (OutOfMemoryError | CvException e) {
+        LOGGER.error("Writing thumbnail", e);
+        FileUtil.delete(file);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Write a PNG image with OpenCV and returns false if the image cannot be written.
+   *
+   * @param source the image to write
+   * @param file the output image file
+   * @return true if the image is written
+   */
   public static boolean writePNG(Mat source, File file) {
-    if (file.exists() && !file.canWrite()) {
-      return false;
+    if (writeExceptReadOnly(file)) {
+      // TODO handle binary
+      Mat srcImg = Objects.requireNonNull(source);
+      Mat dstImg = null;
+      int type = srcImg.type();
+      int elemSize = CvType.ELEM_SIZE(type);
+      int channels = CvType.channels(type);
+      int bpp = (elemSize * 8) / channels;
+      // TODO should test is the library can write 16 bit image
+      if (bpp > 16 || !CvType.isInteger(type)) {
+        dstImg = new Mat();
+        srcImg.convertTo(dstImg, CvType.CV_16SC(channels));
+        srcImg = dstImg;
+      }
+      try {
+        return Imgcodecs.imwrite(file.getPath(), srcImg);
+      } catch (OutOfMemoryError | CvException e) {
+        LOGGER.error("", e);
+        FileUtil.delete(file);
+      } finally {
+        ImageConversion.releaseMat(dstImg);
+      }
     }
-
-    // TOOD handle binary
-    Mat srcImg = Objects.requireNonNull(source);
-    Mat dstImg = null;
-    int type = srcImg.type();
-    int elemSize = CvType.ELEM_SIZE(type);
-    int channels = CvType.channels(type);
-    int bpp = (elemSize * 8) / channels;
-    if (bpp > 16 || !CvType.isInteger(type)) {
-      dstImg = new Mat();
-      srcImg.convertTo(dstImg, CvType.CV_16SC(channels));
-      srcImg = dstImg;
-    }
-
-    try {
-      return Imgcodecs.imwrite(file.getPath(), srcImg);
-    } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("", e);
-      FileUtil.delete(file);
-      return false;
-    } finally {
-      ImageConversion.releaseMat(dstImg);
-    }
+    return false;
   }
 
+  /**
+   * Write image with OpenCV and returns false if the image cannot be written.
+   *
+   * @param source the image to write
+   * @param file the output image file
+   * @return true if the image is written
+   */
   public static boolean writeImage(RenderedImage source, File file) {
-    if (file.exists() && !file.canWrite()) {
-      return false;
+    if (writeExceptReadOnly(file)) {
+      try (ImageCV dstImg = ImageConversion.toMat(source)) {
+        return Imgcodecs.imwrite(file.getPath(), dstImg);
+      } catch (OutOfMemoryError | CvException e) {
+        LOGGER.error("", e);
+        FileUtil.delete(file);
+      }
     }
-
-    try (ImageCV dstImg = ImageConversion.toMat(source)) {
-      return Imgcodecs.imwrite(file.getPath(), dstImg);
-    } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("", e);
-      return false;
-    }
+    return false;
   }
 
+  /**
+   * Write image with OpenCV and returns false if the image cannot be written.
+   *
+   * @param source the image to write
+   * @param file the output image file
+   * @param params the list of parameters to use for writing the image, see Imgcodecs.IMWRITE_*.
+   *     Format-specific parameters encoded as pairs (pId_1, pValue_1, pId_2, pValue_2...) see
+   *     cv::ImwriteFlags
+   * @return true if the image is written
+   */
   public static boolean writeImage(Mat source, File file, MatOfInt params) {
-    if (file.exists() && !file.canWrite()) {
-      return false;
+    if (writeExceptReadOnly(file)) {
+      try {
+        return Imgcodecs.imwrite(file.getPath(), source, params);
+      } catch (OutOfMemoryError | CvException e) {
+        LOGGER.error("Writing image", e);
+        FileUtil.delete(file);
+      }
     }
-
-    try {
-      return Imgcodecs.imwrite(file.getPath(), source, params);
-    } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Writing image", e);
-      FileUtil.delete(file);
-      return false;
-    }
+    return false;
   }
 
+  /**
+   * Read image with OpenCV and returns null if the image cannot be read.
+   *
+   * @param file the image file
+   * @param tags the list of basic tags to fill. Can be null.
+   * @return the image or null if the image cannot be read
+   */
   public static ImageCV readImage(File file, List<String> tags) {
     try {
       return readImageWithCvException(file, tags);
@@ -693,6 +894,14 @@ public class ImageProcessor {
     }
   }
 
+  /**
+   * Read image with OpenCV and throw CvException if the image cannot be read.
+   *
+   * @param file the image file
+   * @param tags the list of basic tags to fill. Can be null.
+   * @return the image or null if the image cannot be read
+   * @throws CvException if the image cannot be read
+   */
   public static ImageCV readImageWithCvException(File file, List<String> tags) {
     if (!file.canRead()) {
       return null;

@@ -45,10 +45,10 @@ public class ImageConversion {
   private ImageConversion() {}
 
   /**
-   * Converts/writes a Mat into a BufferedImage.
+   * Converts a <code>Mat</code> into a <code>BufferedImage</code>.
    *
-   * @param matrix
-   * @return BufferedImage
+   * @param matrix a <code>Mat</code> to be converted
+   * @return a <code>BufferedImage</code>
    */
   public static BufferedImage toBufferedImage(Mat matrix) {
     if (matrix == null) {
@@ -107,6 +107,12 @@ public class ImageConversion {
     return new BufferedImage(colorModel, raster, false, null);
   }
 
+  /**
+   * Converts a <code>PlanarImage</code> into a <code>BufferedImage</code>.
+   *
+   * @param matrix a <code>PlanarImage</code> to be converted
+   * @return a <code>BufferedImage</code>
+   */
   public static BufferedImage toBufferedImage(PlanarImage matrix) {
     if (matrix == null) {
       return null;
@@ -114,18 +120,33 @@ public class ImageConversion {
     return toBufferedImage(matrix.toMat());
   }
 
+  /**
+   * Free the memory of the content of <code>Mat</code> while preserving the object.
+   *
+   * @param mat a <code>Mat</code> to be released
+   */
   public static void releaseMat(Mat mat) {
     if (mat != null) {
       mat.release();
     }
   }
 
+  /**
+   * Free the memory of the content of <code>PlanarImage</code> while preserving the object.
+   *
+   * @param img a <code>PlanarImage</code> to be released
+   */
   public static void releasePlanarImage(PlanarImage img) {
     if (img != null) {
       img.release();
     }
   }
 
+  /**
+   * Converts a data type from <code>CvType</code> (OpenCV) to <code>DataBuffer</code> (Java) type.
+   *
+   * @return the <code>DataBuffer</code> type
+   */
   public static int convertToDataType(int cvType) {
     switch (CvType.depth(cvType)) {
       case CvType.CV_8U:
@@ -146,18 +167,46 @@ public class ImageConversion {
     }
   }
 
+  /**
+   * @see #toMat(RenderedImage, Rectangle, boolean)
+   */
   public static ImageCV toMat(RenderedImage img) {
     return toMat(img, null);
   }
 
+  /**
+   * @see #toMat(RenderedImage, Rectangle, boolean)
+   */
   public static ImageCV toMat(RenderedImage img, Rectangle region) {
     return toMat(img, region, true);
   }
 
+  /**
+   * Converts a <code>RenderedImage</code> into a <code>Mat</code>.
+   *
+   * @param img a <code>RenderedImage</code> to be converted
+   * @param region a Rectangle that specifies the region of the <code>RenderedImage</code> to be
+   *     converted
+   * @param toBGR a boolean that specifies if the <code>Mat</code> should be converted to BGR.
+   *     Should be true for most cases.
+   * @return a ImageCV
+   */
   public static ImageCV toMat(RenderedImage img, Rectangle region, boolean toBGR) {
     return toMat(img, region, toBGR, false);
   }
 
+  /**
+   * Converts a <code>RenderedImage</code> into a <code>Mat</code>.
+   *
+   * @param img a <code>RenderedImage</code> to be converted
+   * @param region a Rectangle that specifies the region of the <code>RenderedImage</code> to be
+   *     converted
+   * @param toBGR a boolean that specifies if the <code>Mat</code> should be converted to BGR. This
+   *     should be true in most cases
+   * @param forceShortType a boolean that specifies if the <code>Mat</code> should be converted to a
+   *     short type. This should be false in most cases
+   * @return a ImageCV
+   */
   public static ImageCV toMat(
       RenderedImage img, Rectangle region, boolean toBGR, boolean forceShortType) {
     Raster raster = region == null ? img.getData() : img.getData(region);
@@ -174,7 +223,7 @@ public class ImageConversion {
     }
 
     if (isBinary(raster.getSampleModel())) {
-      // Sonar false positive: not mandatory to close ImageCV (can be done with finalize())
+      // Sonar false positive: not mandatory to close ImageCV (can be done when dereferenced)
       ImageCV mat = new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1); // NOSONAR
       mat.put(0, 0, getUnpackedBinaryData(raster, raster.getBounds()));
       return mat;
@@ -182,7 +231,6 @@ public class ImageConversion {
 
     if (buf instanceof DataBufferByte) {
       if (Arrays.equals(offsets, new int[] {0, 0, 0})) {
-
         Mat b = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
         b.put(0, 0, ((DataBufferByte) buf).getData(2));
         Mat g = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
@@ -241,10 +289,23 @@ public class ImageConversion {
     return null;
   }
 
+  /**
+   * Returns the bounds of the supplied <code>PlanarImage</code>.
+   *
+   * @param img a <code>PlanarImage</code>
+   * @return the bounds of the supplied <code>PlanarImage</code>
+   */
   public static Rectangle getBounds(PlanarImage img) {
     return new Rectangle(0, 0, img.width(), img.height());
   }
 
+  /**
+   * Converts a <code>RenderedImage</code> into a <code>BufferedImage</code> with a specific
+   * BufferedImage type.
+   *
+   * @param src a <code>RenderedImage</code> to be converted
+   * @return a <code>BufferedImage</code>
+   */
   public static BufferedImage convertTo(RenderedImage src, int imageType) {
     BufferedImage dst = new BufferedImage(src.getWidth(), src.getHeight(), imageType);
     Graphics2D big = dst.createGraphics();
@@ -256,12 +317,24 @@ public class ImageConversion {
     return dst;
   }
 
+  /**
+   * Checks if the supplied <code>SampleModel</code> is a binary sample model.
+   *
+   * @param sm the <code>SampleModel</code> to be tested
+   * @return <code>true</code> if the supplied <code>SampleModel</code> is a binary sample model
+   */
   public static boolean isBinary(SampleModel sm) {
     return sm instanceof MultiPixelPackedSampleModel
         && ((MultiPixelPackedSampleModel) sm).getPixelBitStride() == 1
         && sm.getNumBands() == 1;
   }
 
+  /**
+   * Converts a <code>RenderedImage</code> into a <code>BufferedImage</code>.
+   *
+   * @param img a <code>RenderedImage</code> to be converted
+   * @return a <code>BufferedImage</code>
+   */
   public static BufferedImage convertRenderedImage(RenderedImage img) {
     if (img == null) {
       return null;
@@ -314,7 +387,7 @@ public class ImageConversion {
     int eltOffset = dataBuffer.getOffset() + mpp.getOffset(dx, dy);
     int bitOffset = mpp.getBitOffset(dx);
 
-    byte[] bdata = new byte[rectWidth * rectHeight];
+    byte[] bData = new byte[rectWidth * rectHeight];
     int maxY = rectY + rectHeight;
     int maxX = rectX + rectWidth;
     int k = 0;
@@ -325,7 +398,7 @@ public class ImageConversion {
         int bOffset = eltOffset * 8 + bitOffset;
         for (int x = rectX; x < maxX; x++) {
           byte b = data[bOffset / 8];
-          bdata[k++] = (byte) ((b >>> (7 - bOffset & 7)) & 0x0000001);
+          bData[k++] = (byte) ((b >>> (7 - bOffset & 7)) & 0x0000001);
           bOffset++;
         }
         eltOffset += lineStride;
@@ -339,7 +412,7 @@ public class ImageConversion {
         int bOffset = eltOffset * 16 + bitOffset;
         for (int x = rectX; x < maxX; x++) {
           short s = data[bOffset / 16];
-          bdata[k++] = (byte) ((s >>> (15 - bOffset % 16)) & 0x0000001);
+          bData[k++] = (byte) ((s >>> (15 - bOffset % 16)) & 0x0000001);
           bOffset++;
         }
         eltOffset += lineStride;
@@ -350,13 +423,13 @@ public class ImageConversion {
         int bOffset = eltOffset * 32 + bitOffset;
         for (int x = rectX; x < maxX; x++) {
           int i = data[bOffset / 32];
-          bdata[k++] = (byte) ((i >>> (31 - bOffset % 32)) & 0x0000001);
+          bData[k++] = (byte) ((i >>> (31 - bOffset % 32)) & 0x0000001);
           bOffset++;
         }
         eltOffset += lineStride;
       }
     }
 
-    return bdata;
+    return bData;
   }
 }

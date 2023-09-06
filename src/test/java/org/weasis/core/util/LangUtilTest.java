@@ -14,9 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.awt.Point;
 import java.nio.ByteBuffer;
@@ -27,6 +24,7 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 import javax.xml.stream.util.EventReaderDelegate;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class LangUtilTest {
 
@@ -41,12 +39,12 @@ class LangUtilTest {
   /** Method under test: {@link LangUtil#emptyIfNull(Iterable)} */
   @Test
   void testEmptyIfNull2() {
-    Iterable<Object> iterable = mock(Iterable.class);
+    Iterable<Object> iterable = Mockito.mock(Iterable.class);
     EventReaderDelegate eventReaderDelegate = new EventReaderDelegate();
-    when(iterable.iterator()).thenReturn(eventReaderDelegate);
+    Mockito.when(iterable.iterator()).thenReturn(eventReaderDelegate);
     Iterable<Object> actualEmptyIfNullResult = LangUtil.emptyIfNull(iterable);
     Iterator<Object> actualIteratorResult = actualEmptyIfNullResult.iterator();
-    verify(iterable).iterator();
+    Mockito.verify(iterable).iterator();
     assertSame(eventReaderDelegate, actualIteratorResult);
   }
 
@@ -54,8 +52,8 @@ class LangUtilTest {
   @Test
   void testMemoize() {
     Point p = new Point(3, 3);
-    Supplier<Point> original = mock(Supplier.class);
-    when(original.get()).thenReturn(p);
+    Supplier<Point> original = Mockito.mock(Supplier.class);
+    Mockito.when(original.get()).thenReturn(p);
     Supplier<Point> actualMemoizeResult = LangUtil.memoize(original);
     Point actualGetResult = actualMemoizeResult.get();
     assertSame(p, actualGetResult);

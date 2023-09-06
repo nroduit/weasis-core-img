@@ -23,6 +23,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.core.util.FileUtil;
 
 class FileRawImageTest {
   @BeforeAll
@@ -67,5 +68,7 @@ class FileRawImageTest {
       img.get(1, 1, data);
       assertArrayEquals(new short[] {3, 4, 5}, data);
     }
+
+    FileUtil.delete(file);
   }
 }

@@ -61,7 +61,7 @@ public final class FileUtil {
   private FileUtil() {}
 
   /**
-   * Transform a string into a writable string for all the operating system. All the special and
+   * Transform a fileName into a writable fileName for all the operating system. All the special and
    * control characters are excluded.
    *
    * @param fileName a filename or directory name
@@ -73,8 +73,8 @@ public final class FileUtil {
       for (int i = 0; i < fileName.length(); i++) {
         char c = fileName.charAt(i);
         if (!(Arrays.binarySearch(ILLEGAL_CHARS, c) >= 0
-            || (c < ' ') // ctrls
-            || (c > '~' && c < '\u00a0'))) { // ctrls
+            || (c < ' ') // control characters
+            || (c > '~' && c < '\u00a0'))) { // control characters
           cleanName.append(c);
         }
       }
@@ -82,6 +82,13 @@ public final class FileUtil {
     return cleanName.toString().trim();
   }
 
+  /**
+   * Transform a fileName into a fileName for all the operating system. All the special and control
+   * characters are excluded. HTML or XML tags are also removed.
+   *
+   * @param fileName a file name
+   * @return a writable file name
+   */
   public static String getValidFileNameWithoutHTML(String fileName) {
     String val = null;
     if (fileName != null) {
@@ -91,16 +98,27 @@ public final class FileUtil {
     return getValidFileName(val);
   }
 
-  public static void safeClose(final AutoCloseable object) {
-    if (object != null) {
+  /**
+   * Close an AutoCloseable object and log the exception if any.
+   *
+   * @param autoCloseable the object to close
+   */
+  public static void safeClose(final AutoCloseable autoCloseable) {
+    if (autoCloseable != null) {
       try {
-        object.close();
+        autoCloseable.close();
       } catch (Exception e) {
         LOGGER.error("Cannot close AutoCloseable", e);
       }
     }
   }
 
+  /**
+   * Create a unique temporary directory in the specified directory.
+   *
+   * @param baseDir the base directory where the temporary directory is created
+   * @return the temporary directory
+   */
   public static File createTempDir(File baseDir) {
     if (baseDir != null && baseDir.isDirectory()) {
       String baseName = String.valueOf(System.currentTimeMillis());
@@ -114,6 +132,13 @@ public final class FileUtil {
     throw new IllegalStateException("Failed to create directory");
   }
 
+  /**
+   * Delete the content of a directory and the directory itself if the level is reached.
+   *
+   * @param dir the directory
+   * @param deleteDirLevel the level of subdirectories to delete
+   * @param level the current level
+   */
   public static void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
     if ((dir == null) || !dir.isDirectory()) {
       return;
@@ -133,10 +158,23 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Get all files in a directory and its subdirectories.
+   *
+   * @param directory the directory
+   * @param files the list of files to fill
+   */
   public static void getAllFilesInDirectory(File directory, List<File> files) {
     getAllFilesInDirectory(directory, files, true);
   }
 
+  /**
+   * Get all files in a directory.
+   *
+   * @param directory the directory
+   * @param files the list of files to fill
+   * @param recursive true to get files in subdirectories
+   */
   public static void getAllFilesInDirectory(File directory, List<File> files, boolean recursive) {
     File[] fList = directory.listFiles();
     if (fList != null) {
@@ -150,7 +188,7 @@ public final class FileUtil {
     }
   }
 
-  private static boolean deleteFile(File fileOrDirectory) {
+  static boolean deleteFile(File fileOrDirectory) {
     try {
       Files.delete(fileOrDirectory.toPath());
     } catch (Exception e) {
@@ -160,6 +198,12 @@ public final class FileUtil {
     return true;
   }
 
+  /**
+   * Delete a file or a directory and all its content.
+   *
+   * @param fileOrDirectory the file or directory to delete
+   * @return true if the file or directory is successfully deleted; false otherwise
+   */
   public static boolean delete(File fileOrDirectory) {
     if (fileOrDirectory == null || !fileOrDirectory.exists()) {
       return false;
@@ -176,10 +220,21 @@ public final class FileUtil {
     return deleteFile(fileOrDirectory);
   }
 
+  /**
+   * Delete all files and subdirectories of a specific folder.
+   *
+   * @param rootDir the root directory to delete
+   */
   public static void recursiveDelete(File rootDir) {
     recursiveDelete(rootDir, true);
   }
 
+  /**
+   * Delete all files and subdirectories of a specific folder.
+   *
+   * @param rootDir the root directory to delete
+   * @param deleteRoot true to delete the root directory at the end and false to keep it
+   */
   public static void recursiveDelete(File rootDir, boolean deleteRoot) {
     if ((rootDir == null) || !rootDir.isDirectory()) {
       return;
@@ -201,6 +256,11 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Close an XMLStreamWriter object and log the exception if any.
+   *
+   * @param writer the object to close
+   */
   public static void safeClose(XMLStreamWriter writer) {
     if (writer != null) {
       try {
@@ -211,16 +271,27 @@ public final class FileUtil {
     }
   }
 
-  public static void safeClose(XMLStreamReader xmler) {
-    if (xmler != null) {
+  /**
+   * Close an XMLStreamReader object and log the exception if any.
+   *
+   * @param reader the object to close
+   */
+  public static void safeClose(XMLStreamReader reader) {
+    if (reader != null) {
       try {
-        xmler.close();
+        reader.close();
       } catch (XMLStreamException e) {
         LOGGER.error("Cannot close XMLStreamException", e);
       }
     }
   }
 
+  /**
+   * Prepare a file to be written by creating the parent directory if necessary.
+   *
+   * @param file the source file
+   * @throws IOException if an I/O error occurs
+   */
   public static void prepareToWriteFile(File file) throws IOException {
     if (!file.exists()) {
       // Check the file that doesn't exist yet.
@@ -233,35 +304,58 @@ public final class FileUtil {
     }
   }
 
-  public static String nameWithoutExtension(String fn) {
-    if (fn == null) {
+  /**
+   * Get the name of a file without the extension (e.g. convert image.png to image).
+   *
+   * @param filename The file name.
+   * @return The name of the file without extension.
+   */
+  public static String nameWithoutExtension(String filename) {
+    if (filename == null) {
       return null;
     }
-    int i = fn.lastIndexOf('.');
+    int i = filename.lastIndexOf('.');
     if (i > 0) {
-      return fn.substring(0, i);
+      return filename.substring(0, i);
     }
-    return fn;
+    return filename;
   }
 
-  public static String getExtension(String fn) {
-    if (fn == null) {
+  /**
+   * Get the extension of a file name, like ".png" or ".jpg".
+   *
+   * @param filename The file name to retrieve the extension of.
+   * @return The extension of the file name starting by '.' or empty string if none.
+   */
+  public static String getExtension(String filename) {
+    if (filename == null) {
       return "";
     }
-    int i = fn.lastIndexOf('.');
+    int i = filename.lastIndexOf('.');
     if (i > 0) {
-      return fn.substring(i);
+      return filename.substring(i);
     }
     return "";
   }
 
+  /**
+   * Check if the extension of the file name is matching one of the extensions in the array. The
+   * extension can start with '.' or not and is not case-sensitive.
+   *
+   * @param file the file
+   * @param extensions the extensions array, e.g. {"png", "jpg"} or {".png", ".jpg"}
+   * @return The extension of the file name without '.' or empty string if none.
+   */
   public static boolean isFileExtensionMatching(File file, String[] extensions) {
     if (file != null && extensions != null) {
-      String fileExt = getExtension(file.getName()).toLowerCase();
+      String fileExt = getExtension(file.getName());
       if (StringUtil.hasLength(fileExt)) {
         for (String extension : extensions) {
-          if (fileExt.endsWith(extension)) {
-            return true;
+          if (StringUtil.hasText(extension)) {
+            String ext = extension.startsWith(".") ? extension : "." + extension;
+            if (fileExt.equalsIgnoreCase(ext)) {
+              return true;
+            }
           }
         }
       }
@@ -272,9 +366,9 @@ public final class FileUtil {
   /**
    * Write inputStream content into a file
    *
-   * @param inputStream
-   * @param outFile
-   * @throws StreamIOException
+   * @param inputStream the input stream
+   * @param outFile the output file
+   * @throws StreamIOException if an I/O error occurs
    */
   public static void writeStreamWithIOException(InputStream inputStream, File outFile)
       throws StreamIOException {
@@ -294,16 +388,28 @@ public final class FileUtil {
   }
 
   /**
-   * @param inputStream
-   * @param outFile
-   * @return bytes transferred. O = error, -1 = all bytes has been transferred, other = bytes
-   *     transferred before interruption
-   * @throws StreamIOException
+   * Write inputStream content into a file
+   *
+   * @param inputStream the input stream
+   * @param outFile the output file
+   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
    */
   public static int writeStream(InputStream inputStream, File outFile) throws StreamIOException {
     return writeStream(inputStream, outFile, true);
   }
 
+  /**
+   * Write inputStream content into a file and close the input stream if closeInputStream is true.
+   *
+   * @param inputStream the input stream
+   * @param outFile the output
+   * @param closeInputStream true to close the input stream
+   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   */
   public static int writeStream(InputStream inputStream, File outFile, boolean closeInputStream)
       throws StreamIOException {
     try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
@@ -332,6 +438,15 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Write inputStream content into a file
+   *
+   * @param inputStream the input stream
+   * @param outFile the output file
+   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   */
   public static int writeFile(ImageInputStream inputStream, File outFile) throws StreamIOException {
     try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
       byte[] buf = new byte[FILE_BUFFER];
@@ -357,14 +472,22 @@ public final class FileUtil {
     }
   }
 
-  // From: https://programming.guide/worlds-most-copied-so-snippet.html
-  public static String humanReadableByte(long bytes, boolean si) {
+  /**
+   * Print a byte count in a human-readable format
+   *
+   * @see <a href="https://programming.guide/worlds-most-copied-so-snippet.html">World's most copied
+   *     StackOverflow snippet</a>
+   * @param bytes number of bytes
+   * @param si true for SI units (powers of 1000), false for binary units (powers of 1024)
+   * @return the human-readable size of the byte count
+   */
+  public static strictfp String humanReadableByte(long bytes, boolean si) {
     int unit = si ? 1000 : 1024;
     long absBytes = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
     if (absBytes < unit) return bytes + " B";
     int exp = (int) (Math.log(absBytes) / Math.log(unit));
-    long th = (long) (Math.pow(unit, exp) * (unit - 0.05));
-    if (exp < 6 && absBytes >= th - ((th & 0xfff) == 0xd00 ? 52 : 0)) exp++;
+    long th = (long) Math.ceil(Math.pow(unit, exp) * (unit - 0.05));
+    if (exp < 6 && absBytes >= th - ((th & 0xFFF) == 0xD00 ? 51 : 0)) exp++;
     String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
     if (exp > 4) {
       bytes /= unit;
@@ -373,6 +496,13 @@ public final class FileUtil {
     return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
   }
 
+  /**
+   * Write inputStream content into a <code>FileOutputStream</code>
+   *
+   * @param inputStream the input stream
+   * @param out the output stream
+   * @return true if the copy is successful
+   */
   public static boolean nioWriteFile(FileInputStream inputStream, FileOutputStream out) {
     if (inputStream == null || out == null) {
       return false;
@@ -390,6 +520,14 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Write inputStream content into a <code>OutputStream</code> with a specific buffer size
+   *
+   * @param in the input stream
+   * @param out the output stream
+   * @param bufferSize the buffer size when reading the input stream
+   * @return true if the copy is successful
+   */
   public static boolean nioWriteFile(InputStream in, OutputStream out, final int bufferSize) {
     if (in == null || out == null) {
       return false;
@@ -414,6 +552,13 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Write the source file into the destination file
+   *
+   * @param source the source file
+   * @param destination the destination file
+   * @return true if the copy is successful
+   */
   public static boolean nioCopyFile(File source, File destination) {
     if (source == null || destination == null) {
       return false;
@@ -427,6 +572,13 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Read the content of a file into <code>Properties</code>
+   *
+   * @param propsFile the <code>Properties</code> file
+   * @param props the properties to copy in. If null, a new <code>Properties</code> is created
+   * @return the <code>Properties</code> from the file
+   */
   public static Properties readProperties(File propsFile, Properties props) {
     Properties p = props == null ? new Properties() : props;
     if (propsFile != null && propsFile.canRead()) {
@@ -439,18 +591,32 @@ public final class FileUtil {
     return p;
   }
 
+  /**
+   * Write the content of <code>Properties</code> into a file
+   *
+   * @param propsFile the properties file
+   * @param props the properties to copy in. If null, a new Properties is created
+   * @param comments the comments to write at the beginning of the file
+   */
   public static void storeProperties(File propsFile, Properties props, String comments) {
     if (props != null && propsFile != null) {
-      try (FileOutputStream fout = new FileOutputStream(propsFile)) {
-        props.store(fout, comments);
+      try (FileOutputStream stream = new FileOutputStream(propsFile)) {
+        props.store(stream, comments);
       } catch (IOException e) {
         LOGGER.error("Error when writing properties", e);
       }
     }
   }
 
-  public static void zip(File directory, File zipfile) throws IOException {
-    if (zipfile == null || directory == null) {
+  /**
+   * Create a zip file from a directory
+   *
+   * @param directory the directory to zip
+   * @param zipFile file the zip file to create
+   * @throws IOException if an I/O error occurs
+   */
+  public static void zip(File directory, File zipFile) throws IOException {
+    if (zipFile == null || directory == null) {
       return;
     }
     URI base = directory.toURI();
@@ -458,10 +624,9 @@ public final class FileUtil {
     queue.push(directory);
 
     // The resources will be closed in reverse order of the order in which they are created in
-    // try().
-    // Zip stream must be close before out stream.
-    try (OutputStream out = new FileOutputStream(zipfile);
-        ZipOutputStream zout = new ZipOutputStream(out)) {
+    // try(). Zip stream must be close before out stream.
+    try (OutputStream out = Files.newOutputStream(zipFile.toPath());
+        ZipOutputStream zipOut = new ZipOutputStream(out)) {
       while (!queue.isEmpty()) {
         File dir = queue.pop();
         File[] files = dir.listFiles();
@@ -473,12 +638,12 @@ public final class FileUtil {
               String[] flist = entry.list();
               if (flist == null || flist.length == 0) {
                 name = name.endsWith("/") ? name : name + "/";
-                zout.putNextEntry(new ZipEntry(name));
+                zipOut.putNextEntry(new ZipEntry(name));
               }
             } else {
-              zout.putNextEntry(new ZipEntry(name));
-              copyZip(entry, zout);
-              zout.closeEntry();
+              zipOut.putNextEntry(new ZipEntry(name));
+              copyZip(entry, zipOut);
+              zipOut.closeEntry();
             }
           }
         }
@@ -486,6 +651,13 @@ public final class FileUtil {
     }
   }
 
+  /**
+   * Unzip a zip inputStream into a directory
+   *
+   * @param inputStream the zip input stream
+   * @param directory the directory to unzip all files
+   * @throws IOException if an I/O error occurs
+   */
   public static void unzip(InputStream inputStream, File directory) throws IOException {
     if (inputStream == null || directory == null) {
       return;
@@ -514,13 +686,20 @@ public final class FileUtil {
     }
   }
 
-  public static void unzip(File zipfile, File directory) throws IOException {
-    if (zipfile == null || directory == null) {
+  /**
+   * Unzip a zip file into a directory
+   *
+   * @param zipFile the zip file to unzip
+   * @param directory the directory to unzip all files
+   * @throws IOException if an I/O error occurs
+   */
+  public static void unzip(File zipFile, File directory) throws IOException {
+    if (zipFile == null || directory == null) {
       return;
     }
-    try (ZipFile zfile = new ZipFile(zipfile)) {
+    try (ZipFile zFile = new ZipFile(zipFile)) {
       String canonicalDirPath = directory.getCanonicalPath();
-      Enumeration<? extends ZipEntry> entries = zfile.entries();
+      Enumeration<? extends ZipEntry> entries = zFile.entries();
       while (entries.hasMoreElements()) {
         ZipEntry entry = entries.nextElement();
         File file = new File(directory, entry.getName());
@@ -533,7 +712,7 @@ public final class FileUtil {
           file.mkdirs();
         } else {
           file.getParentFile().mkdirs();
-          try (InputStream in = zfile.getInputStream(entry)) {
+          try (InputStream in = zFile.getInputStream(entry)) {
             copyZip(in, file);
           }
         }
@@ -542,9 +721,6 @@ public final class FileUtil {
   }
 
   private static void copy(InputStream in, OutputStream out) throws IOException {
-    if (in == null || out == null) {
-      return;
-    }
     byte[] buf = new byte[FILE_BUFFER];
     int offset;
     while ((offset = in.read(buf)) > 0) {
@@ -553,6 +729,14 @@ public final class FileUtil {
     out.flush();
   }
 
+  /**
+   * Copy a folder and its content to another folder with copy options.
+   *
+   * @param source the source folder
+   * @param target the target folder
+   * @param options the copy options
+   * @throws IOException if an I/O error occurs
+   */
   public static void copyFolder(Path source, Path target, CopyOption... options)
       throws IOException {
     Files.walkFileTree(
@@ -576,13 +760,13 @@ public final class FileUtil {
   }
 
   private static void copyZip(File file, OutputStream out) throws IOException {
-    try (InputStream in = new FileInputStream(file)) {
+    try (InputStream in = Files.newInputStream(file.toPath())) {
       copy(in, out);
     }
   }
 
   private static void copyZip(InputStream in, File file) throws IOException {
-    try (OutputStream out = new FileOutputStream(file)) {
+    try (OutputStream out = Files.newOutputStream(file.toPath())) {
       copy(in, out);
     }
   }
@@ -608,7 +792,7 @@ public final class FileUtil {
     }
   }
 
-  private static boolean deleteFile(Path path) {
+  static boolean deleteFile(Path path) {
     try {
       return Files.deleteIfExists(path);
     } catch (IOException e) {
@@ -617,6 +801,12 @@ public final class FileUtil {
     return false;
   }
 
+  /**
+   * Delete a file or a directory and all its content.
+   *
+   * @param fileOrDirectory the file or directory to delete
+   * @return true if the file or directory is successfully deleted; false otherwise
+   */
   public static boolean delete(Path fileOrDirectory) {
     if (!Files.isDirectory(fileOrDirectory)) {
       return deleteFile(fileOrDirectory);
@@ -631,14 +821,30 @@ public final class FileUtil {
     return false;
   }
 
-  public static Path getOutputPath(Path src, Path dst) {
-    if (Files.isDirectory(dst)) {
-      return FileSystems.getDefault().getPath(dst.toString(), src.getFileName().toString());
+  /**
+   * Get the combined path. If output is a file, it is returned as is. If output is a directory, the
+   * input filename is added to the output path.
+   *
+   * @param input The input filename
+   * @param output The output path
+   * @return The name of the file without extension.
+   */
+  public static Path getOutputPath(Path input, Path output) {
+    if (Files.isDirectory(output)) {
+      return FileSystems.getDefault().getPath(output.toString(), input.getFileName().toString());
     } else {
-      return dst;
+      return output;
     }
   }
 
+  /**
+   * Add a file index to the file name. The index number is added before the file extension.
+   *
+   * @param path the file path
+   * @param index the index to add the filename
+   * @param indexSize the minimal number of digits of the index (0 padding)
+   * @return the new path
+   */
   public static Path addFileIndex(Path path, int index, int indexSize) {
     if (indexSize < 1) {
       return path;
