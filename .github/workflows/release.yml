@@ -19,12 +19,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'maven'
-      - name: Build weasis-dicom-tools
+      - name: Build weasis-core-img
         run: mvn -B clean install -f main
       - name: Extract Maven project version
         run: |
           cd main
-          echo ::set-output name=version::$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+          MVN_VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
+          echo "LIB_VERSION=${MVN_VERSION}" >> $GITHUB_ENV
         id: project
       - name: Checkout mvn-repo repository
         uses: actions/checkout@v3
@@ -39,7 +40,7 @@ jobs:
           cd mvn-repo
           REPO=$(pwd)
           PKGFOLDER="org/weasis/core/weasis-core-img"
-          TAG_VERSION=${{ steps.project.outputs.version }}
+          TAG_VERSION=${{ env.LIB_VERSION }}
           F_META="maven-metadata.xml"
           cd ~/.m2/repository/${PKGFOLDER}
           find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${PKGFOLDER}
