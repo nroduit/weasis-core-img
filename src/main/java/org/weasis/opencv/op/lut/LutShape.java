@@ -96,8 +96,7 @@ public final class LutShape {
    */
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof LutShape) {
-      LutShape shape = (LutShape) obj;
+    if (obj instanceof LutShape shape) {
       return (function != null) ? function.equals(shape.function) : lookup.equals(shape.lookup);
     }
     return super.equals(obj);

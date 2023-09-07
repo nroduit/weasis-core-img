@@ -68,8 +68,8 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
   void close();
 
   default Mat toMat() {
-    if (this instanceof Mat) {
-      return (Mat) this;
+    if (this instanceof Mat mat) {
+      return mat;
     } else {
       throw new IllegalAccessError("Not implemented yet");
     }
@@ -77,8 +77,8 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   default ImageCV toImageCV() {
     if (this instanceof Mat) {
-      if (this instanceof ImageCV) {
-        return (ImageCV) this;
+      if (this instanceof ImageCV img) {
+        return img;
       }
       ImageCV dstImg = new ImageCV();
       this.assignTo(dstImg);

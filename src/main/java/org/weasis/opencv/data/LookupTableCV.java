@@ -79,28 +79,28 @@ public class LookupTableCV {
   }
 
   public byte[][] getByteData() {
-    return data instanceof DataBufferByte ? ((DataBufferByte) data).getBankData() : null;
+    return data instanceof DataBufferByte buffer ? buffer.getBankData() : null;
   }
 
   public byte[] getByteData(int band) {
-    return data instanceof DataBufferByte ? ((DataBufferByte) data).getData(band) : null;
+    return data instanceof DataBufferByte buffer ? buffer.getData(band) : null;
   }
 
   public short[][] getShortData() {
-    if (data instanceof DataBufferUShort) {
-      return ((DataBufferUShort) data).getBankData();
-    } else if (data instanceof DataBufferShort) {
-      return ((DataBufferShort) data).getBankData();
+    if (data instanceof DataBufferUShort bufferUShort) {
+      return bufferUShort.getBankData();
+    } else if (data instanceof DataBufferShort bufferShort) {
+      return bufferShort.getBankData();
     } else {
       return null;
     }
   }
 
   public short[] getShortData(int band) {
-    if (data instanceof DataBufferUShort) {
-      return ((DataBufferUShort) data).getData(band);
-    } else if (data instanceof DataBufferShort) {
-      return ((DataBufferShort) data).getData(band);
+    if (data instanceof DataBufferUShort bufferUShort) {
+      return bufferUShort.getData(band);
+    } else if (data instanceof DataBufferShort bufferShort) {
+      return bufferShort.getData(band);
     } else {
       return null;
     }

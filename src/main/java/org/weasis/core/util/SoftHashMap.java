@@ -23,7 +23,6 @@ import java.util.Set;
  * @author Nicolas Roduit
  */
 public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
-  private static final long serialVersionUID = 1354029864973587614L;
 
   /** The internal HashMap that will hold the SoftReference. */
   protected final transient Map<K, SoftReference<V>> hash = new HashMap<>();

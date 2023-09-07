@@ -13,17 +13,12 @@ import java.io.File;
 import java.util.Objects;
 import org.weasis.opencv.op.ImageProcessor;
 
-public class FileRawImage {
-  public static final int HEADER_LENGTH = 46;
+public record FileRawImage(File file) {
 
-  private final File file;
+  public static final int HEADER_LENGTH = 46;
 
   public FileRawImage(File file) {
     this.file = Objects.requireNonNull(file);
-  }
-
-  public File getFile() {
-    return file;
   }
 
   public ImageCV read() {

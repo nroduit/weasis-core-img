@@ -20,7 +20,7 @@
   <packaging>bundle</packaging>
 
   <properties>
-    <java-version>8</java-version>
+    <java-version>17</java-version>
     <jdk-version>17</jdk-version>
     <enforcer.jdk-version>[${jdk-version},)</enforcer.jdk-version>
     <enforcer.maven-version>[3.5.3,)</enforcer.maven-version>

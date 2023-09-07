@@ -38,7 +38,7 @@ class FileRawImageTest {
    *
    * <ul>
    *   <li>{@link FileRawImage#FileRawImage(File)}
-   *   <li>{@link FileRawImage#getFile()}
+   *   <li>{@link FileRawImage#file()}
    *   <li>{@link FileRawImage#read()}
    *   <li>{@link FileRawImage#write(PlanarImage)}
    * </ul>
@@ -47,7 +47,7 @@ class FileRawImageTest {
   void testWriteAndRead() {
     File file = Paths.get(System.getProperty("java.io.tmpdir"), "fileRawImage.wcv").toFile();
     FileRawImage rawImg = new FileRawImage(file);
-    assertSame(file, rawImg.getFile());
+    assertSame(file, rawImg.file());
 
     try (ImageCV img = new ImageCV(new Size(3, 3), CvType.CV_16UC3, new Scalar(3, 4, 5))) {
       assertTrue(rawImg.write(img));
