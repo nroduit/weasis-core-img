@@ -9,7 +9,6 @@
  */
 package org.weasis.opencv.op.tile;
 
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
 import org.weasis.core.util.annotations.Generated;
@@ -88,50 +87,6 @@ public class TiledAlgorithm {
   }
 
   private void copySourceTile(Mat sourceImage, Mat tileInput, Rect tile) {
-    int x = tile.x;
-    int y = tile.y;
-
-    int tx = 0;
-    int ty = 0;
-
-    int bx = 0;
-    int by = 0;
-
-    // Take care of border cases
-    if (tile.x < 0) {
-      tx = -tile.x;
-      tile.x = 0;
-    }
-
-    if (tile.y < 0) {
-      ty = -tile.y;
-      tile.y = 0;
-    }
-
-    if (x >= sourceImage.cols()) {
-      bx = x - sourceImage.cols() + 1;
-      tile.width -= bx;
-    }
-
-    if (y >= sourceImage.rows()) {
-      by = y - sourceImage.rows() + 1;
-      tile.height -= by;
-    }
-
-    // If any of the tile sides exceed source image boundary we must use copyMakeBorder to make
-    // proper paddings
-    // for this side
-    if (tx > 0 || ty > 0 || bx > 0 || by > 0) {
-      Rect paddedTile = new Rect(tile.tl(), tile.br());
-      assert (paddedTile.x >= 0);
-      assert (paddedTile.y >= 0);
-      assert (paddedTile.br().x < sourceImage.cols());
-      assert (paddedTile.br().y < sourceImage.rows());
-
-      Core.copyMakeBorder(sourceImage.submat(paddedTile), tileInput, ty, by, tx, bx, mBorderType);
-    } else {
-      // Entire tile (with paddings lies inside image and it's safe to just take a region:
-      sourceImage.submat(tile).copyTo(tileInput);
-    }
+    TiledProcessor.copyTileFromSource(sourceImage, tileInput, tile, mBorderType, tile.x, tile.y);
   }
 }

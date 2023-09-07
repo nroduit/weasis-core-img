@@ -441,17 +441,18 @@ public final class FileUtil {
   /**
    * Write inputStream content into a file
    *
-   * @param inputStream the input stream
+   * @param imageInputStream the input stream
    * @param outFile the output file
    * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
    *     written before interruption
    * @throws StreamIOException if an I/O error occurs
    */
-  public static int writeFile(ImageInputStream inputStream, File outFile) throws StreamIOException {
+  public static int writeFile(ImageInputStream imageInputStream, File outFile)
+      throws StreamIOException {
     try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
       byte[] buf = new byte[FILE_BUFFER];
       int offset;
-      while ((offset = inputStream.read(buf)) > 0) {
+      while ((offset = imageInputStream.read(buf)) > 0) {
         outputStream.write(buf, 0, offset);
       }
       outputStream.flush();
@@ -468,7 +469,7 @@ public final class FileUtil {
       FileUtil.delete(outFile);
       throw new StreamIOException(e);
     } finally {
-      FileUtil.safeClose(inputStream);
+      FileUtil.safeClose(imageInputStream);
     }
   }
 

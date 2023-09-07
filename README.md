@@ -13,3 +13,5 @@ Code formatter: [google-java-format](https://github.com/google/google-java-forma
 Prerequisites: JDK 8 or higher and Maven 3
 
 Execute the maven command `mvn clean install` in the root directory of the project.
+
+Note: This project has a native library dependency which must be included in your application and launched with a specific JVM option (e.g. '-Djava.library.path="path/of/native/lib"'). Additional systems and architectures of the native library are available directly from [this Maven repository](https://github.com/nroduit/mvn-repo/tree/master/org/weasis/thirdparty/org/opencv/libopencv_java). 

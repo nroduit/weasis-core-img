@@ -60,7 +60,7 @@ public class TiledProcessor {
                 tileSize + 2 * mPadding,
                 tileSize + 2 * mPadding);
         Rect dstTile = new Rect(colTile * tileSize, rowTile * tileSize, tileSize, tileSize);
-        copyTileFromSource(sourceImage, tileInput, srcTile, boderType);
+        copyTileFromSource(sourceImage, tileInput, srcTile, boderType, 0, 0);
         processTileImpl(tileInput, tileOutput);
         copyTileToResultImage(
             tileOutput, resultImage, new Rect(mPadding, mPadding, tileSize, tileSize), dstTile);
@@ -94,7 +94,8 @@ public class TiledProcessor {
     Imgproc.blur(tileInput, tileOutput, new Size(7.0, 7.0));
   }
 
-  private void copyTileFromSource(Mat sourceImage, Mat tileInput, Rect tile, int mBorderType) {
+  static void copyTileFromSource(
+      Mat sourceImage, Mat tileInput, Rect tile, int mBorderType, int borderX, int borderY) {
     int tx = 0;
     int ty = 0;
 
@@ -112,13 +113,13 @@ public class TiledProcessor {
       tile.y = 0;
     }
 
-    if (bx >= sourceImage.cols()) {
-      bx = bx - sourceImage.cols() + 1;
+    if (borderX >= sourceImage.cols()) {
+      bx = borderX - sourceImage.cols() + 1;
       tile.width -= bx;
     }
 
-    if (by >= sourceImage.rows()) {
-      by = by - sourceImage.rows() + 1;
+    if (borderY >= sourceImage.rows()) {
+      by = borderY - sourceImage.rows() + 1;
       tile.height -= by;
     }
 

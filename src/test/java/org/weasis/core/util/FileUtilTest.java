@@ -373,8 +373,12 @@ class FileUtilTest {
    */
   @Test
   void testZip() throws IOException {
+    FileUtil.zip(null, null);
+
     Path folder = Paths.get(System.getProperty("java.io.tmpdir"), "tempZipFolder");
     File file = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.zip").toFile();
+    FileUtil.zip(null, file);
+    FileUtil.unzip(file, null);
 
     Files.createDirectories(folder);
     Path file1 = Paths.get(folder.toString(), "test1.jpg");
@@ -450,7 +454,11 @@ class FileUtilTest {
     File propsFile = Paths.get(System.getProperty("java.io.tmpdir"), "test.properties").toFile();
     try {
       FileUtil.storeProperties(propsFile, props, "comment");
-      Properties actualReadPropertiesResult = FileUtil.readProperties(propsFile, props);
+      Properties actualReadPropertiesResult = FileUtil.readProperties(propsFile, null);
+      assertEquals("value", actualReadPropertiesResult.getProperty("key"));
+
+      actualReadPropertiesResult.clear();
+      FileUtil.readProperties(propsFile, actualReadPropertiesResult);
       assertEquals("value", actualReadPropertiesResult.getProperty("key"));
     } finally {
       assertTrue(FileUtil.delete(propsFile.toPath()));

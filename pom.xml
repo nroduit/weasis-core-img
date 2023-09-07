@@ -37,8 +37,8 @@
     <sonar.java.source>${java-version}</sonar.java.source>
     <sonar.test.exclusions>src/test/**/*</sonar.test.exclusions>
 
+    <!-- Tests require the native library and can only be run on Linux, Windows and macOS-->
     <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
-    <skipTests>false</skipTests>
   </properties>
 
   <licenses>
@@ -306,27 +306,64 @@
         <executions>
         </executions>
       </plugin>
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <skipTests>${skipTests}</skipTests>
-        </configuration>
-      </plugin>
     </plugins>
   </build>
 
   <profiles>
-
     <profile>
-      <id>mac</id>
+      <id>linux-x86_64</id>
       <activation>
         <os>
-          <family>mac</family>
+          <name>linux</name>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <properties>
+        <os-name>linux</os-name>
+        <cpu-name>x86-64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>so</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>linux-aarch64</id>
+      <activation>
+        <os>
+          <name>linux</name>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <os-name>linux</os-name>
+        <cpu-name>aarch64</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>so</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>linux-arm32</id>
+      <activation>
+        <os>
+          <name>linux</name>
+          <arch>arm</arch>
+        </os>
+      </activation>
+      <properties>
+        <os-name>linux</os-name>
+        <cpu-name>armv7a</cpu-name>
+        <lib-file-name>libopencv_java</lib-file-name>
+        <lib-file-ext>so</lib-file-ext>
+      </properties>
+    </profile>
+    <profile>
+      <id>macosx-x86_64</id>
+      <activation>
+        <os>
+          <name>mac os x</name>
           <arch>x86_64</arch>
         </os>
       </activation>
       <properties>
-        <skipTests>false</skipTests>
         <os-name>macosx</os-name>
         <cpu-name>x86-64</cpu-name>
         <lib-file-name>libopencv_java</lib-file-name>
@@ -334,15 +371,14 @@
       </properties>
     </profile>
     <profile>
-      <id>mac-aarch64</id>
+      <id>macosx-aarch64</id>
       <activation>
         <os>
-          <family>mac</family>
+          <name>mac os x</name>
           <arch>aarch64</arch>
         </os>
       </activation>
       <properties>
-        <skipTests>false</skipTests>
         <os-name>macosx</os-name>
         <cpu-name>aarch64</cpu-name>
         <lib-file-name>libopencv_java</lib-file-name>
@@ -350,41 +386,7 @@
       </properties>
     </profile>
     <profile>
-      <id>unix</id>
-      <activation>
-        <os>
-          <family>unix</family>
-          <name>Linux</name>
-          <arch>amd64</arch>
-        </os>
-      </activation>
-      <properties>
-        <skipTests>false</skipTests>
-        <os-name>linux</os-name>
-        <cpu-name>x86-64</cpu-name>
-        <lib-file-name>libopencv_java</lib-file-name>
-        <lib-file-ext>so</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
-      <id>unix2</id>
-      <activation>
-        <os>
-          <family>unix</family>
-          <name>Linux</name>
-          <arch>x86_64</arch>
-        </os>
-      </activation>
-      <properties>
-        <skipTests>false</skipTests>
-        <os-name>linux</os-name>
-        <cpu-name>x86-64</cpu-name>
-        <lib-file-name>libopencv_java</lib-file-name>
-        <lib-file-ext>so</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
-      <id>windows</id>
+      <id>windows-x86_64</id>
       <activation>
         <os>
           <family>windows</family>
@@ -392,7 +394,6 @@
         </os>
       </activation>
       <properties>
-        <skipTests>false</skipTests>
         <os-name>windows</os-name>
         <cpu-name>x86-64</cpu-name>
         <lib-file-name>opencv_java</lib-file-name>
@@ -400,17 +401,16 @@
       </properties>
     </profile>
     <profile>
-      <id>windows2</id>
+      <id>windows-x86</id>
       <activation>
         <os>
           <family>windows</family>
-          <arch>x86_64</arch>
+          <arch>x86</arch>
         </os>
       </activation>
       <properties>
-        <skipTests>false</skipTests>
         <os-name>windows</os-name>
-        <cpu-name>x86-64</cpu-name>
+        <cpu-name>x86</cpu-name>
         <lib-file-name>opencv_java</lib-file-name>
         <lib-file-ext>dll</lib-file-ext>
       </properties>
@@ -453,6 +453,7 @@
   </profiles>
 
   <dependencies>
+    <!-- OpenCV native library -->
     <dependency>
       <groupId>org.weasis.thirdparty.org.opencv</groupId>
       <artifactId>libopencv_java</artifactId>
@@ -465,8 +466,32 @@
       <groupId>org.weasis.thirdparty.org.opencv</groupId>
       <artifactId>libopencv_java</artifactId>
       <version>${weasis.opencv.native.version}</version>
+      <type>so</type>
+      <classifier>linux-aarch64</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>libopencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>so</type>
+      <classifier>linux-armv7a</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>libopencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
       <type>dylib</type>
       <classifier>macosx-x86-64</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>libopencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>dylib</type>
+      <classifier>macosx-aarch64</classifier>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -475,6 +500,14 @@
       <version>${weasis.opencv.native.version}</version>
       <type>dll</type>
       <classifier>windows-x86-64</classifier>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.weasis.thirdparty.org.opencv</groupId>
+      <artifactId>opencv_java</artifactId>
+      <version>${weasis.opencv.native.version}</version>
+      <type>dll</type>
+      <classifier>windows-x86</classifier>
       <scope>provided</scope>
     </dependency>
 
