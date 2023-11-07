@@ -58,16 +58,16 @@ public class ImageCV extends Mat implements PlanarImage {
   }
 
   public static Mat toMat(PlanarImage source) {
-    if (source instanceof Mat) {
-      return (Mat) source;
+    if (source instanceof Mat mat) {
+      return mat;
     } else {
       throw new IllegalAccessError("Not implemented yet");
     }
   }
 
   public static ImageCV toImageCV(Mat source) {
-    if (source instanceof ImageCV) {
-      return (ImageCV) source;
+    if (source instanceof ImageCV img) {
+      return img;
     }
     ImageCV dstImg = new ImageCV();
     source.assignTo(dstImg);

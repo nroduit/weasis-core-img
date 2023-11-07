@@ -110,18 +110,14 @@ public final class LutShape {
   public static LutShape getLutShape(String shape) {
     if (shape != null) {
       String val = shape.toUpperCase();
-      switch (val) {
-        case "LINEAR":
-          return LutShape.LINEAR;
-        case "SIGMOID":
-          return LutShape.SIGMOID;
-        case "SIGMOID_NORM":
-          return LutShape.SIGMOID_NORM;
-        case "LOG":
-          return LutShape.LOG;
-        case "LOG_INV":
-          return LutShape.LOG_INV;
-      }
+      return switch (val) {
+        case "LINEAR" -> LutShape.LINEAR;
+        case "SIGMOID" -> LutShape.SIGMOID;
+        case "SIGMOID_NORM" -> LutShape.SIGMOID_NORM;
+        case "LOG" -> LutShape.LOG;
+        case "LOG_INV" -> LutShape.LOG_INV;
+        default -> null;
+      };
     }
     return null;
   }

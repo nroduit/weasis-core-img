@@ -210,20 +210,19 @@ public class ImageProcessor {
     while (!iterator.isDone()) {
       int segType = iterator.currentSegment(pts);
       switch (segType) {
-        case PathIterator.SEG_MOVETO:
+        case PathIterator.SEG_MOVETO -> {
           if (p != null) {
             p.fromArray(cvPts.toArray(new Point[0]));
             points.add(p);
           }
           p = new MatOfPoint();
           cvPts.add(new Point(pts[0] - b.x, pts[1] - b.y));
-          break;
-        case PathIterator.SEG_LINETO:
-        case PathIterator.SEG_CLOSE:
-          cvPts.add(new Point(pts[0] - b.x, pts[1] - b.y));
-          break;
-        default:
-          break; // should never append with FlatteningPathIterator
+        }
+        case PathIterator.SEG_LINETO, PathIterator.SEG_CLOSE -> cvPts.add(
+            new Point(pts[0] - b.x, pts[1] - b.y));
+        default -> {
+          // should never append with FlatteningPathIterator
+        }
       }
       iterator.next();
     }

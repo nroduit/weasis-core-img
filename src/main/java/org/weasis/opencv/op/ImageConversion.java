@@ -91,18 +91,18 @@ public class ImageConversion {
 
     DataBuffer buf = raster.getDataBuffer();
 
-    if (buf instanceof DataBufferByte) {
-      matrix.get(0, 0, ((DataBufferByte) buf).getData());
-    } else if (buf instanceof DataBufferUShort) {
-      matrix.get(0, 0, ((DataBufferUShort) buf).getData());
-    } else if (buf instanceof DataBufferShort) {
-      matrix.get(0, 0, ((DataBufferShort) buf).getData());
-    } else if (buf instanceof DataBufferInt) {
-      matrix.get(0, 0, ((DataBufferInt) buf).getData());
-    } else if (buf instanceof DataBufferFloat) {
-      matrix.get(0, 0, ((DataBufferFloat) buf).getData());
-    } else if (buf instanceof DataBufferDouble) {
-      matrix.get(0, 0, ((DataBufferDouble) buf).getData());
+    if (buf instanceof DataBufferByte bufferByte) {
+      matrix.get(0, 0, bufferByte.getData());
+    } else if (buf instanceof DataBufferUShort bufferUShort) {
+      matrix.get(0, 0, bufferUShort.getData());
+    } else if (buf instanceof DataBufferShort bufferShort) {
+      matrix.get(0, 0, bufferShort.getData());
+    } else if (buf instanceof DataBufferInt bufferInt) {
+      matrix.get(0, 0, bufferInt.getData());
+    } else if (buf instanceof DataBufferFloat bufferFloat) {
+      matrix.get(0, 0, bufferFloat.getData());
+    } else if (buf instanceof DataBufferDouble bufferDouble) {
+      matrix.get(0, 0, bufferDouble.getData());
     }
     return new BufferedImage(colorModel, raster, false, null);
   }
@@ -148,23 +148,15 @@ public class ImageConversion {
    * @return the <code>DataBuffer</code> type
    */
   public static int convertToDataType(int cvType) {
-    switch (CvType.depth(cvType)) {
-      case CvType.CV_8U:
-      case CvType.CV_8S:
-        return DataBuffer.TYPE_BYTE;
-      case CvType.CV_16U:
-        return DataBuffer.TYPE_USHORT;
-      case CvType.CV_16S:
-        return DataBuffer.TYPE_SHORT;
-      case CvType.CV_32S:
-        return DataBuffer.TYPE_INT;
-      case CvType.CV_32F:
-        return DataBuffer.TYPE_FLOAT;
-      case CvType.CV_64F:
-        return DataBuffer.TYPE_DOUBLE;
-      default:
-        throw new java.lang.UnsupportedOperationException("Unsupported CvType value: " + cvType);
-    }
+    return switch (CvType.depth(cvType)) {
+      case CvType.CV_8U, CvType.CV_8S -> DataBuffer.TYPE_BYTE;
+      case CvType.CV_16U -> DataBuffer.TYPE_USHORT;
+      case CvType.CV_16S -> DataBuffer.TYPE_SHORT;
+      case CvType.CV_32S -> DataBuffer.TYPE_INT;
+      case CvType.CV_32F -> DataBuffer.TYPE_FLOAT;
+      case CvType.CV_64F -> DataBuffer.TYPE_DOUBLE;
+      default -> throw new UnsupportedOperationException("Unsupported CvType value: " + cvType);
+    };
   }
 
   /**
@@ -213,8 +205,8 @@ public class ImageConversion {
     DataBuffer buf = raster.getDataBuffer();
     int[] samples = raster.getSampleModel().getSampleSize();
     int[] offsets;
-    if (raster.getSampleModel() instanceof ComponentSampleModel) {
-      offsets = ((ComponentSampleModel) raster.getSampleModel()).getBandOffsets();
+    if (raster.getSampleModel() instanceof ComponentSampleModel model) {
+      offsets = model.getBandOffsets();
     } else {
       offsets = new int[samples.length];
       for (int i = 0; i < offsets.length; i++) {
@@ -229,14 +221,14 @@ public class ImageConversion {
       return mat;
     }
 
-    if (buf instanceof DataBufferByte) {
+    if (buf instanceof DataBufferByte bufferByte) {
       if (Arrays.equals(offsets, new int[] {0, 0, 0})) {
         Mat b = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-        b.put(0, 0, ((DataBufferByte) buf).getData(2));
+        b.put(0, 0, bufferByte.getData(2));
         Mat g = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-        g.put(0, 0, ((DataBufferByte) buf).getData(1));
+        g.put(0, 0, bufferByte.getData(1));
         ImageCV r = new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-        r.put(0, 0, ((DataBufferByte) buf).getData(0));
+        r.put(0, 0, bufferByte.getData(0));
         List<Mat> mv = toBGR ? Arrays.asList(b, g, r) : Arrays.asList(r, g, b);
         ImageCV dstImg = new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_8UC3);
         Core.merge(mv, dstImg);
@@ -256,33 +248,33 @@ public class ImageConversion {
         return dstImg;
       }
       return mat;
-    } else if (buf instanceof DataBufferUShort) {
+    } else if (buf instanceof DataBufferUShort bufferUShort) {
       ImageCV mat =
           new ImageCV(
               raster.getHeight(),
               raster.getWidth(),
               forceShortType ? CvType.CV_16SC(samples.length) : CvType.CV_16UC(samples.length));
-      mat.put(0, 0, ((DataBufferUShort) buf).getData());
+      mat.put(0, 0, bufferUShort.getData());
       return mat;
-    } else if (buf instanceof DataBufferShort) {
+    } else if (buf instanceof DataBufferShort bufferShort) {
       ImageCV mat =
           new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_16SC(samples.length));
-      mat.put(0, 0, ((DataBufferShort) buf).getData());
+      mat.put(0, 0, bufferShort.getData());
       return mat;
-    } else if (buf instanceof DataBufferInt) {
+    } else if (buf instanceof DataBufferInt bufferInt) {
       ImageCV mat =
           new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_32SC(samples.length));
-      mat.put(0, 0, ((DataBufferInt) buf).getData());
+      mat.put(0, 0, bufferInt.getData());
       return mat;
-    } else if (buf instanceof DataBufferFloat) {
+    } else if (buf instanceof DataBufferFloat bufferFloat) {
       ImageCV mat =
           new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_32FC(samples.length));
-      mat.put(0, 0, ((DataBufferFloat) buf).getData());
+      mat.put(0, 0, bufferFloat.getData());
       return mat;
-    } else if (buf instanceof DataBufferDouble) {
+    } else if (buf instanceof DataBufferDouble bufferDouble) {
       ImageCV mat =
           new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_64FC(samples.length));
-      mat.put(0, 0, ((DataBufferDouble) buf).getData());
+      mat.put(0, 0, bufferDouble.getData());
       return mat;
     }
 
@@ -324,8 +316,8 @@ public class ImageConversion {
    * @return <code>true</code> if the supplied <code>SampleModel</code> is a binary sample model
    */
   public static boolean isBinary(SampleModel sm) {
-    return sm instanceof MultiPixelPackedSampleModel
-        && ((MultiPixelPackedSampleModel) sm).getPixelBitStride() == 1
+    return sm instanceof MultiPixelPackedSampleModel model
+        && model.getPixelBitStride() == 1
         && sm.getNumBands() == 1;
   }
 
@@ -339,8 +331,8 @@ public class ImageConversion {
     if (img == null) {
       return null;
     }
-    if (img instanceof BufferedImage) {
-      return (BufferedImage) img;
+    if (img instanceof BufferedImage bufferedImage) {
+      return bufferedImage;
     }
     ColorModel cm = img.getColorModel();
     int width = img.getWidth();
@@ -392,8 +384,8 @@ public class ImageConversion {
     int maxX = rectX + rectWidth;
     int k = 0;
 
-    if (dataBuffer instanceof DataBufferByte) {
-      byte[] data = ((DataBufferByte) dataBuffer).getData();
+    if (dataBuffer instanceof DataBufferByte bufferByte) {
+      byte[] data = bufferByte.getData();
       for (int y = rectY; y < maxY; y++) {
         int bOffset = eltOffset * 8 + bitOffset;
         for (int x = rectX; x < maxX; x++) {
@@ -405,8 +397,8 @@ public class ImageConversion {
       }
     } else if (dataBuffer instanceof DataBufferShort || dataBuffer instanceof DataBufferUShort) {
       short[] data =
-          dataBuffer instanceof DataBufferShort
-              ? ((DataBufferShort) dataBuffer).getData()
+          dataBuffer instanceof DataBufferShort bufferShort
+              ? bufferShort.getData()
               : ((DataBufferUShort) dataBuffer).getData();
       for (int y = rectY; y < maxY; y++) {
         int bOffset = eltOffset * 16 + bitOffset;
@@ -417,8 +409,8 @@ public class ImageConversion {
         }
         eltOffset += lineStride;
       }
-    } else if (dataBuffer instanceof DataBufferInt) {
-      int[] data = ((DataBufferInt) dataBuffer).getData();
+    } else if (dataBuffer instanceof DataBufferInt bufferInt) {
+      int[] data = bufferInt.getData();
       for (int y = rectY; y < maxY; y++) {
         int bOffset = eltOffset * 32 + bitOffset;
         for (int x = rectX; x < maxX; x++) {

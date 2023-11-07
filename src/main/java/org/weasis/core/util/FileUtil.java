@@ -482,7 +482,7 @@ public final class FileUtil {
    * @param si true for SI units (powers of 1000), false for binary units (powers of 1024)
    * @return the human-readable size of the byte count
    */
-  public static strictfp String humanReadableByte(long bytes, boolean si) {
+  public static String humanReadableByte(long bytes, boolean si) {
     int unit = si ? 1000 : 1024;
     long absBytes = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
     if (absBytes < unit) return bytes + " B";
