@@ -349,7 +349,7 @@ public class ImageProcessor {
       Imgproc.fillPoly(mask, pts, new Scalar(255));
     }
 
-    mask = getPixelPaddingMask(source, mask, paddingValue, paddingLimit);
+    mask = getPixelPaddingMask(srcImg, mask, paddingValue, paddingLimit);
     return Arrays.asList(srcImg, mask);
   }
 
