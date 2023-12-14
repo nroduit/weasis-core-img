@@ -10,7 +10,7 @@ Code formatter: [google-java-format](https://github.com/google/google-java-forma
 
 ## Build weasis-core-img ##
 
-Prerequisites: JDK 8 or higher and Maven 3
+Prerequisites: JDK 17 or higher and Maven 3
 
 Execute the maven command `mvn clean install` in the root directory of the project.
 
