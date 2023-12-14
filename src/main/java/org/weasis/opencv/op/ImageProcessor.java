@@ -526,7 +526,15 @@ public class ImageProcessor {
             dstImg.size(),
             CvType.CV_8UC3,
             new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
-    colorImg.copyTo(dstImg, imgOverlay);
+    double alpha = color.getAlpha() / 255.0;
+    if (alpha < 1.0) {
+      ImageCV overlay = new ImageCV();
+      dstImg.copyTo(overlay);
+      Core.copyTo(colorImg, overlay, imgOverlay);
+      Core.addWeighted(overlay, alpha, dstImg, 1 - alpha, 0, dstImg);
+    } else {
+      colorImg.copyTo(dstImg, imgOverlay);
+    }
     return dstImg;
   }
 

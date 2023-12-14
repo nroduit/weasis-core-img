@@ -440,6 +440,13 @@ class ImageProcessorTest {
     }
   }
 
+  private static Color getColor(int red, int green, int blue, Color color, double alpha) {
+    return new Color(
+        (int) (red * (1.0 - alpha) + color.getRed() * alpha),
+        (int) (green * (1.0 - alpha) + color.getGreen() * alpha),
+        (int) (blue * (1.0 - alpha) + color.getBlue() * alpha));
+  }
+
   /**
    * Method under test:
    *
@@ -461,7 +468,8 @@ class ImageProcessorTest {
     overlay.put(1, 0, new byte[] {(byte) 255});
 
     try (ImageCV img = new ImageCV(new Size(w, h), CvType.CV_8UC3, new Scalar(1, 2, 3))) {
-      try (ImageCV result = ImageProcessor.overlay(img, overlay, Color.WHITE)) {
+      Color color = Color.WHITE;
+      try (ImageCV result = ImageProcessor.overlay(img, overlay, color)) {
         assertNotNull(result);
         byte[] data = new byte[3 * 256];
         result.get(0, 0, data);
@@ -471,12 +479,34 @@ class ImageProcessorTest {
         assertEquals(1, data[18]);
         assertEquals(2, data[19]);
         assertEquals(3, data[20]);
-        assertEquals((byte) 255, data[21]);
-        assertEquals((byte) 255, data[22]);
-        assertEquals((byte) 255, data[23]);
-        assertEquals((byte) 255, data[48]);
-        assertEquals((byte) 255, data[49]);
-        assertEquals((byte) 255, data[50]);
+        assertEquals((byte) color.getRed(), data[21]);
+        assertEquals((byte) color.getGreen(), data[22]);
+        assertEquals((byte) color.getBlue(), data[23]);
+        assertEquals((byte) color.getRed(), data[48]);
+        assertEquals((byte) color.getGreen(), data[49]);
+        assertEquals((byte) color.getBlue(), data[50]);
+      }
+
+      // Apply overlay with color
+      color = new Color(255, 204, 0, 67);
+      try (ImageCV result = ImageProcessor.overlay(img, overlay, color)) {
+        double alpha = color.getAlpha() / 255.0;
+        Color real = getColor(3, 2, 1, color, alpha);
+        assertNotNull(result);
+        byte[] data = new byte[3 * 256];
+        result.get(0, 0, data);
+        assertEquals(1, data[0]);
+        assertEquals(2, data[1]);
+        assertEquals(3, data[2]);
+        assertEquals(1, data[18]);
+        assertEquals(2, data[19]);
+        assertEquals(3, data[20]);
+        assertEquals((byte) real.getBlue(), data[21], 1);
+        assertEquals((byte) real.getGreen(), data[22], 1);
+        assertEquals((byte) real.getRed(), data[23], 1);
+        assertEquals((byte) real.getBlue(), data[48], 1);
+        assertEquals((byte) real.getGreen(), data[49], 1);
+        assertEquals((byte) real.getRed(), data[50], 1);
       }
     }
 
