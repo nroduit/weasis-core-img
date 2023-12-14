@@ -236,7 +236,7 @@ public class ImageProcessor {
 
   /** See {@link #meanStdDev(Mat, Shape, Integer, Integer)}. */
   public static double[][] meanStdDev(Mat source) {
-    return meanStdDev(source, null, null, null);
+    return meanStdDev(source, (Shape) null, null, null);
   }
 
   /** See {@link #meanStdDev(Mat, Shape, Integer, Integer)}. */
@@ -258,22 +258,43 @@ public class ImageProcessor {
     if (list.size() < 2) {
       return null;
     }
-    Mat srcImg = list.get(0);
-    Mat mask = list.get(1);
+    return buildMeanStdDev(list.get(0), list.get(1));
+  }
 
+  /**
+   * @param source the image.
+   * @param mask the shape to apply on the image. If null, the whole image is processed.
+   * @param paddingValue the starting value to exclude. PaddingValue is applied only with one
+   *     channel image.
+   * @param paddingLimit the last value to exclude. If null only paddingValue is excluded.
+   * @return a 5 double arrays: min, max, mean, standard deviation, pixel count.
+   */
+  public static double[][] meanStdDev(
+      Mat source, Mat mask, Integer paddingValue, Integer paddingLimit) {
+    if (source == null) {
+      return null;
+    }
+    Mat paddingMask = getPixelPaddingMask(source, mask, paddingValue, paddingLimit);
+    return buildMeanStdDev(source, paddingMask);
+  }
+
+  private static double[][] buildMeanStdDev(Mat source, Mat mask) {
+    if (source == null) {
+      return null;
+    }
     MatOfDouble mean = new MatOfDouble();
     MatOfDouble stddev = new MatOfDouble();
     if (mask == null) {
-      Core.meanStdDev(srcImg, mean, stddev);
+      Core.meanStdDev(source, mean, stddev);
     } else {
-      Core.meanStdDev(srcImg, mean, stddev, mask);
+      Core.meanStdDev(source, mean, stddev, mask);
     }
 
     List<Mat> channels = new ArrayList<>();
-    if (srcImg.channels() > 1) {
-      Core.split(srcImg, channels);
+    if (source.channels() > 1) {
+      Core.split(source, channels);
     } else {
-      channels.add(srcImg);
+      channels.add(source);
     }
 
     double[][] val = new double[5][channels.size()];
@@ -291,11 +312,10 @@ public class ImageProcessor {
     val[2] = mean.toArray();
     val[3] = stddev.toArray();
     if (mask == null) {
-      val[4][0] = srcImg.width() * (double) srcImg.height();
+      val[4][0] = source.width() * (double) source.height();
     } else {
       val[4][0] = Core.countNonZero(mask);
     }
-
     return val;
   }
 
@@ -329,6 +349,12 @@ public class ImageProcessor {
       Imgproc.fillPoly(mask, pts, new Scalar(255));
     }
 
+    mask = getPixelPaddingMask(source, mask, paddingValue, paddingLimit);
+    return Arrays.asList(srcImg, mask);
+  }
+
+  private static Mat getPixelPaddingMask(
+      Mat source, Mat mask, Integer paddingValue, Integer paddingLimit) {
     if (paddingValue != null && source.channels() == 1) {
       if (paddingLimit == null) {
         paddingLimit = paddingValue;
@@ -337,15 +363,18 @@ public class ImageProcessor {
         paddingValue = paddingLimit;
         paddingLimit = temp;
       }
-      Mat maskPix = new Mat(srcImg.size(), CvType.CV_8UC1, new Scalar(0));
-      excludePaddingValue(srcImg, maskPix, paddingValue, paddingLimit);
+      Mat maskPix = new Mat(source.size(), CvType.CV_8UC1, new Scalar(0));
+      excludePaddingValue(source, maskPix, paddingValue, paddingLimit);
+      Mat paddingMask;
       if (mask == null) {
-        mask = maskPix;
+        paddingMask = maskPix;
       } else {
-        Core.bitwise_and(mask, maskPix, mask);
+        paddingMask = new ImageCV();
+        Core.bitwise_and(mask, maskPix, paddingMask);
       }
+      return paddingMask;
     }
-    return Arrays.asList(srcImg, mask);
+    return mask;
   }
 
   /**

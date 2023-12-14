@@ -120,7 +120,7 @@ class ImageProcessorTest {
       assertEquals(4465.77, resStd[2][0], 0.01);
       assertEquals(9734.81, resStd[3][0], 0.01);
       assertEquals(9, resStd[4][0]);
-      resStd = ImageProcessor.meanStdDev(img, null, 1024, 32000);
+      resStd = ImageProcessor.meanStdDev(img, (Shape) null, 1024, 32000);
       assertEquals(65535, resStd[0][0]);
       assertEquals(65535, resStd[1][0]);
       assertEquals(65535, resStd[2][0], 0.01);
