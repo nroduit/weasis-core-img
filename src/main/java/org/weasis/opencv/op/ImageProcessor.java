@@ -211,10 +211,7 @@ public class ImageProcessor {
       int segType = iterator.currentSegment(pts);
       switch (segType) {
         case PathIterator.SEG_MOVETO -> {
-          if (p != null) {
-            p.fromArray(cvPts.toArray(new Point[0]));
-            points.add(p);
-          }
+          addSegment(p, cvPts, points);
           p = new MatOfPoint();
           cvPts.add(new Point(pts[0] - b.x, pts[1] - b.y));
         }
@@ -227,11 +224,22 @@ public class ImageProcessor {
       iterator.next();
     }
 
+    addSegment(p, cvPts, points);
+    return points;
+  }
+
+  private static void addSegment(MatOfPoint p, List<Point> cvPts, List<MatOfPoint> points) {
     if (p != null) {
-      p.fromArray(cvPts.toArray(new Point[0]));
+      if (cvPts.size() > 1) {
+        int last = cvPts.size() - 1;
+        if (cvPts.get(last - 1).equals(cvPts.get(last))) {
+          cvPts.remove(last);
+        }
+      }
+      p.fromList(cvPts);
+      cvPts.clear();
       points.add(p);
     }
-    return points;
   }
 
   /** See {@link #meanStdDev(Mat, Shape, Integer, Integer)}. */

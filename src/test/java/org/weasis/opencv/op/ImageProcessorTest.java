@@ -21,6 +21,9 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.awt.geom.Line2D;
+import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.awt.image.RenderedImage;
@@ -40,6 +43,7 @@ import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -445,6 +449,108 @@ class ImageProcessorTest {
         (int) (red * (1.0 - alpha) + color.getRed() * alpha),
         (int) (green * (1.0 - alpha) + color.getGreen() * alpha),
         (int) (blue * (1.0 - alpha) + color.getBlue() * alpha));
+  }
+
+  /**
+   * Method under test:
+   *
+   * <ul>
+   *   <li>{@link ImageProcessor#getMaskImage(Mat, Shape, Integer, Integer)}
+   */
+  @Test
+  void testGetMaskImage() {
+    Mat source = new Mat(10, 10, CvType.CV_8UC1, new Scalar(0));
+    Shape shape = new Rectangle(2, 2, 6, 6);
+    Integer paddingValue = 255;
+    Integer paddingLimit = 100;
+
+    List<Mat> result = ImageProcessor.getMaskImage(source, shape, paddingValue, paddingLimit);
+
+    assertNotNull(result);
+    assertEquals(2, result.size());
+
+    Mat srcImg = result.get(0);
+    assertNotNull(srcImg);
+    assertEquals(6, srcImg.width());
+    assertEquals(6, srcImg.height());
+
+    Mat mask = result.get(1);
+    assertNotNull(mask);
+    assertEquals(6, mask.width());
+    assertEquals(6, mask.height());
+
+    // Verify that the mask is filled with white pixels
+    for (int row = 0; row < mask.rows(); row++) {
+      for (int col = 0; col < mask.cols(); col++) {
+        double[] pixel = mask.get(row, col);
+        assertTrue(pixel[0] == 0 || pixel[0] == 255);
+      }
+    }
+  }
+
+  /**
+   * Method under test:
+   *
+   * <ul>
+   *   <li>{@link ImageProcessor#transformShapeToContour(Shape, boolean)}
+   * </ul>
+   */
+  @Test
+  void testTransformShapeToContour() {
+
+    Shape shape = new Rectangle2D.Double(10, 10, 20, 30);
+    List<MatOfPoint> contours = ImageProcessor.transformShapeToContour(shape, false);
+    assertEquals(1, contours.size());
+
+    // Check the number of points in the contour
+    MatOfPoint contour = contours.get(0);
+    assertNotNull(contour);
+    assertEquals(5, contour.total());
+
+    // Check the coordinates of the points in the contour
+    Point[] points = contour.toArray();
+    assertEquals(new Point(0, 0), points[0]);
+    assertEquals(new Point(20, 0), points[1]);
+    assertEquals(new Point(20, 30), points[2]);
+    assertEquals(new Point(0, 30), points[3]);
+    assertEquals(new Point(0, 0), points[4]);
+
+    shape = new Line2D.Double(10, 10, 20, 30);
+    contours = ImageProcessor.transformShapeToContour(shape, false);
+    contour = contours.get(0);
+    assertNotNull(contour);
+    assertEquals(2, contour.total());
+    points = contour.toArray();
+    assertEquals(new Point(0, 0), points[0]);
+    assertEquals(new Point(10, 20), points[1]);
+
+    shape = new Path2D.Double();
+    ((Path2D) shape).moveTo(10, 10);
+    ((Path2D) shape).lineTo(20, 30);
+    ((Path2D) shape).moveTo(30, 40);
+    contours = ImageProcessor.transformShapeToContour(shape, false);
+    assertEquals(2, contours.size());
+    contour = contours.get(0);
+    assertNotNull(contour);
+    assertEquals(2, contour.total());
+    points = contour.toArray();
+    assertEquals(new Point(0, 0), points[0]);
+    assertEquals(new Point(10, 20), points[1]);
+    contour = contours.get(1);
+    assertNotNull(contour);
+    assertEquals(1, contour.total());
+    points = contour.toArray();
+    assertEquals(new Point(20, 30), points[0]);
+    Mat mask = Mat.zeros(new Size(21, 31), CvType.CV_8UC1);
+    Imgproc.fillPoly(mask, contours, new Scalar(255));
+    byte[] data = new byte[21 * 31];
+    mask.get(0, 0, data);
+    assertEquals(-1, data[0]); // First pixel is white
+    assertEquals(-1, data[650]); // Last pixel is white
+
+    shape = new Path2D.Double();
+    contours = ImageProcessor.transformShapeToContour(shape, false);
+    assertEquals(0, contours.size());
   }
 
   /**
