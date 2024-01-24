@@ -16,7 +16,7 @@
   <parent>
     <groupId>org.weasis.core</groupId>
     <artifactId>weasis-core-img-bom</artifactId>
-    <version>4.8.1.2-SNAPSHOT</version>
+    <version>${revision}${sha1}${changelist}</version>
   </parent>
 
   <artifactId>weasis-core-img</artifactId>
@@ -323,6 +323,15 @@
         </configuration>
         <executions>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <configuration>
+          <flattenMode>ossrh
+          </flattenMode> <!-- Keeps all optional POM elements that are required for OSS Repository-Hosting -->
+          <!--> https://www.mojohaus.org/flatten-maven-plugin/apidocs/org/codehaus/mojo/flatten/FlattenMode.html -->
+        </configuration>
       </plugin>
     </plugins>
   </build>

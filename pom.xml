@@ -16,10 +16,14 @@
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img-bom</artifactId>
   <name>Image processing (OpenCV) - BOM</name>
-  <version>4.8.1.2-SNAPSHOT</version>
+  <version>${revision}${sha1}${changelist}</version>
   <packaging>pom</packaging>
 
   <properties>
+    <revision>4.8.1.2</revision>
+    <changelist>-SNAPSHOT</changelist>
+    <sha1/>
+
     <weasis.opencv.native.version>4.8.1-dcm</weasis.opencv.native.version>
   </properties>
 
@@ -82,6 +86,50 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>1.5.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+
+        <configuration>
+          <flattenMode>bom
+          </flattenMode> <!-- Like ossrh but additionally keeps dependencyManagement and properties. -->
+          <!--> https://www.mojohaus.org/flatten-maven-plugin/apidocs/org/codehaus/mojo/flatten/FlattenMode.html -->
+        </configuration>
+
+        <executions>
+          <!-- enable flattening -->
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <!-- ensure proper cleanup -->
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
   <profiles>
     <profile>

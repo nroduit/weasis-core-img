@@ -33,3 +33,9 @@ _*/
 
 # crash file
 hs_err*.log
+
+# Ignore flattened pom files
+.flattened-pom.xml
+
+# Ignore temporary files and folders
+_*
