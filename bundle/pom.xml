@@ -32,7 +32,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
 
-    <slf4j.version>1.7.36</slf4j.version>
+    <slf4j.version>2.0.11</slf4j.version>
 
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
@@ -447,13 +447,13 @@
       <version>${slf4j.version}</version>
       <scope>provided</scope>
     </dependency>
-      <dependency>
-          <groupId>org.slf4j</groupId>
-<!--          <artifactId>slf4j-nop</artifactId>-->
-          <artifactId>slf4j-simple</artifactId>
-          <version>${slf4j.version}</version>
-          <scope>test</scope>
-      </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+<!--      <artifactId>slf4j-simple</artifactId>-->
+      <version>${slf4j.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
 				
