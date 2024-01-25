@@ -20,11 +20,12 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>4.8.1.2</revision>
+    <revision>${weasis.opencv.version}.2</revision>
     <changelist>-SNAPSHOT</changelist>
     <sha1/>
 
-    <weasis.opencv.native.version>4.8.1-dcm</weasis.opencv.native.version>
+    <weasis.opencv.version>4.8.1</weasis.opencv.version>
+    <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
 
   <modules>
