@@ -26,8 +26,7 @@ public class Region {
   protected int numberOfPixels;
   protected List<Segment> segmentList;
 
-  protected SegmentAttributes attributes;
-  protected SegmentCategory category;
+  protected RegionAttributes attributes;
 
   public Region(String id) {
     this(id, null);
@@ -59,20 +58,12 @@ public class Region {
     this.numberOfPixels = numberOfPixels;
   }
 
-  public SegmentAttributes getAttributes() {
+  public RegionAttributes getAttributes() {
     return attributes;
   }
 
-  public void setAttributes(SegmentAttributes attributes) {
+  public void setAttributes(RegionAttributes attributes) {
     this.attributes = attributes;
-  }
-
-  public SegmentCategory getCategory() {
-    return category;
-  }
-
-  public void setCategory(SegmentCategory category) {
-    this.category = category;
   }
 
   public int getNumberOfPixels() {
