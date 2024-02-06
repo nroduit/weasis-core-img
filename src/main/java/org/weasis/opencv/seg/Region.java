@@ -9,6 +9,7 @@
  */
 package org.weasis.opencv.seg;
 
+import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,7 +24,7 @@ import org.weasis.opencv.data.PlanarImage;
 
 public class Region {
   private final String id;
-  protected int numberOfPixels;
+  protected long numberOfPixels;
   protected List<Segment> segmentList;
 
   protected RegionAttributes attributes;
@@ -50,12 +51,15 @@ public class Region {
   }
 
   public void setSegmentList(List<Segment> segmentList) {
-    setSegmentList(segmentList, -1);
+    setSegmentList(segmentList, -1L);
   }
 
-  public void setSegmentList(List<Segment> segmentList, int numberOfPixels) {
+  public void setSegmentList(List<Segment> segmentList, long numberOfPixels) {
     this.segmentList = segmentList == null ? new ArrayList<>() : segmentList;
     this.numberOfPixels = numberOfPixels;
+    if (numberOfPixels <= 0) {
+      this.numberOfPixels = -1L;
+    }
   }
 
   public RegionAttributes getAttributes() {
@@ -66,7 +70,7 @@ public class Region {
     this.attributes = attributes;
   }
 
-  public int getNumberOfPixels() {
+  public long getNumberOfPixels() {
     return numberOfPixels;
   }
 
@@ -120,5 +124,39 @@ public class Region {
       return contourTopology.getSegment();
     }
     return null;
+  }
+
+  public double getArea() {
+    if (numberOfPixels < 0) {
+      return Math.round(calculateArea(getSegmentList(), 0));
+    }
+    return numberOfPixels;
+  }
+
+  private static double calculateArea(List<Segment> segments, int level) {
+    double area = 0.0;
+    for (Segment segment : segments) {
+      area += (level % 2 == 0 ? 1 : -1) * polygonArea(segment);
+      area += calculateArea(segment.getChildren(), level + 1);
+    }
+    return area;
+  }
+
+  /**
+   * Calculate the area of a polygon
+   *
+   * @param segment the polygon
+   * @return the area winch is an approximation of the number of pixels inside the polygon
+   */
+  private static double polygonArea(Segment segment) {
+    double area = 0.0;
+    int n = segment.size();
+
+    for (int i = 0; i < n; i++) {
+      Point2D pt = segment.get(i);
+      Point2D ptNext = segment.get((i + 1) % n);
+      area += pt.getX() * ptNext.getY() - ptNext.getX() * pt.getY();
+    }
+    return Math.abs(area) / 2.0;
   }
 }
