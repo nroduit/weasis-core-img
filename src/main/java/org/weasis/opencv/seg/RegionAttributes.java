@@ -10,6 +10,11 @@
 package org.weasis.opencv.seg;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.op.lut.ColorLut;
 
@@ -23,7 +28,7 @@ public class RegionAttributes {
   private float lineThickness;
   private boolean visible;
   private float interiorOpacity;
-  protected int numberOfPixels;
+  protected long numberOfPixels;
 
   public RegionAttributes(int id, String label) {
     this(id, label, null);
@@ -31,7 +36,7 @@ public class RegionAttributes {
 
   public RegionAttributes(int id, String label, Color color) {
     if (StringUtil.hasText(label)) {
-      this.label = label;
+      setLabel(label);
     } else {
       throw new IllegalArgumentException("Label cannot be null or empty");
     }
@@ -44,10 +49,6 @@ public class RegionAttributes {
     this.visible = true;
     this.interiorOpacity = 1.0f;
     this.numberOfPixels = -1;
-  }
-
-  public String type() {
-    return type;
   }
 
   public int getId() {
@@ -122,20 +123,48 @@ public class RegionAttributes {
     this.interiorOpacity = Math.max(0.0f, Math.min(interiorOpacity, 1.0f));
   }
 
-  public int getNumberOfPixels() {
+  public long getNumberOfPixels() {
     return numberOfPixels;
   }
 
-  public static Color getColor(int[] colorRgb, int nb) {
-    return getColor(colorRgb, nb, 1.0f);
+  public String getPrefix() {
+    return getLabel().split("[ _-]")[0];
   }
 
-  public static Color getColor(int[] colorRgb, int nb, float opacity) {
+  public void addPixels(Region region) {
+    if (region == null || region.getNumberOfPixels() < 0) {
+      return;
+    }
+    if (numberOfPixels < 0) {
+      resetPixelCount();
+    }
+    this.numberOfPixels += region.getNumberOfPixels();
+  }
+
+  public void resetPixelCount() {
+    this.numberOfPixels = 0;
+  }
+
+  public static <E extends RegionAttributes> Map<String, List<E>> groupRegions(
+      Collection<E> regions) {
+    Map<String, List<E>> map = new HashMap<>();
+    for (E region : regions) {
+      String prefix = region.getPrefix();
+      map.computeIfAbsent(prefix, l -> new ArrayList<>()).add(region);
+    }
+    return map;
+  }
+
+  public static Color getColor(int[] colorRgb, int contourID) {
+    return getColor(colorRgb, contourID, 1.0f);
+  }
+
+  public static Color getColor(int[] colorRgb, int contourID, float opacity) {
     int opacityInt = (int) (opacity * 255f);
     Color rgbColor;
     if (colorRgb == null || colorRgb.length < 3) {
       byte[][] lut = ColorLut.MULTICOLOR.getByteLut().lutTable();
-      int lutIndex = nb % 256;
+      int lutIndex = contourID % 256;
       rgbColor =
           new Color(
               lut[0][lutIndex] & 0xFF,

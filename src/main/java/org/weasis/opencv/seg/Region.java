@@ -151,11 +151,13 @@ public class Region {
   private static double polygonArea(Segment segment) {
     double area = 0.0;
     int n = segment.size();
+    int j = n - 1;
 
     for (int i = 0; i < n; i++) {
       Point2D pt = segment.get(i);
-      Point2D ptNext = segment.get((i + 1) % n);
-      area += pt.getX() * ptNext.getY() - ptNext.getX() * pt.getY();
+      Point2D ptNext = segment.get(j);
+      area += (ptNext.getX() + pt.getX() + 0.5) * (ptNext.getY() - pt.getY() + 0.5);
+      j = i;
     }
     return Math.abs(area) / 2.0;
   }
