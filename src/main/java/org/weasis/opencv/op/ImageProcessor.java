@@ -215,8 +215,8 @@ public class ImageProcessor {
           p = new MatOfPoint();
           cvPts.add(new Point(pts[0] - b.x, pts[1] - b.y));
         }
-        case PathIterator.SEG_LINETO, PathIterator.SEG_CLOSE -> cvPts.add(
-            new Point(pts[0] - b.x, pts[1] - b.y));
+        case PathIterator.SEG_LINETO, PathIterator.SEG_CLOSE ->
+            cvPts.add(new Point(pts[0] - b.x, pts[1] - b.y));
         default -> {
           // should never append with FlatteningPathIterator
         }

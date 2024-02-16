@@ -12,13 +12,14 @@ package org.weasis.opencv.seg;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.op.lut.ColorLut;
 
-public class RegionAttributes {
+public class RegionAttributes implements Comparable<RegionAttributes> {
   private final int id;
   private String label;
   private String description;
@@ -150,7 +151,13 @@ public class RegionAttributes {
     Map<String, List<E>> map = new HashMap<>();
     for (E region : regions) {
       String prefix = region.getPrefix();
-      map.computeIfAbsent(prefix, l -> new ArrayList<>()).add(region);
+      List<E> list = map.computeIfAbsent(prefix, l -> new ArrayList<>());
+      int index = Collections.binarySearch(list, region, RegionAttributes::compareTo);
+      if (index < 0) {
+        list.add(-(index + 1), region);
+      } else {
+        list.add(index, region);
+      }
     }
     return map;
   }
@@ -175,5 +182,10 @@ public class RegionAttributes {
       rgbColor = new Color(colorRgb[0], colorRgb[1], colorRgb[2], opacityInt);
     }
     return rgbColor;
+  }
+
+  @Override
+  public int compareTo(RegionAttributes o) {
+    return StringUtil.collator.compare(getLabel(), o.getLabel());
   }
 }
