@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 class RegionAttributesTest {
@@ -47,8 +48,8 @@ class RegionAttributesTest {
 
   @Test
   void regionAttributesCreationWithBlankLabel() {
-    assertThrows(IllegalArgumentException.class, () -> new RegionAttributes(1, null));
-    assertThrows(IllegalArgumentException.class, () -> new RegionAttributes(1, " "));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> new RegionAttributes(1, null));
+    Assertions.assertThrows(IllegalArgumentException.class, () -> new RegionAttributes(1, " "));
   }
 
   @Test
@@ -76,7 +77,7 @@ class RegionAttributesTest {
   void groupRegionsWithEmptyCollection() {
     Collection<RegionAttributes> regions = new ArrayList<>();
     Map<String, List<RegionAttributes>> groupedRegions = RegionAttributes.groupRegions(regions);
-    assertTrue(groupedRegions.isEmpty());
+    Assertions.assertTrue(groupedRegions.isEmpty());
   }
 
   @Test
@@ -88,9 +89,9 @@ class RegionAttributesTest {
     regions.add(new RegionAttributes(4, "test_new_label3"));
     regions.add(new RegionAttributes(5, "anotherLabel2"));
     Map<String, List<RegionAttributes>> groupedRegions = RegionAttributes.groupRegions(regions);
-    assertEquals(2, groupedRegions.size());
-    assertEquals(4, groupedRegions.get("test").size());
-    assertEquals(1, groupedRegions.get("anotherLabel2").size());
+    Assertions.assertEquals(2, groupedRegions.size());
+    Assertions.assertEquals(4, groupedRegions.get("test").size());
+    Assertions.assertEquals(1, groupedRegions.get("anotherLabel2").size());
   }
 
   @Test
@@ -100,7 +101,7 @@ class RegionAttributesTest {
 
     Color resultColor = RegionAttributes.getColor(colorRgb, 1, 0.5f);
 
-    assertEquals(expectedColor, resultColor);
+    Assertions.assertEquals(expectedColor, resultColor);
     assertEquals(RegionAttributes.getColor(null, 3), RegionAttributes.getColor(null, 3));
     assertNotEquals(RegionAttributes.getColor(null, 3), RegionAttributes.getColor(null, 5));
   }

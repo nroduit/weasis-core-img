@@ -19,6 +19,7 @@ import java.awt.geom.Point2D.Double;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.opencv.core.Core;
@@ -42,7 +43,7 @@ class RegionTest {
   @Test
   void createsRegionWithRandomIdWhenIdIsNull() {
     Region region = new Region(null);
-    assertNotNull(region.getId());
+    Assertions.assertNotNull(region.getId());
   }
 
   @Test
@@ -79,7 +80,7 @@ class RegionTest {
     assertEquals("testId", region.getId());
     assertTrue(region.getSegmentList().isEmpty());
     assertEquals(0.0, region.getArea());
-    assertNull(region.getAttributes());
+    Assertions.assertNull(region.getAttributes());
     assertTrue(Region.buildSegmentList(null, null).isEmpty());
   }
 
@@ -96,7 +97,7 @@ class RegionTest {
 
     Imgproc.fillPoly(source, Collections.singletonList(new MatOfPoint(pts)), new Scalar(255));
     int nbPixels = Core.countNonZero(source);
-    assertEquals(60.0, nbPixels);
+    Assertions.assertEquals(60.0, nbPixels);
 
     pts = new Point[5];
     pts[0] = new Point(6, 5);
@@ -106,7 +107,7 @@ class RegionTest {
     pts[4] = new Point(6, 5);
     Imgproc.fillPoly(source, Collections.singletonList(new MatOfPoint(pts)), new Scalar(0));
     nbPixels = Core.countNonZero(source);
-    assertEquals(50.0, nbPixels); // Real area from the number of pixels
+    Assertions.assertEquals(50.0, nbPixels); // Real area from the number of pixels
 
     List<Segment> segments = Region.buildSegmentList(ImageCV.toImageCV(source));
     Region region = new Region("testId", segments);

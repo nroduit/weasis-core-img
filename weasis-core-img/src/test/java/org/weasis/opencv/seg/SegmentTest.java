@@ -9,7 +9,6 @@
  */
 package org.weasis.opencv.seg;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,6 +19,7 @@ import java.awt.geom.Point2D.Double;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.opencv.osgi.OpenCVNativeLoader;
@@ -75,7 +75,7 @@ class SegmentTest {
     float[] floatArray = {1.0f, 2.0f, 3.0f};
     double[] expected = {1.0, 2.0, 3.0};
     double[] result = Segment.convertFloatToDouble(floatArray);
-    assertArrayEquals(expected, result);
+    Assertions.assertArrayEquals(expected, result);
   }
 
   @Test
