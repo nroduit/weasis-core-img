@@ -11,7 +11,9 @@ package org.weasis.core.util;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.Collator;
 import java.text.Normalizer;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +28,8 @@ public class StringUtil {
 
   private static final String[] EMPTY_STRING_ARRAY = new String[0];
   private static final int[] EMPTY_INT_ARRAY = new int[0];
+
+  public static final Collator collator = Collator.getInstance(Locale.getDefault());
 
   public enum Suffix {
     NO(""),
