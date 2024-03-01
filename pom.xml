@@ -20,11 +20,12 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.opencv.version}.2</revision>
-    <changelist>-SNAPSHOT</changelist>
+    <revision>${weasis.core.version}</revision>
+    <changelist>-SNAPSHOT</changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
     <weasis.opencv.version>4.8.1</weasis.opencv.version>
+    <weasis.core.version>${weasis.opencv.version}.2</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
 
@@ -48,7 +49,7 @@
         <artifactId>libopencv_java</artifactId>
         <version>${weasis.opencv.native.version}</version>
         <type>so</type>
-        <classifier> </classifier>
+        <classifier>linux-x86</classifier>
       </dependency>
       <dependency>
         <groupId>org.weasis.thirdparty.org.opencv</groupId>
@@ -126,9 +127,9 @@
               <goal>flatten</goal>
             </goals>
             <configuration>
-              <flattenMode>bom
-              </flattenMode> <!-- Like ossrh but additionally keeps dependencyManagement and properties. -->
+              <!-- Like ossrh but additionally keeps dependencyManagement and properties. -->
               <!--> https://www.mojohaus.org/flatten-maven-plugin/apidocs/org/codehaus/mojo/flatten/FlattenMode.html -->
+              <flattenMode>bom</flattenMode>
             </configuration>
           </execution>
           <!-- ensure proper cleanup -->

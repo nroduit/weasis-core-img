@@ -27,12 +27,16 @@
     <java-version>17</java-version>
     <jdk-version>17</jdk-version>
     <enforcer.jdk-version>[${jdk-version},)</enforcer.jdk-version>
-    <enforcer.maven-version>[3.5.3,)</enforcer.maven-version>
+    <enforcer.maven-version>[3.6.3,)</enforcer.maven-version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
 
-    <slf4j.version>2.0.11</slf4j.version>
+    <slf4j.version>2.0.12</slf4j.version>
+    <junit-bom.version>5.10.2</junit-bom.version>
+    <mockito.version>5.11.0</mockito.version>
+    <mockito-inline.version>5.2.0</mockito-inline.version>
+    <junit-pioneer.version>2.2.0</junit-pioneer.version>
 
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
@@ -82,7 +86,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.12.0</version>
+          <version>3.12.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -117,7 +121,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.3</version>
+          <version>3.2.5</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -152,7 +156,7 @@
         <plugin>
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
-          <version>2.41.1</version>
+          <version>2.43.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -202,8 +206,7 @@
                   <type>${lib-file-ext}</type>
                   <classifier>${os-name}-${cpu-name}</classifier>
                   <overWrite>false</overWrite>
-                  <outputDirectory>${project.build.directory}/lib/${os-name}-${cpu-name}
-                  </outputDirectory>
+                  <outputDirectory>${project.build.directory}/lib/${os-name}-${cpu-name}</outputDirectory>
                   <destFileName>${lib-file-name}.${lib-file-ext}</destFileName>
                 </artifactItem>
               </artifactItems>
@@ -251,6 +254,7 @@
                 </_removeheaders>
                 <_noee>true</_noee>
                 <_nouses>true</_nouses>
+                <Import-Package>org.slf4j;version=!,*</Import-Package>
                 <Embed-Dependency>*;scope=compile;inline=true</Embed-Dependency>
                 <Embed-Directory>lib</Embed-Directory>
                 <Embed-StripGroup>true</Embed-StripGroup>
@@ -336,9 +340,9 @@
               <goal>flatten</goal>
             </goals>
             <configuration>
-              <flattenMode>ossrh
-              </flattenMode> <!-- Keeps all optional POM elements that are required for OSS Repository-Hosting -->
+              <!-- Keeps all optional POM elements that are required for OSS Repository-Hosting -->
               <!--> https://www.mojohaus.org/flatten-maven-plugin/apidocs/org/codehaus/mojo/flatten/FlattenMode.html -->
+              <flattenMode>ossrh</flattenMode>
             </configuration>
           </execution>
         </executions>
@@ -380,7 +384,38 @@
     </profile>
   </profiles>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-bom</artifactId>
+        <version>${slf4j.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-bom</artifactId>
+        <version>${mockito.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <!-- OpenCV native library -->
     <dependency>
       <groupId>org.weasis.thirdparty.org.opencv</groupId>
@@ -435,36 +470,25 @@
     <!-- FOR TESTS -->
     <dependency>
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-inline</artifactId>
-      <version>5.2.0</version>
+      <artifactId>mockito-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.4.0</version>
+      <artifactId>mockito-inline</artifactId>
+      <version>${mockito-inline.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit-pioneer</groupId>
       <artifactId>junit-pioneer</artifactId>
-      <version>2.0.1</version>
+      <version>${junit-pioneer.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-nop</artifactId>
-      <!--      <artifactId>slf4j-simple</artifactId>-->
-      <version>${slf4j.version}</version>
+      <artifactId>slf4j-simple</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
-
-
