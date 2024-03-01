@@ -17,6 +17,7 @@
     <groupId>org.weasis.core</groupId>
     <artifactId>weasis-core-img-bom</artifactId>
     <version>${revision}${sha1}${changelist}</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>weasis-core-img</artifactId>
