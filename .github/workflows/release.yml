@@ -56,13 +56,28 @@ jobs:
           else
               xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
           fi
+          
+          cd ~/.m2/repository/${PKGFOLDER}-bom
+          find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${PKGFOLDER}-bom
+          cd ${REPO}/${PKGFOLDER}-bom
 
-          paths=($(find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}"))
+          xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
+          -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
+
+          IFS=$'\n'
+          versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ${F_META})
+          if printf '%s\n' "${versions[@]}" | grep -q -P "^${TAG_VERSION}$"; then
+              :
+          else
+              xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
+          fi
+
+          paths=($(find . -name "*.pom" -o -name "${F_META}"))
           for file in ${paths[@]}; do
             $(sha1sum "${file}" | awk '{printf $1}' > "${file}".sha1)
             $(md5sum "${file}" | awk '{printf $1}' > "${file}".md5)
           done
-
+          
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add .
