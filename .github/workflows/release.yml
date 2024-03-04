@@ -49,11 +49,11 @@ jobs:
             cd ${REPO}/${1}
           
             xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
-            -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ./${F_META}
+            -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
           
-            versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ./${F_META})
+            versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ${F_META})
             if ! printf '%s\n' "${versions[@]}" | grep -q -P "^${TAG_VERSION}$"; then
-            xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ./${F_META}
+            xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
             fi
             
             paths=($(find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}"))
