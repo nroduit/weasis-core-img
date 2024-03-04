@@ -47,17 +47,16 @@ jobs:
             cd ~/.m2/repository/${1}
             find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${1}
             cd ${REPO}/${1}
-            echo "$(ls)"
           
             xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
-            -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
+            -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ./${F_META}
           
-            versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ${F_META})
+            versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ./${F_META})
             if ! printf '%s\n' "${versions[@]}" | grep -q -P "^${TAG_VERSION}$"; then
-            xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
+            xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ./${F_META}
             fi
             
-            paths=($(find . -name "*.pom" -o -name "${F_META}"))
+            paths=($(find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}"))
             for file in ${paths[@]}; do
             $(sha1sum "${file}" | awk '{printf $1}' > "${file}".sha1)
             $(md5sum "${file}" | awk '{printf $1}' > "${file}".md5)
