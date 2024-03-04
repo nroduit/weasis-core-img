@@ -45,23 +45,23 @@ jobs:
           
           function update_metadata() {
             cd ~/.m2/repository/${1}
-            find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}" | cpio -updm ${REPO}/${1}
+            find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${1}
             cd ${REPO}/${1}
           
             if [ ! -f ${F_META} ]; then
               aritifactId=$(echo ${1} | awk -F'/' '{print $NF}')
-              echo '<?xml version="1.0" encoding="UTF-8"?>
+              echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
               <metadata>
               <groupId>org.weasis.core</groupId>
-              <artifactId>w${aritifactId}</artifactId>
+              <artifactId>${aritifactId}</artifactId>
               <versioning>
               <release></release>
               <versions>
-              <version></version>
+              <version>${TAG_VERSION}</version>
               </versions>
               <lastUpdated></lastUpdated>
               </versioning>
-              </metadata>' > ${F_META}
+              </metadata>" > ${F_META}
             fi
           
             xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
