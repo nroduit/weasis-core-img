@@ -181,7 +181,7 @@ public class StringUtil {
   /**
    * Removing diacritical marks aka accents
    *
-   * @param str
+   * @param str the input string
    * @return the input string without accents
    */
   public static String deAccent(String str) {

@@ -863,7 +863,6 @@ public class ImageProcessor {
       int elemSize = CvType.ELEM_SIZE(type);
       int channels = CvType.channels(type);
       int bpp = (elemSize * 8) / channels;
-      // TODO should test is the library can write 16 bit image
       if (bpp > 16 || !CvType.isInteger(type)) {
         dstImg = new Mat();
         srcImg.convertTo(dstImg, CvType.CV_16SC(channels));

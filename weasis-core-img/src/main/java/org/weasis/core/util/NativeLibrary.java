@@ -17,6 +17,7 @@ public class NativeLibrary {
     // See naming conventions at https://docs.osgi.org/reference/osnames.html
     String osName = System.getProperty("os.name").toLowerCase();
     String osArch = System.getProperty("os.arch").toLowerCase();
+
     if (osName.startsWith("win")) {
       // All Windows versions with a specific processor architecture (x86 or x86-64) are grouped
       // under windows. If you need to make different native libraries for the Windows versions,
@@ -26,38 +27,25 @@ public class NativeLibrary {
       osName = "macosx";
     } else if (osName.startsWith("linux")) {
       osName = "linux";
-    } else if (osName.equals("symbianos")) {
-      osName = "epoc32";
-    } else if (osName.equals("hp-ux")) {
-      osName = "hpux";
-    } else if (osName.equals("os/2")) {
-      osName = "os2";
-    } else if (osName.equals("procnto")) {
-      osName = "qnx";
     } else {
-      osName = osName.toLowerCase();
+      switch (osName) {
+        case "symbianos" -> osName = "epoc32";
+        case "hp-ux" -> osName = "hpux";
+        case "os/2" -> osName = "os2";
+        case "procnto" -> osName = "qnx";
+        default -> osName = osName.toLowerCase();
+      }
     }
 
-    if (osArch.equals("x86-64")
-        || osArch.equals("amd64")
-        || osArch.equals("em64t")
-        || osArch.equals("x86_64")) {
-      osArch = "x86-64";
-    } else if (osArch.equals("aarch64") || osArch.equals("arm64")) {
-      osArch = "aarch64";
-    } else if (osArch.equals("arm")) {
-      osArch = "armv7a";
-    } else if (osArch.equals("pentium")
-        || osArch.equals("i386")
-        || osArch.equals("i486")
-        || osArch.equals("i586")
-        || osArch.equals("i686")) {
-      osArch = "x86";
-    } else if (osArch.equals("power ppc")) {
-      osArch = "powerpc";
-    } else if (osArch.equals("psc1k")) {
-      osArch = "ignite";
-    }
+    osArch = switch (osArch) {
+      case "x86-64", "amd64", "em64t", "x86_64" -> "x86-64";
+      case "aarch64", "arm64" -> "aarch64";
+      case "arm" -> "armv7a";
+      case "pentium", "i386", "i486", "i586", "i686" -> "x86";
+      case "power ppc" -> "powerpc";
+      case "psc1k" -> "ignite";
+      default -> osArch;
+    };
     return osName + "-" + osArch;
   }
 
