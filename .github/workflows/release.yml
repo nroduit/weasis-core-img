@@ -37,9 +37,6 @@ jobs:
         run: sudo apt-get install xmlstarlet
       - name: Commit the maven packages
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          
           cd mvn-repo
           REPO=$(pwd)
           PKGFOLDER="org/weasis/core/weasis-core-img"
@@ -87,5 +84,7 @@ jobs:
           update_metadata ${PKGFOLDER}
           update_metadata ${PKGFOLDER}-bom
           
+          git config user.name github-actions
+          git config user.email github-actions@github.com
           git commit -m "Add weasis-core-img release"
           git push
