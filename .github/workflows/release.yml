@@ -47,6 +47,7 @@ jobs:
             cd ~/.m2/repository/${1}
             find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${1}
             cd ${REPO}/${1}
+            echo "$(ls)"
           
             xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
             -u "//metadata/versioning/lastUpdated" -v $(date "+%Y%m%d%H%M%S") ${F_META}
