@@ -45,7 +45,7 @@ jobs:
           
           function update_metadata() {
             cd ~/.m2/repository/${1}
-            find . -name "*.jar" -o -name "*.pom" | cpio -updm ${REPO}/${1}
+            find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}" | cpio -updm ${REPO}/${1}
             cd ${REPO}/${1}
           
             xmlstarlet ed --inplace -u "//metadata/version" -v ${TAG_VERSION} -u "//metadata/versioning/release" -v ${TAG_VERSION} \
