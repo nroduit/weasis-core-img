@@ -37,6 +37,9 @@ jobs:
         run: sudo apt-get install xmlstarlet
       - name: Commit the maven packages
         run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          
           cd mvn-repo
           REPO=$(pwd)
           PKGFOLDER="org/weasis/core/weasis-core-img"
@@ -69,21 +72,20 @@ jobs:
           
             versions=$(xmlstarlet sel -t -m "//metadata/versioning/versions" -v version ${F_META})
             if ! printf '%s\n' "${versions[@]}" | grep -q -P "^${TAG_VERSION}$"; then
-            xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
+              xmlstarlet ed --inplace -s "//metadata/versioning/versions" -t elem -n "version" -v ${TAG_VERSION} ${F_META}
             fi
             
             paths=($(find . -name "*.jar" -o -name "*.pom" -o -name "${F_META}"))
             for file in ${paths[@]}; do
-            $(sha1sum "${file}" | awk '{printf $1}' > "${file}".sha1)
-            $(md5sum "${file}" | awk '{printf $1}' > "${file}".md5)
+              $(sha1sum "${file}" | awk '{printf $1}' > "${file}".sha1)
+              $(md5sum "${file}" | awk '{printf $1}' > "${file}".md5)
             done
+          
+            git add .
           }
           
           update_metadata ${PKGFOLDER}
           update_metadata ${PKGFOLDER}-bom
           
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
           git commit -m "Add weasis-core-img release"
           git push
