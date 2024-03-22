@@ -11,11 +11,11 @@
 
   <properties>
     <revision>${weasis.core.version}</revision>
-    <changelist>-SNAPSHOT</changelist> <!-- Remove "-SNAPSHOT" for release -->
+    <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
-    <weasis.opencv.version>4.8.1</weasis.opencv.version>
-    <weasis.core.version>${weasis.opencv.version}.3</weasis.core.version>
+    <weasis.opencv.version>4.9.0</weasis.opencv.version>
+    <weasis.core.version>${weasis.opencv.version}</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
 
@@ -71,13 +71,6 @@
         <version>${weasis.opencv.native.version}</version>
         <type>so</type>
         <classifier>linux-armv7a</classifier>
-      </dependency>
-      <dependency>
-        <groupId>org.weasis.thirdparty.org.opencv</groupId>
-        <artifactId>libopencv_java</artifactId>
-        <version>${weasis.opencv.native.version}</version>
-        <type>so</type>
-        <classifier>linux-s390x</classifier>
       </dependency>
       <dependency>
         <groupId>org.weasis.thirdparty.org.opencv</groupId>
@@ -261,21 +254,6 @@
       <properties>
         <os-name>linux</os-name>
         <cpu-name>armv7a</cpu-name>
-        <lib-file-name>libopencv_java</lib-file-name>
-        <lib-file-ext>so</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
-      <id>linux-s390x</id>
-      <activation>
-        <os>
-          <name>linux</name>
-          <arch>s390x</arch>
-        </os>
-      </activation>
-      <properties>
-        <os-name>linux</os-name>
-        <cpu-name>s390x</cpu-name>
         <lib-file-name>libopencv_java</lib-file-name>
         <lib-file-ext>so</lib-file-ext>
       </properties>
