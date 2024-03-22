@@ -316,13 +316,6 @@
       <groupId>org.weasis.thirdparty.org.opencv</groupId>
       <artifactId>libopencv_java</artifactId>
       <type>so</type>
-      <classifier>linux-s390x</classifier>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.weasis.thirdparty.org.opencv</groupId>
-      <artifactId>libopencv_java</artifactId>
-      <type>so</type>
       <classifier>linux-x86-64</classifier>
       <scope>provided</scope>
     </dependency>
