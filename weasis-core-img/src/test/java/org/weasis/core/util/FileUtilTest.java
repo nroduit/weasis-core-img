@@ -38,6 +38,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.DefaultLocale;
 import org.mockito.Mockito;
 
 class FileUtilTest {
@@ -423,10 +424,8 @@ class FileUtilTest {
 
   /** Method under test: {@link FileUtil#humanReadableByte(long, boolean)} */
   @Test
+  @DefaultLocale(language = "en", country = "US")
   void testHumanReadableByte() {
-    Locale old = Locale.getDefault();
-    Locale.setDefault(Locale.US);
-
     assertEquals("1 B", FileUtil.humanReadableByte(1L, true));
     assertEquals("1 B", FileUtil.humanReadableByte(1L, false));
     assertEquals("1.0 kB", FileUtil.humanReadableByte(1000L, true));
@@ -435,8 +434,6 @@ class FileUtilTest {
     assertEquals("1.2 GiB", FileUtil.humanReadableByte(1256799945L, false));
     assertEquals("-9.2 EB", FileUtil.humanReadableByte(Long.MIN_VALUE, true));
     assertEquals("-8.0 EiB", FileUtil.humanReadableByte(Long.MIN_VALUE, false));
-
-    Locale.setDefault(old);
   }
 
   /**
