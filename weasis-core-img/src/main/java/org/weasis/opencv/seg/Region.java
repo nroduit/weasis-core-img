@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
 import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.data.PlanarImage;
@@ -75,17 +77,41 @@ public class Region {
   }
 
   public static List<Segment> buildSegmentList(PlanarImage binary) {
+    return buildSegmentList(binary, null);
+  }
+
+  public static List<Segment> buildSegmentList(PlanarImage binary, Point offset) {
     if (binary == null) {
       return Collections.emptyList();
     }
     List<MatOfPoint> contours = new ArrayList<>();
     Mat hierarchy = new Mat();
-    Imgproc.findContours(
-        binary.toMat(), contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+    if (offset == null) {
+      Imgproc.findContours(
+          binary.toMat(), contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+    } else {
+      Imgproc.findContours(
+          binary.toMat(),
+          contours,
+          hierarchy,
+          Imgproc.RETR_TREE,
+          Imgproc.CHAIN_APPROX_SIMPLE,
+          offset);
+    }
     return buildSegmentList(contours, hierarchy);
   }
 
+  public static List<Segment> buildSegmentListFromFloat(
+      List<MatOfPoint2f> contours, Mat hierarchy) {
+    return buildSegmentListFromPoint(contours, hierarchy);
+  }
+
   public static List<Segment> buildSegmentList(List<MatOfPoint> contours, Mat hierarchy) {
+    return buildSegmentListFromPoint(contours, hierarchy);
+  }
+
+  protected static List<Segment> buildSegmentListFromPoint(
+      List<? extends Mat> contours, Mat hierarchy) {
     if (contours == null || hierarchy == null) {
       return Collections.emptyList();
     }
@@ -93,8 +119,13 @@ public class Region {
     int[] hierarchyData = new int[4];
     for (int i = 0; i < contours.size(); i++) {
       hierarchy.get(0, i, hierarchyData);
-      ContourTopology contourTopology = new ContourTopology(contours.get(i), hierarchyData[3]);
-      contourMap.put(i, contourTopology);
+      if (contours.get(i) instanceof MatOfPoint pt) {
+        ContourTopology contourTopology = new ContourTopology(pt, hierarchyData[3]);
+        contourMap.put(i, contourTopology);
+      } else if (contours.get(i) instanceof MatOfPoint2f pt2f) {
+        ContourTopology contourTopology = new ContourTopology(pt2f, hierarchyData[3]);
+        contourMap.put(i, contourTopology);
+      }
     }
 
     List<Segment> segmentList = new ArrayList<>();

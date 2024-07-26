@@ -37,15 +37,16 @@ public class NativeLibrary {
       }
     }
 
-    osArch = switch (osArch) {
-      case "x86-64", "amd64", "em64t", "x86_64" -> "x86-64";
-      case "aarch64", "arm64" -> "aarch64";
-      case "arm" -> "armv7a";
-      case "pentium", "i386", "i486", "i586", "i686" -> "x86";
-      case "power ppc" -> "powerpc";
-      case "psc1k" -> "ignite";
-      default -> osArch;
-    };
+    osArch =
+        switch (osArch) {
+          case "x86-64", "amd64", "em64t", "x86_64" -> "x86-64";
+          case "aarch64", "arm64" -> "aarch64";
+          case "arm" -> "armv7a";
+          case "pentium", "i386", "i486", "i586", "i686" -> "x86";
+          case "power ppc" -> "powerpc";
+          case "psc1k" -> "ignite";
+          default -> osArch;
+        };
     return osName + "-" + osArch;
   }
 

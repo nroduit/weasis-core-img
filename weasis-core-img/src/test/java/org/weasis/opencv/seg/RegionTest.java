@@ -11,7 +11,6 @@ package org.weasis.opencv.seg;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Rectangle;
@@ -31,6 +30,7 @@ import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.data.PlanarImage;
 
 class RegionTest {
   @BeforeAll
@@ -81,7 +81,7 @@ class RegionTest {
     assertTrue(region.getSegmentList().isEmpty());
     assertEquals(0.0, region.getArea());
     Assertions.assertNull(region.getAttributes());
-    assertTrue(Region.buildSegmentList(null, null).isEmpty());
+    assertTrue(Region.buildSegmentList((PlanarImage) null, null).isEmpty());
   }
 
   @Test
