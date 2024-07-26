@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Rectangle;
+import java.awt.geom.Point2D;
 import java.awt.geom.Point2D.Double;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,6 +26,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -66,7 +68,7 @@ class RegionTest {
     Region region = new Region("testId");
     region.setSegmentList(segments);
     assertEquals(segments, region.getSegmentList());
-    assertEquals(148.0, region.getArea()); // Approximation of area
+    assertEquals(150.0, region.getArea()); // Approximation of area
 
     region = new Region("testId");
     region.setSegmentList(segments, 140);
@@ -111,6 +113,21 @@ class RegionTest {
 
     List<Segment> segments = Region.buildSegmentList(ImageCV.toImageCV(source));
     Region region = new Region("testId", segments);
-    assertEquals(46.0, region.getArea()); // Polygonal approximation of area
+    assertEquals(new Point2D.Double(13.0, 8.0), region.getSegmentList().get(0).get(2));
+    assertEquals(29.0, region.getArea()); // Polygonal approximation of area
+
+    segments = Region.buildSegmentList(ImageCV.toImageCV(source), new Point(4, 3));
+    region = new Region("testId", segments);
+    assertEquals(new Point2D.Double(17.0, 11.0), region.getSegmentList().get(0).get(2));
+    assertEquals(29.0, region.getArea()); // Polygonal approximation of area
+
+    MatOfPoint2f pt2f = new MatOfPoint2f(pts);
+    Mat hierarchy = new Mat(1, 4, CvType.CV_32SC1);
+    int[] hierarchyData = new int[4];
+    hierarchyData[3] = -1;
+    hierarchy.put(0, 0, hierarchyData);
+    segments = Region.buildSegmentListFromPoint(List.of(pt2f), hierarchy);
+    region = new Region("testId", segments);
+    assertEquals(new Point2D.Double(6.0, 5.0), region.getSegmentList().get(0).get(0));
   }
 }
