@@ -15,7 +15,7 @@
     <sha1/>
 
     <weasis.opencv.version>4.9.0</weasis.opencv.version>
-    <weasis.core.version>${weasis.opencv.version}.1</weasis.core.version>
+    <weasis.core.version>${weasis.opencv.version}.2</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
 
