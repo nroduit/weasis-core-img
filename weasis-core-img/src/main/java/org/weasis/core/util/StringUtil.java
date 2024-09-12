@@ -157,10 +157,6 @@ public class StringUtil {
     return str != null && !str.isEmpty();
   }
 
-  public static boolean hasLength(String str) {
-    return hasLength((CharSequence) str);
-  }
-
   public static boolean hasText(CharSequence str) {
     if (!hasLength(str)) {
       return false;
@@ -172,10 +168,6 @@ public class StringUtil {
       }
     }
     return false;
-  }
-
-  public static boolean hasText(String str) {
-    return hasText((CharSequence) str);
   }
 
   /**
