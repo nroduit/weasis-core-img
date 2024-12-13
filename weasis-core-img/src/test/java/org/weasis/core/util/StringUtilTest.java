@@ -48,6 +48,13 @@ class StringUtilTest {
     assertNull(StringUtil.getFirstCharacter(StringUtil.EMPTY_STRING));
   }
 
+
+  @Test
+  void testNull() {
+    String str = null;
+    assertFalse(StringUtil.hasText(str));
+  }
+
   /** Method under test: {@link StringUtil#getStringArray(String, String)} */
   @Test
   void testGetStringArray() {
