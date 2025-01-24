@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.HashSet;
 import java.util.List;
@@ -754,11 +755,16 @@ class ImageProcessorTest {
     Path readOnlyFile = Paths.get(System.getProperty("java.io.tmpdir"), "testReadOnlyFile.wcv");
     FileUtil.delete(readOnlyFile);
     Files.createFile(readOnlyFile);
-    Set<PosixFilePermission> permissions = new HashSet<>();
-    permissions.add(PosixFilePermission.OWNER_READ);
-    permissions.add(PosixFilePermission.GROUP_READ);
-    permissions.add(PosixFilePermission.OTHERS_READ);
-    Files.setPosixFilePermissions(readOnlyFile, permissions);
+    if (Files.getFileAttributeView(readOnlyFile, PosixFileAttributeView.class) != null) {
+      Set<PosixFilePermission> permissions = new HashSet<>();
+      permissions.add(PosixFilePermission.OWNER_READ);
+      permissions.add(PosixFilePermission.GROUP_READ);
+      permissions.add(PosixFilePermission.OTHERS_READ);
+      Files.setPosixFilePermissions(readOnlyFile, permissions);
+    } else {
+      File file = readOnlyFile.toFile();
+      assertTrue(file.setReadOnly(), "Failed to set file as read-only on non-POSIX system");
+    }
 
     assertFalse(ImageProcessor.writeImage((Mat) null, readOnlyFile.toFile()));
     assertFalse(ImageProcessor.writeImage(null, readOnlyFile.toFile(), null));
