@@ -105,7 +105,6 @@ class ImageConversionTest {
           UnsupportedOperationException.class,
           () -> {
             ImageConversion.toBufferedImage((PlanarImage) img);
-            ;
           });
     }
 
