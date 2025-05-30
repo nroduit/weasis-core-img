@@ -9,4 +9,13 @@
  */
 package org.weasis.core.util;
 
+/**
+ * A generic record Pair that holds two values: first and second. This class is designed to
+ * encapsulate two objects of potentially different types, providing a simple tuple-like structure.
+ *
+ * @param <K> the type of the first element in the pair
+ * @param <V> the type of the second element in the pair
+ * @param first the first value in the pair
+ * @param second the second value in the pair
+ */
 public record Pair<K, V>(K first, V second) {}

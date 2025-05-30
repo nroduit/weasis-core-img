@@ -12,9 +12,9 @@ package org.weasis.opencv.op.lut;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Implementation of {@link WlPresentation}. No test is required for this class
- *
- * @author Nicolas Roduit
+ * Represents a default implementation of the {@code WlPresentation} interface. This class provides
+ * functionality for managing window level presentation states with specific properties including
+ * pixel padding and a presentation state LUT.
  */
 @Generated
 public class DefaultWlPresentation implements WlPresentation {

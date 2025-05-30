@@ -9,4 +9,16 @@
  */
 package org.weasis.core.util;
 
+/**
+ * A generic record Triple that holds three values: first, second, and third. This class is designed
+ * to encapsulate three objects of potentially different types, providing a simple tuple-like
+ * structure.
+ *
+ * @param <K> the type of the first element in the triple
+ * @param <V> the type of the second element in the triple
+ * @param <T> the type of the third element in the triple
+ * @param first the first value in the triple
+ * @param second the second value in the triple
+ * @param third the third value in the triple
+ */
 public record Triple<K, V, T>(K first, V second, T third) {}

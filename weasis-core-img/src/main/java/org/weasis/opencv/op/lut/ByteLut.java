@@ -18,6 +18,11 @@ import java.util.Arrays;
 import java.util.Objects;
 import javax.swing.Icon;
 
+/**
+ * A record representing a Byte Lookup Table (LUT) with a name and a 2D byte array for color
+ * mapping. The LUT typically contains 3 channels (Red, Green, Blue) with 256 values per channel
+ * used for color transformation.
+ */
 public record ByteLut(String name, byte[][] lutTable) {
 
   public ByteLut {

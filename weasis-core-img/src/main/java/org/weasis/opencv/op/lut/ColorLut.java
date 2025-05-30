@@ -12,6 +12,11 @@ package org.weasis.opencv.op.lut;
 import java.awt.Color;
 import java.util.function.Supplier;
 
+/**
+ * An enumeration representing various color lookup tables (LUTs). Each LUT is designed for specific
+ * color transformations or visual effects and is defined by a name and mapping data for red, green,
+ * and blue channels.
+ */
 public enum ColorLut {
   IMAGE("Default (image)", () -> null),
   FLAG(

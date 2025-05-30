@@ -13,6 +13,10 @@ import java.io.File;
 import java.util.Objects;
 import org.weasis.opencv.op.ImageProcessor;
 
+/**
+ * Represents a wrapper for a file containing raw image data (not compressed with a specific
+ * header), providing methods to read and write image data to and from the file.
+ */
 public record FileRawImage(File file) {
 
   public static final int HEADER_LENGTH = 46;

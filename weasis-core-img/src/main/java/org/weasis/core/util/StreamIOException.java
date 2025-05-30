@@ -12,6 +12,11 @@ package org.weasis.core.util;
 import java.io.IOException;
 import org.weasis.core.util.annotations.Generated;
 
+/**
+ * A custom exception class that represents errors occurring in input or output operations with
+ * streams. This exception extends the {@code IOException}, providing additional constructors to
+ * specify detailed messages or causes.
+ */
 @Generated
 public class StreamIOException extends IOException {
 

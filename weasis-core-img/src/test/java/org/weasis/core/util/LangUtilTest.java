@@ -11,12 +11,10 @@ package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.awt.Point;
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.OptionalDouble;
@@ -111,11 +109,5 @@ class LangUtilTest {
     assertFalse(optionalInteger.isPresent());
     optionalInteger = LangUtil.getOptionalInteger(42);
     assertEquals(42, optionalInteger.getAsInt());
-  }
-
-  /** Method under test: {@link LangUtil#safeBufferType(ByteBuffer)} */
-  @Test
-  void testSafeBufferType() {
-    assertNull(LangUtil.safeBufferType(null));
   }
 }

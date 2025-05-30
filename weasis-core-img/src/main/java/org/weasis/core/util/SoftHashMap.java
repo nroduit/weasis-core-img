@@ -20,6 +20,12 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * A map implementation that uses {@link SoftReference} to allow values to be garbage collected when
+ * memory is low. The map entries are cleared when the associated {@link SoftReference} is cleared
+ * by the garbage collector.
+ *
+ * @param <K> the type of keys maintained by this map
+ * @param <V> the type of values held by this map
  * @author Nicolas Roduit
  */
 public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
@@ -57,6 +63,7 @@ public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable
     }
   }
 
+  /** Removes stale entries from the map by processing references queued for garbage collection. */
   public void expungeStaleEntries() {
     Reference<? extends V> sv;
     while ((sv = queue.poll()) != null) {
