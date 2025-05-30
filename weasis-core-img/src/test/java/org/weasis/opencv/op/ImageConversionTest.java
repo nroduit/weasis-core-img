@@ -40,7 +40,7 @@ import org.weasis.opencv.data.PlanarImage;
 class ImageConversionTest {
 
   @BeforeAll
-  public static void loadNativeLib() {
+   static void loadNativeLib() {
     // Load the native OpenCV library
     OpenCVNativeLoader loader = new OpenCVNativeLoader();
     loader.init();
@@ -64,7 +64,6 @@ class ImageConversionTest {
           UnsupportedOperationException.class,
           () -> {
             ImageConversion.toBufferedImage((PlanarImage) img);
-            ;
           });
     }
 
@@ -86,7 +85,6 @@ class ImageConversionTest {
           UnsupportedOperationException.class,
           () -> {
             ImageConversion.toBufferedImage((PlanarImage) img);
-            ;
           });
     }
 

@@ -26,7 +26,7 @@ import org.opencv.osgi.OpenCVNativeLoader;
 
 class SegmentTest {
   @BeforeAll
-  public static void loadNativeLib() {
+   static void loadNativeLib() {
     // Load the native OpenCV library
     OpenCVNativeLoader loader = new OpenCVNativeLoader();
     loader.init();

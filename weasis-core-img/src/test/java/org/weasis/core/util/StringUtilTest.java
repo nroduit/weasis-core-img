@@ -48,7 +48,6 @@ class StringUtilTest {
     assertNull(StringUtil.getFirstCharacter(StringUtil.EMPTY_STRING));
   }
 
-
   @Test
   void testNull() {
     String str = null;

@@ -154,15 +154,14 @@ public class StringUtil {
   }
 
   public static boolean hasLength(CharSequence str) {
-  return str != null && !str.isEmpty();
+    return str != null && !str.isEmpty();
   }
-
 
   public static boolean hasText(CharSequence str) {
     if (!hasLength(str)) {
       return false;
     }
-  for (int i = 0; i < str.length(); i++) {
+    for (int i = 0; i < str.length(); i++) {
       if (!Character.isWhitespace(str.charAt(i))) {
         return true;
       }

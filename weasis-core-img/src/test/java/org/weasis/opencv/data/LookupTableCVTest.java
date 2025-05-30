@@ -31,7 +31,7 @@ class LookupTableCVTest {
   static final short[] SHORT_C1 = new short[] {-8126, -4096, -1024, -512, 0, 10, 512, 1024, 4096};
 
   @BeforeAll
-  public static void loadNativeLib() {
+   static void loadNativeLib() {
     // Load the native OpenCV library
     OpenCVNativeLoader loader = new OpenCVNativeLoader();
     loader.init();

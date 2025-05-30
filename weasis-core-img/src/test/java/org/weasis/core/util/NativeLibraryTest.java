@@ -25,19 +25,19 @@ class NativeLibraryTest {
   private final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
 
   @BeforeAll
-  public static void loadNativeLib() {
+   static void loadNativeLib() {
     // Load the native OpenCV library
     OpenCVNativeLoader loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @BeforeEach
-  public void setUp() {
+   void setUp() {
     System.setOut(new PrintStream(outputStreamCaptor));
   }
 
   @AfterEach
-  public void tearDown() {
+   void tearDown() {
     System.setOut(System.out);
   }
 

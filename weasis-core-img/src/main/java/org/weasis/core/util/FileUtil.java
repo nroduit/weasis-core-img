@@ -347,21 +347,20 @@ public final class FileUtil {
    * @return The extension of the file name without '.' or empty string if none.
    */
   public static boolean isFileExtensionMatching(File file, String[] extensions) {
-    if (file != null && extensions != null) {
-      String fileExt = getExtension(file.getName());
-      if (StringUtil.hasLength(fileExt)) {
-        for (String extension : extensions) {
-          if (StringUtil.hasText(extension)) {
-            String ext = extension.startsWith(".") ? extension : "." + extension;
-            if (fileExt.equalsIgnoreCase(ext)) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    return false;
+    if (file == null || extensions == null) return false;
+
+    String fExt = getExtension(file.getName());
+    if (!StringUtil.hasLength(fExt)) return false;
+
+    return Arrays.stream(extensions).anyMatch(ext -> matchesExtension(fExt, ext));
   }
+
+  private static boolean matchesExtension(String fExt, String ext) {
+    if (!StringUtil.hasText(ext)) return false;
+    String nExt = ext.startsWith(".") ? ext : "." + ext;
+    return fExt.equalsIgnoreCase(nExt);
+  }
+
 
   /**
    * Write inputStream content into a file
@@ -539,9 +538,9 @@ public final class FileUtil {
       ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
 
       while (readChannel.read(buffer) != -1) {
-        LangUtil.safeBufferType(buffer).flip();
+        buffer.flip();
         writeChannel.write(buffer);
-        LangUtil.safeBufferType(buffer).clear();
+        buffer.clear();
       }
       return true;
     } catch (IOException e) {
@@ -610,47 +609,52 @@ public final class FileUtil {
   }
 
   /**
-   * Create a zip file from a directory
+   * Create a zip file from a directory.
    *
-   * @param directory the directory to zip
-   * @param zipFile file the zip file to create
-   * @throws IOException if an I/O error occurs
+   * @param directory the directory to zip.
+   * @param zipFile the zip file to create.
+   * @throws IOException if an I/O error occurs.
    */
   public static void zip(File directory, File zipFile) throws IOException {
-    if (zipFile == null || directory == null) {
-      return;
-    }
-    URI base = directory.toURI();
-    Deque<File> queue = new LinkedList<>();
-    queue.push(directory);
+    if (zipFile == null || directory == null) return;
 
-    // The resources will be closed in reverse order of the order in which they are created in
-    // try(). Zip stream must be close before out stream.
+    URI base = directory.toURI();
+    Deque<File> dirQ = new LinkedList<>();
+    dirQ.push(directory);
+
     try (OutputStream out = Files.newOutputStream(zipFile.toPath());
         ZipOutputStream zipOut = new ZipOutputStream(out)) {
-      while (!queue.isEmpty()) {
-        File dir = queue.pop();
+
+      while (!dirQ.isEmpty()) {
+        File dir = dirQ.pop();
         File[] files = dir.listFiles();
+
         if (files != null) {
-          for (File entry : files) {
-            String name = base.relativize(entry.toURI()).getPath();
-            if (entry.isDirectory()) {
-              queue.push(entry);
-              String[] flist = entry.list();
-              if (flist == null || flist.length == 0) {
-                name = name.endsWith("/") ? name : name + "/";
-                zipOut.putNextEntry(new ZipEntry(name));
-              }
-            } else {
-              zipOut.putNextEntry(new ZipEntry(name));
-              copyZip(entry, zipOut);
-              zipOut.closeEntry();
-            }
+          for (File file : files) {
+            processFile(file, base, dirQ, zipOut);
           }
         }
       }
     }
   }
+
+  private static void processFile(File file, URI base, Deque<File> dirQ, ZipOutputStream zipOut) throws IOException {
+    String name = base.relativize(file.toURI()).getPath();
+    if (file.isDirectory()) {
+      dirQ.push(file); // Add a subdirectory to the queue
+      String[] list = file.list();
+      if (list == null || list.length == 0) {
+        name = name.endsWith("/") ? name : name + "/";
+        zipOut.putNextEntry(new ZipEntry(name));
+        zipOut.closeEntry();
+      }
+    } else {
+      zipOut.putNextEntry(new ZipEntry(name));
+      copyZip(file, zipOut);
+      zipOut.closeEntry();
+    }
+  }
+
 
   /**
    * Unzip a zip inputStream into a directory

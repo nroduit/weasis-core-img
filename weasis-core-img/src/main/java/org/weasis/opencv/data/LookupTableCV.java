@@ -19,6 +19,23 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.weasis.opencv.op.ImageConversion;
 
+/**
+ * The {@code LookupTableCV} class defines a lookup table used for fast pixel value transformations
+ * in image processing. It can be initialized with different types of data sources, including single
+ * or multi-dimensional byte and short arrays, with optional offsets and signed/unsigned
+ * interpretation flags. The lookup table data is stored in a {@link DataBuffer}.
+ *
+ * <p>This class supports querying various properties of the lookup table data, such as the number
+ * of bands, data type, and entry count. It also facilitates performing lookups on image data in
+ * both byte and short formats. The lookup operation can handle images with multiple bands and
+ * adjusts the lookup table for mismatched bands if necessary.
+ *
+ * <p>Supported data types for storage include: - {@link DataBufferByte} - {@link DataBufferUShort}
+ * - {@link DataBufferShort}
+ *
+ * <p>The class also provides utility functions to extract raw lookup table data and access offsets
+ * for a specific band.
+ */
 public class LookupTableCV {
 
   private final int[] offsets;
@@ -136,8 +153,7 @@ public class LookupTableCV {
   }
 
   public ImageCV lookup(Mat src) {
-    // Validate source.
-    Objects.requireNonNull(src);
+    Objects.requireNonNull(src, "Source Mat cannot be null.");
 
     int width = src.width();
     int height = src.height();
@@ -145,91 +161,109 @@ public class LookupTableCV {
     int channels = CvType.channels(cvType);
     int srcDataType = ImageConversion.convertToDataType(cvType);
 
-    byte[] bSrcData = null;
-    short[] sSrcData = null;
-    if (CvType.depth(cvType) == CvType.CV_8U || CvType.depth(cvType) == CvType.CV_8S) {
-      bSrcData = new byte[width * height * channels];
-      src.get(0, 0, bSrcData);
-    } else if (CvType.depth(cvType) == CvType.CV_16U || CvType.depth(cvType) == CvType.CV_16S) {
-      sSrcData = new short[width * height * channels];
-      src.get(0, 0, sSrcData);
-    } else {
-      throw new IllegalArgumentException("Not supported dataType for LUT transformation:" + src);
-    }
+    Object sourceData = initializeSourceData(src, width, height, channels, cvType);
 
-    int lkbBands = getNumBands();
-    int lkpDataType = getDataType();
-
-    // Table information.
+    // Ensure table data matches source data
+    int numBands = getNumBands();
     int[] tblOffsets = getOffsets();
-
     byte[][] bTblData = getByteData();
     short[][] sTblData = getShortData();
 
-    if (lkbBands < channels) {
-      if (sTblData == null) {
-        byte[] b = bTblData[0];
+    if (numBands < channels) {
+      if (bTblData != null) {
+        byte[] bandData = bTblData[0];
         bTblData = new byte[channels][];
-        Arrays.fill(bTblData, b);
-      } else {
-        short[] b = sTblData[0];
+        Arrays.fill(bTblData, bandData);
+      } else if (sTblData != null) {
+        short[] bandData = sTblData[0];
         sTblData = new short[channels][];
-        Arrays.fill(sTblData, b);
+        Arrays.fill(sTblData, bandData);
       }
-
-      int t = tblOffsets[0];
+      int firstOffset = tblOffsets[0];
       tblOffsets = new int[channels];
-      Arrays.fill(tblOffsets, t);
-      lkbBands = channels;
+      Arrays.fill(tblOffsets, firstOffset);
+      numBands = channels;
     }
 
-    if (lkpDataType == DataBuffer.TYPE_BYTE) {
-      boolean scrByte = srcDataType == DataBuffer.TYPE_BYTE;
-      byte[] bDstData =
-          scrByte && channels >= lkbBands ? bSrcData : new byte[width * height * lkbBands];
-      if (scrByte && bSrcData != null) {
-        lookup(bSrcData, bDstData, tblOffsets, bTblData);
-      } else if (srcDataType == DataBuffer.TYPE_USHORT && sSrcData != null && bDstData != null) {
-        lookupU(sSrcData, bDstData, tblOffsets, bTblData);
-      } else if (srcDataType == DataBuffer.TYPE_SHORT && sSrcData != null && bDstData != null) {
-        lookup(sSrcData, bDstData, tblOffsets, bTblData);
-      } else {
-        throw new IllegalArgumentException(
-            "Not supported LUT conversion from source dataType " + srcDataType);
-      }
+    // Process lookup based on the destination type
+    int tblDataType = getDataType();
 
-      ImageCV dst = new ImageCV(height, width, CvType.CV_8UC(lkbBands));
-      dst.put(0, 0, bDstData);
-      return dst;
-
-    } else if (lkpDataType == DataBuffer.TYPE_USHORT || lkpDataType == DataBuffer.TYPE_SHORT) {
-      boolean scrByte = srcDataType == DataBuffer.TYPE_BYTE;
-      short[] sDstData =
-          !scrByte && channels >= lkbBands ? sSrcData : new short[width * height * lkbBands];
-      if (scrByte && bSrcData != null && sTblData != null) {
-        lookup(bSrcData, sDstData, tblOffsets, sTblData);
-      } else if (srcDataType == DataBuffer.TYPE_USHORT && sSrcData != null && sTblData != null) {
-        lookupU(sSrcData, sDstData, tblOffsets, sTblData);
-      } else if (srcDataType == DataBuffer.TYPE_SHORT && sSrcData != null && sTblData != null) {
-        lookup(sSrcData, sDstData, tblOffsets, sTblData);
-      } else {
-        throw new IllegalArgumentException(
-            "Not supported LUT conversion from source dataType " + srcDataType);
-      }
-
-      ImageCV dst =
-          new ImageCV(
-              height,
-              width,
-              lkpDataType == DataBuffer.TYPE_USHORT
-                  ? CvType.CV_16UC(channels)
-                  : CvType.CV_16SC(channels));
-      dst.put(0, 0, sDstData);
-      return dst;
+    if (tblDataType == DataBuffer.TYPE_BYTE) {
+      return performByteLookup(srcDataType, width, height, numBands, channels, sourceData, bTblData, tblOffsets);
+    } else if (tblDataType == DataBuffer.TYPE_USHORT || tblDataType == DataBuffer.TYPE_SHORT) {
+      return performShortLookup(srcDataType, width, height, numBands, channels, sourceData, sTblData, tblOffsets);
     }
-
-    return null;
+    throw new IllegalArgumentException("Unsupported LUT transformation.");
   }
+
+  private Object initializeSourceData(Mat src, int width, int height, int channels, int cvType) {
+    switch (CvType.depth(cvType)) {
+      case CvType.CV_8U, CvType.CV_8S -> {
+        byte[] byteData = new byte[width * height * channels];
+        src.get(0, 0, byteData);
+        return byteData;
+      }
+      case CvType.CV_16U, CvType.CV_16S -> {
+        short[] shortData = new short[width * height * channels];
+        src.get(0, 0, shortData);
+        return shortData;
+      }
+      default -> throw new IllegalArgumentException(
+          "Not supported dataType for LUT transformation: " + src
+      );
+    }
+  }
+
+  private ImageCV performByteLookup(int srcDataType, int width, int height, int numBands,
+      int channels, Object sourceData, byte[][] tblData, int[] tblOffsets) {
+    boolean isSourceByte = srcDataType == DataBuffer.TYPE_BYTE;
+    byte[] dstData = isSourceByte && channels >= numBands
+        ? (byte[]) sourceData
+        : new byte[width * height * numBands];
+
+    if (isSourceByte) {
+      lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
+    } else if (srcDataType == DataBuffer.TYPE_USHORT) {
+      lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
+    } else if (srcDataType == DataBuffer.TYPE_SHORT) {
+      lookup((short[]) sourceData, dstData, tblOffsets, tblData);
+    } else {
+      throw new IllegalArgumentException("Not supported LUT conversion from source dataType " + srcDataType);
+    }
+
+    ImageCV dst = new ImageCV(height, width, CvType.CV_8UC(numBands));
+    dst.put(0, 0, dstData);
+    return dst;
+  }
+
+  private ImageCV performShortLookup(int srcDataType, int width, int height, int numBands,
+      int channels, Object sourceData, short[][] tblData, int[] tblOffsets) {
+    boolean isSourceByte = srcDataType == DataBuffer.TYPE_BYTE;
+    short[] dstData = (!isSourceByte && channels >= numBands)
+        ? (short[]) sourceData
+        : new short[width * height * numBands];
+
+    if (isSourceByte) {
+      lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
+    } else if (srcDataType == DataBuffer.TYPE_USHORT) {
+      lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
+    } else if (srcDataType == DataBuffer.TYPE_SHORT) {
+      lookup((short[]) sourceData, dstData, tblOffsets, tblData);
+    } else {
+      throw new IllegalArgumentException("Not supported LUT conversion from source dataType " + srcDataType);
+    }
+
+    ImageCV dst = new ImageCV(
+        height,
+        width,
+        getDataType() == DataBuffer.TYPE_USHORT
+            ? CvType.CV_16UC(channels)
+            : CvType.CV_16SC(channels)
+    );
+    dst.put(0, 0, dstData);
+    return dst;
+  }
+
 
   private static int index(int pixel, int offset, int length) {
     int val = pixel - offset;

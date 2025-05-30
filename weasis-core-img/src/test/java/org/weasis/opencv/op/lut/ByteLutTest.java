@@ -95,7 +95,6 @@ class ByteLutTest {
     Component mockComponent = Mockito.mock(Component.class);
     ArgumentCaptor<Color> colorCaptor = ArgumentCaptor.forClass(Color.class);
 
-    byte[][] lut = byteLut.lutTable();
     icon.paintIcon(mockComponent, mockGraphics, 0, 0);
     Mockito.verify(mockGraphics, Mockito.times(width)).setColor(colorCaptor.capture());
     List<Color> capturedColors = colorCaptor.getAllValues();

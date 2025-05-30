@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.core.version}</revision>
+    <revision>${weasis.core.version}.1</revision>
     <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
@@ -70,13 +70,6 @@
         <artifactId>libopencv_java</artifactId>
         <version>${weasis.opencv.native.version}</version>
         <type>so</type>
-        <classifier>linux-armv7a</classifier>
-      </dependency>
-      <dependency>
-        <groupId>org.weasis.thirdparty.org.opencv</groupId>
-        <artifactId>libopencv_java</artifactId>
-        <version>${weasis.opencv.native.version}</version>
-        <type>so</type>
         <classifier>linux-x86-64</classifier>
       </dependency>
       <dependency>
@@ -98,13 +91,6 @@
         <artifactId>opencv_java</artifactId>
         <version>${weasis.opencv.native.version}</version>
         <type>dll</type>
-        <classifier>windows-x86</classifier>
-      </dependency>
-      <dependency>
-        <groupId>org.weasis.thirdparty.org.opencv</groupId>
-        <artifactId>opencv_java</artifactId>
-        <version>${weasis.opencv.native.version}</version>
-        <type>dll</type>
         <classifier>windows-x86-64</classifier>
       </dependency>
     </dependencies>
@@ -116,22 +102,22 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.13.0</version>
+          <version>3.14.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-install-plugin</artifactId>
-          <version>3.1.3</version>
+          <version>3.1.4</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-clean-plugin</artifactId>
-          <version>3.4.0</version>
+          <version>3.4.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.1.3</version>
+          <version>3.1.4</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -151,7 +137,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.5.2</version>
+          <version>3.5.3</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -178,20 +164,21 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>3.6.0</version>
         </plugin>
+
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.12</version>
+          <version>0.8.13</version>
         </plugin>
         <plugin>
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
-          <version>2.43.0</version>
+          <version>2.44.4</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>flatten-maven-plugin</artifactId>
-          <version>1.6.0</version>
+          <version>1.7.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -244,21 +231,6 @@
       </properties>
     </profile>
     <profile>
-      <id>linux-arm32</id>
-      <activation>
-        <os>
-          <name>linux</name>
-          <arch>arm</arch>
-        </os>
-      </activation>
-      <properties>
-        <os-name>linux</os-name>
-        <cpu-name>armv7a</cpu-name>
-        <lib-file-name>libopencv_java</lib-file-name>
-        <lib-file-ext>so</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
       <id>linux-x86_64</id>
       <activation>
         <os>
@@ -301,21 +273,6 @@
         <cpu-name>x86-64</cpu-name>
         <lib-file-name>libopencv_java</lib-file-name>
         <lib-file-ext>dylib</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
-      <id>windows-x86</id>
-      <activation>
-        <os>
-          <family>windows</family>
-          <arch>x86</arch>
-        </os>
-      </activation>
-      <properties>
-        <os-name>windows</os-name>
-        <cpu-name>x86</cpu-name>
-        <lib-file-name>opencv_java</lib-file-name>
-        <lib-file-ext>dll</lib-file-ext>
       </properties>
     </profile>
     <profile>

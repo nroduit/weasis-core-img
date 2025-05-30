@@ -13,7 +13,7 @@ import java.util.Objects;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Implementation of the LUT parameters. No test is required for this class
+ * Implementation of the LUT parameters.
  *
  * @author Nicolas Roduit
  */

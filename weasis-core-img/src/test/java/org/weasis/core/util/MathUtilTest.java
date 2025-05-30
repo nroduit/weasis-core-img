@@ -113,4 +113,32 @@ class MathUtilTest {
     assertEquals(0.5d, MathUtil.round(0.5d, 1));
     assertThrows(IllegalArgumentException.class, () -> MathUtil.round(10.0d, -1));
   }
+
+  /** Method under test: {@link MathUtil#clamp(double, double, double)} */
+  @Test
+  void testClamp() {
+    assertEquals(5.0, MathUtil.clamp(5.0, 0.0, 10.0));
+    assertEquals(0.0, MathUtil.clamp(-1.0, 0.0, 10.0));
+    assertEquals(10.0, MathUtil.clamp(15.0, 0.0, 10.0));
+    assertEquals(-5.0, MathUtil.clamp(-10.0, -5.0, 5.0));
+    assertEquals(5.0, MathUtil.clamp(10.0, -5.0, 5.0));
+  }
+
+  /** Method under test: {@link MathUtil#lerp(double, double, double)} */
+  @Test
+  void testLerp() {
+    // Test positive ranges
+    assertEquals(10.0, MathUtil.lerp(0.0, 20.0, 0.5));
+    assertEquals(0.0, MathUtil.lerp(0.0, 20.0, 0.0));
+    assertEquals(20.0, MathUtil.lerp(0.0, 20.0, 1.0));
+
+    // Test negative ranges
+    assertEquals(-5.0, MathUtil.lerp(-10.0, 0.0, 0.5));
+    assertEquals(-10.0, MathUtil.lerp(-10.0, 0.0, 0.0));
+    assertEquals(0.0, MathUtil.lerp(-10.0, 0.0, 1.0));
+
+    // Test t < 0 and t > 1
+    assertEquals(-10.0, MathUtil.lerp(0.0, 10.0, -1.0));
+    assertEquals(20.0, MathUtil.lerp(0.0, 10.0, 2.0));
+  }
 }

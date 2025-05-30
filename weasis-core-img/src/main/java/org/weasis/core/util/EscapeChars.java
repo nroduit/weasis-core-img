@@ -305,72 +305,91 @@ public final class EscapeChars {
         || c >= 0xE000 && c <= 0xFFFD);
   }
 
-  private static String encode(String aText, Map<Character, String> table) {
-    if (!StringUtil.hasText(aText)) {
+  private static String encode(String text, Map<Character, String> map) {
+    if (!StringUtil.hasText(text)) {
       return "";
     }
 
-    StringBuilder buffer = null;
-    int diff;
-    int last = -1;
-    char[] charArray = aText.toCharArray();
-    boolean xml = table == xmlEncodeChars;
+    StringBuilder buf = null;
+    int lastIdx = -1;
+    char[] chars = text.toCharArray();
+    boolean checkXml = map == xmlEncodeChars;
 
-    for (int i = 0; i < charArray.length; i++) {
-      char c = charArray[i];
-      if (table.containsKey(c)) {
-        if (buffer == null) {
-          buffer = new StringBuilder(aText.length());
-        }
-        diff = i - (last + 1);
-        if (diff > 0) {
-          buffer.append(charArray, last + 1, diff);
-        }
-        buffer.append(table.get(c));
-        last = i;
-      }
-      // Non-valid chars XML unicode characters as specified by the XML 1.0 standard
-      else if (xml && isInvalidXml(c)) {
-        if (buffer == null) {
-          buffer = new StringBuilder(aText.length());
-        }
-        diff = i - (last + 1);
-        if (diff > 0) {
-          buffer.append(charArray, last + 1, diff);
-        }
-        last = i;
+    for (int i = 0; i < chars.length; i++) {
+      char ch = chars[i];
+      if (map.containsKey(ch)) {
+        buf = appendSegment(chars, buf, lastIdx, i, map.get(ch));
+        lastIdx = i;
+      } else if (checkXml && isInvalidXml(ch)) {
+        buf = appendSegment(chars, buf, lastIdx, i, null);
+        lastIdx = i;
       }
     }
 
-    if (buffer == null) {
-      return aText;
-    } else {
-      diff = charArray.length - (last + 1);
-      if (diff > 0) {
-        buffer.append(charArray, last + 1, diff);
-      }
-      return buffer.toString();
+    if (buf == null) {
+      return text;
     }
+
+    // Add any remaining characters
+    buf.append(chars, lastIdx + 1, chars.length - (lastIdx + 1));
+    return buf.toString();
   }
+
+  private static StringBuilder appendSegment(char[] chars, StringBuilder buf, int lastIdx, int currIdx, String encoded) {
+    if (buf == null) {
+      buf = new StringBuilder(chars.length);
+    }
+    int len = currIdx - (lastIdx + 1);
+    if (len > 0) {
+      buf.append(chars, lastIdx + 1, len);
+    }
+    if (encoded != null) {
+      buf.append(encoded);
+    }
+    return buf;
+  }
+
 
   private EscapeChars() {}
 
-  /** Escape characters for HTML string. */
+  /**
+   * Escapes special characters in a string for safe inclusion in HTML documents.
+   *
+   * @param aText the input string to be escaped
+   * @return the escaped string with special HTML characters replaced by their corresponding
+   *     entities
+   */
   public static String forHTML(String aText) {
     return encode(aText, htmlEncodeChars);
   }
 
-  /** Escape all ampersand characters in a URL. */
+  /**
+   * Replaces all occurrences of the ampersand character '&' in the given URL string with an escaped
+   * equivalent.
+   *
+   * @param aURL the input URL string where ampersand characters are to be replaced
+   * @return the URL string with all '&' characters replaced by their escaped equivalent
+   */
   public static String forUrlAmpersand(String aURL) {
     return aURL.replace("&", AMPERSAND);
   }
 
-  /** Escape characters for XML 1.0 data. */
+  /**
+   * Escapes special characters in a string for safe inclusion in XML documents.
+   *
+   * @param aText the input string to be escaped
+   * @return the escaped string with special XML characters replaced by their corresponding entities
+   */
   public static String forXML(String aText) {
     return encode(aText, xmlEncodeChars);
   }
 
-  /** Return a string with '<' and '>' characters replaced by their escaped equivalents. */
+  /**
+   * Return a string with '<' and '>' characters replaced by their escaped equivalents.
+   *
+   * @param aText the input String
+   * @return the String with '<' and '>' escaped characters
+   */
   public static String toDisableTags(String aText) {
     return encode(aText, tagEncodeChars);
   }
@@ -379,7 +398,7 @@ public final class EscapeChars {
    * Converts a string contain LF, CR/LF, LF/CR or CR into a set of lines by themselves.
    *
    * @param unformatted the input String
-   * @return Array of strings, one per line.
+   * @return an array of strings containing the lines derived from the input string.
    */
   public static String[] convertToLines(String unformatted) {
     if (unformatted == null) {
