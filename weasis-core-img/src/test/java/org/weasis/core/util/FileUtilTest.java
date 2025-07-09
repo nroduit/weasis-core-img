@@ -9,6 +9,7 @@
  */
 package org.weasis.core.util;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -16,34 +17,81 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.InterruptedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.DefaultLocale;
 import org.mockito.Mockito;
 
 class FileUtilTest {
 
-  /** Method under test: {@link FileUtil#getValidFileName(String)} */
   @Test
+  @DisplayName("Should write ImageInputStream data to file successfully")
+  void testWriteFileSuccess() throws IOException {
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteFile.test");
+    byte[] data = "TestImageData".getBytes(StandardCharsets.UTF_8);
+
+    ImageInputStream imageInputStream =
+        new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+    try {
+      assertEquals(-1, FileUtil.writeFile(imageInputStream, path));
+      assertTrue(Files.exists(path));
+      assertArrayEquals(data, Files.readAllBytes(path));
+    } finally {
+      FileUtil.delete(path);
+      assertFalse(Files.exists(path));
+    }
+  }
+
+  @Test
+  @DisplayName("Should handle IOException during writing ImageInputStream data")
+  void testWriteFileIOException() throws IOException {
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteFileIOException.test");
+    ImageInputStream imageInputStream = Mockito.mock(ImageInputStream.class);
+
+    try {
+      Mockito.when(imageInputStream.read(Mockito.any()))
+          .thenThrow(new IOException("Test IOException"));
+      assertThrows(StreamIOException.class, () -> FileUtil.writeFile(imageInputStream, path));
+      assertFalse(Files.exists(path));
+    } finally {
+      StreamUtil.safeClose(imageInputStream);
+    }
+  }
+
+  @Test
+  @DisplayName("Should handle InterruptedIOException during writing ImageInputStream data")
+  void testWriteFileInterruptedException() throws IOException {
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteFileInterrupted.test");
+    ImageInputStream imageInputStream = Mockito.mock(ImageInputStream.class);
+    InterruptedIOException exception = new InterruptedIOException("Test InterruptedIOException");
+    exception.bytesTransferred = 5;
+
+    try {
+      Mockito.when(imageInputStream.read(Mockito.any())).thenThrow(exception);
+      int bytesWritten = FileUtil.writeFile(imageInputStream, path);
+      assertEquals(5, bytesWritten);
+      assertFalse(Files.exists(path));
+    } finally {
+      StreamUtil.safeClose(imageInputStream);
+    }
+  }
+
+  @Test
+  @DisplayName("Should validate file names by removing illegal characters")
   void testGetValidFileName() {
     assertEquals("foo.txt", FileUtil.getValidFileName("foo.txt"));
     assertEquals(StringUtil.EMPTY_STRING, FileUtil.getValidFileName(null));
@@ -51,8 +99,8 @@ class FileUtilTest {
     assertEquals("foo.txt", FileUtil.getValidFileName(new String(c1) + "/foo.txt"));
   }
 
-  /** Method under test: {@link FileUtil#getValidFileNameWithoutHTML(String)} */
   @Test
+  @DisplayName("Should validate file names by removing HTML tags and illegal characters")
   void testGetValidFileNameWithoutHTML() {
     assertEquals(
         "This is bold and italic text.",
@@ -63,228 +111,202 @@ class FileUtilTest {
         FileUtil.getValidFileNameWithoutHTML("<html>This is</p> a line <br>break<empty/>"));
   }
 
-  /** Method under test: {@link FileUtil#safeClose(XMLStreamWriter)} */
   @Test
+  @DisplayName("Should safely close XMLStreamWriter without throwing exceptions")
   void testSafeClose() throws XMLStreamException {
     XMLStreamWriter writer = Mockito.mock(XMLStreamWriter.class);
-    FileUtil.safeClose((XMLStreamReader) null);
+    StreamUtil.safeClose((XMLStreamReader) null);
     Mockito.verify(writer, Mockito.times(0)).close();
 
-    FileUtil.safeClose(writer);
+    StreamUtil.safeClose(writer);
     Mockito.verify(writer).close();
 
     Mockito.doThrow(new XMLStreamException()).when(writer).close();
-    FileUtil.safeClose(writer);
+    StreamUtil.safeClose(writer);
     Mockito.verify(writer, Mockito.times(2)).close();
   }
 
-  /** Method under test: {@link FileUtil#safeClose(XMLStreamReader)} */
   @Test
+  @DisplayName("Should safely close XMLStreamReader without throwing exceptions")
   void testSafeClose2() throws XMLStreamException {
     XMLStreamReader reader = Mockito.mock(XMLStreamReader.class);
-    FileUtil.safeClose((XMLStreamReader) null);
+    StreamUtil.safeClose((XMLStreamReader) null);
     Mockito.verify(reader, Mockito.times(0)).close();
 
-    FileUtil.safeClose(reader);
+    StreamUtil.safeClose(reader);
     Mockito.verify(reader).close();
 
     Mockito.doThrow(new XMLStreamException()).when(reader).close();
-    FileUtil.safeClose(reader);
+    StreamUtil.safeClose(reader);
     Mockito.verify(reader, Mockito.times(2)).close();
   }
 
-  /**
-   * Method under test:
-   *
-   * <ul>
-   *   <li>{@link FileUtil#createTempDir(File)}
-   *   <li>{@link FileUtil#delete(File)}
-   *   <li>{@link FileUtil#getAllFilesInDirectory(File, List)}
-   * </ul>
-   */
   @Test
+  @DisplayName("Should create temporary directories and manage file operations")
   void testCreateTempDir() throws IOException {
-    assertThrows(IllegalStateException.class, () -> FileUtil.createTempDir(null));
+    assertThrows(IllegalArgumentException.class, () -> FileUtil.createTempDir((Path) null));
 
-    File file = Paths.get(System.getProperty("java.io.tmpdir"), "tempTest").toFile();
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "tempTest");
     try {
-      assertThrows(IllegalStateException.class, () -> FileUtil.createTempDir(file));
-      file.mkdirs();
-      File folder = FileUtil.createTempDir(file);
-      assertTrue(folder.isDirectory());
-      File myFirstFile = new File(folder, "first");
-      File mySecondFile = new File(folder, "second"); // NON-NLS
-      assertTrue(myFirstFile.createNewFile());
-      assertTrue(mySecondFile.createNewFile());
-      ArrayList<File> files = new ArrayList<>();
-      FileUtil.getAllFilesInDirectory(file, files);
+      assertThrows(IllegalArgumentException.class, () -> FileUtil.createTempDir(path));
+      Files.createDirectories(path);
+      Path folder = FileUtil.createTempDir(path);
+      assertTrue(Files.isDirectory(folder));
+      Path myFirstFile = folder.resolve("first");
+      Path mySecondFile = folder.resolve("second");
+      Files.createFile(myFirstFile);
+      Files.createFile(mySecondFile);
+      ArrayList<Path> files = new ArrayList<>();
+      FileUtil.getAllFilesInDirectory(path, files);
       assertEquals(2, files.size());
     } finally {
-      FileUtil.delete(file);
-      assertFalse(file.exists());
+      FileUtil.delete(path);
+      assertFalse(Files.exists(path));
     }
   }
 
-  /** Method under test: {@link FileUtil#delete(Path)} */
   @Test
+  @DisplayName("Should delete files and directories properly")
   void testDelete() throws IOException {
-    assertFalse(FileUtil.delete((File) null));
-    assertFalse(FileUtil.delete(new File("pathNotExists")));
-    assertFalse(FileUtil.deleteFile(new File("pathNotExists")));
+    assertFalse(FileUtil.delete((Path) null));
+    assertFalse(FileUtil.delete(Paths.get("pathNotExists")));
     Path directory = Paths.get(System.getProperty("java.io.tmpdir"), "tempTest");
     try {
       Files.createDirectories(directory);
-      ArrayList<File> files = new ArrayList<>();
-      File myFirstFile = new File(directory.toString(), "first");
-      File mySecondFile = new File(directory.toString(), "second"); // NON-NLS
-      assertTrue(myFirstFile.createNewFile());
-      assertTrue(mySecondFile.createNewFile());
-      FileUtil.getAllFilesInDirectory(directory.toFile(), files);
+      ArrayList<Path> files = new ArrayList<>();
+      Path myFirstFile = directory.resolve("first");
+      Path mySecondFile = directory.resolve("second");
+      Files.createFile(myFirstFile);
+      Files.createFile(mySecondFile);
+      FileUtil.getAllFilesInDirectory(directory, files);
       assertEquals(2, files.size());
     } finally {
-      assertFalse(FileUtil.deleteFile(directory));
       assertTrue(FileUtil.delete(directory));
       assertFalse(Files.isReadable(directory));
       assertFalse(FileUtil.delete(directory));
     }
   }
 
-  /**
-   * Method under test:
-   *
-   * <ul>
-   *   <li>{@link FileUtil#getOutputPath(Path, Path)}
-   *   <li>{@link FileUtil#prepareToWriteFile(File)}
-   * </ul>
-   */
   @Test
+  @DisplayName("Should compute output paths and prepare file directories")
   void testGetOutputPath() throws IOException {
     Path directory = Paths.get(System.getProperty("java.io.tmpdir"), "tempTest");
     try {
-      Path input = Paths.get(directory.toString(), "input", "test.jpg");
-      Path output = Paths.get(directory.toString(), "output", "test-out.dcm");
-      FileUtil.prepareToWriteFile(input.toFile());
-      FileUtil.prepareToWriteFile(output.toFile());
+      Path input = directory.resolve("input").resolve("test.jpg");
+      Path output = directory.resolve("output").resolve("test-out.dcm");
+      FileUtil.prepareToWriteFile(input);
+      FileUtil.prepareToWriteFile(output);
       Files.createFile(input);
       Files.createFile(output);
       Path out = FileUtil.getOutputPath(input, output);
       assertEquals(output, out);
 
-      input = Paths.get(directory.toString(), "input", "dir1", "test.jpg");
-      output = Paths.get(directory.toString(), "output");
+      input = directory.resolve("input").resolve("dir1").resolve("test.jpg");
+      output = directory.resolve("output");
       Files.createDirectories(input.getParent());
       Files.createFile(input);
       out = FileUtil.getOutputPath(input, output);
-      assertEquals(Paths.get(output.toString(), "test.jpg"), out);
+      assertEquals(output.resolve("test.jpg"), out);
 
       out = FileUtil.getOutputPath(input.getParent(), output);
-      assertEquals(Paths.get(output.toString(), "dir1"), out);
+      assertEquals(output.resolve("dir1"), out);
     } finally {
-      FileUtil.recursiveDelete(directory.toFile());
+      FileUtil.recursiveDelete(directory);
       assertFalse(Files.isReadable(directory));
     }
   }
 
-  /** Method under test: {@link FileUtil#addFileIndex(Path, int, int)} */
   @Test
+  @DisplayName("Should add file index to file names with proper formatting")
   void testAddFileIndex() {
     Path path = Paths.get("temp", "folder");
+    assertEquals(path.resolve("test.jpg"), FileUtil.addFileIndex(path.resolve("test.jpg"), 5, 0));
+    assertEquals(path.resolve("test-5.jpg"), FileUtil.addFileIndex(path.resolve("test.jpg"), 5, 1));
     assertEquals(
-        Paths.get(path.toString(), "test.jpg"),
-        FileUtil.addFileIndex(Paths.get(path.toString(), "test.jpg"), 5, 0));
+        path.resolve("test-505.jpg"), FileUtil.addFileIndex(path.resolve("test.jpg"), 505, 1));
     assertEquals(
-        Paths.get(path.toString(), "test-5.jpg"),
-        FileUtil.addFileIndex(Paths.get(path.toString(), "test.jpg"), 5, 1));
+        path.resolve("test-005.jpg"), FileUtil.addFileIndex(path.resolve("test.jpg"), 5, 3));
     assertEquals(
-        Paths.get(path.toString(), "test-505.jpg"),
-        FileUtil.addFileIndex(Paths.get(path.toString(), "test.jpg"), 505, 1));
-    assertEquals(
-        Paths.get(path.toString(), "test-005.jpg"),
-        FileUtil.addFileIndex(Paths.get(path.toString(), "test.jpg"), 5, 3));
-    assertEquals(
-        Paths.get(path.toString(), "test-985.jpg"),
-        FileUtil.addFileIndex(Paths.get(path.toString(), "test.jpg"), 985, 3));
+        path.resolve("test-985.jpg"), FileUtil.addFileIndex(path.resolve("test.jpg"), 985, 3));
   }
 
-  /** Method under test: {@link FileUtil#nameWithoutExtension(String)} */
   @Test
+  @DisplayName("Should extract file names without extensions")
   void testNameWithoutExtension() {
     assertEquals("folder/fileNoExtension", FileUtil.nameWithoutExtension("folder/fileNoExtension"));
     assertNull(FileUtil.nameWithoutExtension(null));
     assertEquals("file.archive", FileUtil.nameWithoutExtension("file.archive.jpg"));
   }
 
-  /** Method under test: {@link FileUtil#getExtension(String)} */
   @Test
+  @DisplayName("Should extract file extensions correctly")
   void testGetExtension() {
     assertEquals(StringUtil.EMPTY_STRING, FileUtil.getExtension("filename"));
     assertEquals(StringUtil.EMPTY_STRING, FileUtil.getExtension(null));
     assertEquals(".zip", FileUtil.getExtension("filename-archive.zip"));
   }
 
-  /** Method under test: {@link FileUtil#isFileExtensionMatching(File, String[])} */
   @Test
+  @DisplayName("Should check file extension matching correctly")
   void testIsFileExtensionMatching() {
-    String[] FILE_EXTENSIONS = {"dcm", "dic", "dicm", "dicom"};
-    assertFalse(FileUtil.isFileExtensionMatching(null, null));
+    String[] fileExtensions = {"dcm", "dic", "dicm", "dicom"};
+    assertFalse(FileUtil.isFileExtensionMatching((Path) null, null));
     assertFalse(
         FileUtil.isFileExtensionMatching(
-            new File("test.dcm"), new String[] {StringUtil.EMPTY_STRING}));
-    assertFalse(FileUtil.isFileExtensionMatching(new File("test.dcm"), null));
-    assertFalse(FileUtil.isFileExtensionMatching(new File("test"), FILE_EXTENSIONS));
-    assertFalse(FileUtil.isFileExtensionMatching(new File("test.d"), FILE_EXTENSIONS));
-    assertTrue(FileUtil.isFileExtensionMatching(new File("test.dcm"), FILE_EXTENSIONS));
-    assertTrue(FileUtil.isFileExtensionMatching(new File("test.DCM"), FILE_EXTENSIONS));
-    assertTrue(FileUtil.isFileExtensionMatching(new File("test.dcm"), new String[] {".dcm"}));
-    assertTrue(FileUtil.isFileExtensionMatching(new File("test.dcm"), new String[] {"DCM"}));
+            Paths.get("test.dcm"), new String[] {StringUtil.EMPTY_STRING}));
+    assertFalse(FileUtil.isFileExtensionMatching(Paths.get("test.dcm"), null));
+    assertFalse(FileUtil.isFileExtensionMatching(Paths.get("test"), fileExtensions));
+    assertFalse(FileUtil.isFileExtensionMatching(Paths.get("test.d"), fileExtensions));
+    assertTrue(FileUtil.isFileExtensionMatching(Paths.get("test.dcm"), fileExtensions));
+    assertTrue(FileUtil.isFileExtensionMatching(Paths.get("test.DCM"), fileExtensions));
+    assertTrue(FileUtil.isFileExtensionMatching(Paths.get("test.dcm"), new String[] {".dcm"}));
+    assertTrue(FileUtil.isFileExtensionMatching(Paths.get("test.dcm"), new String[] {"DCM"}));
   }
 
-  /** Method under test: {@link FileUtil#writeStreamWithIOException(InputStream, File)} */
   @Test
-  void testWriteStreamWithIOException() throws StreamIOException {
-    File file = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.test").toFile();
+  @DisplayName("Should write input streams to files with exception handling")
+  void testWriteStreamWithIOException() throws IOException {
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.test");
     try (FileInputStream inputStream = new FileInputStream(new FileDescriptor())) {
       assertThrows(
-          StreamIOException.class, () -> FileUtil.writeStreamWithIOException(inputStream, file));
+          StreamIOException.class, () -> FileUtil.writeStreamWithIOException(inputStream, path));
       // File is automatically deleted when an error occurs
-      assertFalse(file.exists());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      assertFalse(Files.exists(path));
     }
 
     byte[] data = "AXAXAXAX".getBytes(StandardCharsets.UTF_8);
-    FileUtil.writeStreamWithIOException(new ByteArrayInputStream(data), file);
-    assertTrue(file.exists());
-    assertEquals(file.length(), data.length);
-    assertTrue(FileUtil.delete(file));
+    FileUtil.writeStreamWithIOException(new ByteArrayInputStream(data), path);
+    assertTrue(Files.exists(path));
+    assertEquals(Files.size(path), data.length);
+    assertTrue(FileUtil.delete(path));
   }
 
-  /** Method under test: {@link FileUtil#writeStream(InputStream, File)} */
   @Test
-  void testWriteStream() throws StreamIOException {
-    File file = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.test").toFile();
+  @DisplayName("Should write input streams to files")
+  void testWriteStream() throws IOException {
+    Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.test");
     try (FileInputStream inputStream = new FileInputStream(new FileDescriptor())) {
-      assertThrows(StreamIOException.class, () -> FileUtil.writeStream(inputStream, file));
+      assertThrows(StreamIOException.class, () -> FileUtil.writeStream(inputStream, path));
       // File is automatically deleted when an error occurs
-      assertFalse(file.exists());
+      assertFalse(Files.exists(path));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
     byte[] data = "AXAXAXAX".getBytes(StandardCharsets.UTF_8);
-    assertEquals(-1, FileUtil.writeStream(new ByteArrayInputStream(data), file, false));
-    assertTrue(file.exists());
-    assertEquals(file.length(), data.length);
-    assertTrue(FileUtil.delete(file));
-    assertFalse(file.exists());
+    assertEquals(-1, FileUtil.writeStream(new ByteArrayInputStream(data), path, false));
+    assertTrue(Files.exists(path));
+    assertEquals(Files.size(path), data.length);
+    assertTrue(FileUtil.delete(path));
+    assertFalse(Files.exists(path));
   }
 
-  /** Method under test: {@link FileUtil#writeStream(InputStream, Path, boolean)} */
   @Test
+  @DisplayName("Should write input streams to path with proper error handling")
   void testWriteStream2() throws IOException {
     Path path = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.test");
     try (FileInputStream inputStream = new FileInputStream(new FileDescriptor())) {
-      assertFalse(FileUtil.writeStream(inputStream, path, true));
+      assertThrows(StreamIOException.class, () -> FileUtil.writeStream(inputStream, path, true));
       // File is automatically deleted when an error occurs
       assertFalse(Files.isReadable(path));
     } catch (IOException e) {
@@ -292,138 +314,16 @@ class FileUtilTest {
     }
 
     byte[] data = "AXAXAXAX".getBytes(StandardCharsets.UTF_8);
-    assertTrue(FileUtil.writeStream(new ByteArrayInputStream(data), path, false));
+    assertEquals(-1, FileUtil.writeStream(new ByteArrayInputStream(data), path, false));
     assertTrue(Files.isReadable(path));
     assertEquals(Files.size(path), data.length);
     assertTrue(FileUtil.delete(path));
     assertFalse(Files.isReadable(path));
   }
 
-  /**
-   * Method under test:
-   *
-   * <ul>
-   *   <li>{@link FileUtil#writeFile(ImageInputStream, File)}
-   *   <li>{@link FileUtil#nioWriteFile(FileInputStream, FileOutputStream)}
-   *   <li>{@link FileUtil#nioWriteFile(InputStream, OutputStream, int)}
-   *   <li>{@link FileUtil#nioCopyFile(File, File)}
-   * </ul>
-   */
-  @Test
-  void testWriteFileImageInputStream() throws IOException {
-    assertFalse(FileUtil.nioWriteFile(null, null));
-    assertFalse(FileUtil.nioWriteFile(null, null, 4));
-    assertFalse(FileUtil.nioCopyFile(null, null));
-
-    File file = Paths.get(System.getProperty("java.io.tmpdir"), "testImageStream.test").toFile();
-    byte[] data = "AXAXAXAX".getBytes("UTF-8");
-    assertEquals(
-        -1,
-        FileUtil.writeFile(new MemoryCacheImageInputStream(new ByteArrayInputStream(data)), file));
-    assertTrue(file.exists());
-    assertEquals(file.length(), data.length);
-    assertTrue(file.exists());
-
-    File file2 = Paths.get(System.getProperty("java.io.tmpdir"), "testNioWriteFile.test").toFile();
-    try (FileInputStream inputStream = new FileInputStream(file);
-        FileOutputStream outputStream = new FileOutputStream(file2)) {
-      assertTrue(FileUtil.nioWriteFile(inputStream, outputStream));
-      assertTrue(file2.exists());
-      assertEquals(file2.length(), data.length);
-      assertTrue(file2.exists());
-      assertTrue(FileUtil.delete(file2));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-
-    try (FileInputStream inputStream = new FileInputStream(file);
-        FileOutputStream outputStream = new FileOutputStream(file2)) {
-      assertTrue(FileUtil.nioWriteFile(inputStream, outputStream, 4));
-      assertTrue(file2.exists());
-      assertEquals(file2.length(), data.length);
-      assertTrue(file2.exists());
-      assertTrue(FileUtil.delete(file2));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-
-    assertTrue(FileUtil.nioCopyFile(file, file2));
-    assertTrue(file2.exists());
-    assertEquals(file2.length(), data.length);
-    assertTrue(file2.exists());
-    assertTrue(FileUtil.delete(file2));
-
-    try (FileInputStream inputStream = new FileInputStream(new FileDescriptor());
-        FileOutputStream outputStream = new FileOutputStream(file)) {
-      assertFalse(FileUtil.nioWriteFile(inputStream, outputStream));
-      assertTrue(FileUtil.delete(file));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Method under test:
-   *
-   * <ul>
-   *   <li>{@link FileUtil#zip(File, File)}
-   *   <li>{@link FileUtil#unzip(File, File)}
-   *   <li>{@link FileUtil#unzip(InputStream, File)}
-   * </ul>
-   */
-  @Test
-  void testZip() throws IOException {
-    FileUtil.zip(null, null);
-
-    Path folder = Paths.get(System.getProperty("java.io.tmpdir"), "tempZipFolder");
-    File file = Paths.get(System.getProperty("java.io.tmpdir"), "testWriteStream.zip").toFile();
-    FileUtil.zip(null, file);
-    FileUtil.unzip(file, null);
-
-    Files.createDirectories(folder);
-    Path file1 = Paths.get(folder.toString(), "test1.jpg");
-    byte[] data = "AXAXAXAX".getBytes(StandardCharsets.UTF_8);
-    assertEquals(
-        -1,
-        FileUtil.writeFile(
-            new MemoryCacheImageInputStream(new ByteArrayInputStream(data)), file1.toFile()));
-    assertEquals(Files.size(file1), data.length);
-    assertTrue(
-        FileUtil.nioCopyFile(file1.toFile(), Paths.get(folder.toString(), "test2.jpg").toFile()));
-    Files.createDirectories(Paths.get(folder.toString(), "folder"));
-    assertTrue(
-        FileUtil.nioCopyFile(
-            file1.toFile(), Paths.get(folder.toString(), "folder", "test3.jpg").toFile()));
-    assertTrue(
-        FileUtil.nioCopyFile(
-            file1.toFile(), Paths.get(folder.toString(), "folder", "test4.jpg").toFile()));
-
-    FileUtil.zip(folder.toFile(), file);
-
-    Path folder2 = Paths.get(System.getProperty("java.io.tmpdir"), "tempZipFolderCopy");
-    FileUtil.unzip(file, folder2.toFile());
-    assertEquals(data.length, Files.size(Paths.get(folder2.toString(), "test1.jpg")));
-    assertEquals(data.length, Files.size(Paths.get(folder2.toString(), "folder", "test3.jpg")));
-    assertTrue(FileUtil.delete(folder2));
-    assertFalse(Files.isReadable(folder2));
-
-    try (FileInputStream inputStream = new FileInputStream(file)) {
-      FileUtil.unzip(inputStream, folder2.toFile());
-      assertEquals(data.length, Files.size(Paths.get(folder2.toString(), "test2.jpg")));
-      assertEquals(data.length, Files.size(Paths.get(folder2.toString(), "folder", "test4.jpg")));
-      assertTrue(FileUtil.delete(folder2));
-      assertFalse(Files.isReadable(folder2));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-
-    assertTrue(FileUtil.delete(folder));
-    assertFalse(Files.isReadable(folder));
-  }
-
-  /** Method under test: {@link FileUtil#humanReadableByte(long, boolean)} */
   @Test
   @DefaultLocale(language = "en", country = "US")
+  @DisplayName("Should format byte counts in human readable format")
   void testHumanReadableByte() {
     assertEquals("1 B", FileUtil.humanReadableByte(1L, true));
     assertEquals("1 B", FileUtil.humanReadableByte(1L, false));
@@ -435,52 +335,26 @@ class FileUtilTest {
     assertEquals("-8.0 EiB", FileUtil.humanReadableByte(Long.MIN_VALUE, false));
   }
 
-  /**
-   * Method under test:
-   *
-   * <ul>
-   *   <li>{@link FileUtil#storeProperties(File, Properties, String)}
-   *   <li>{@link FileUtil#readProperties(File, Properties)}
-   * </ul>
-   */
   @Test
-  void testReadProperties() {
-    Properties props = new Properties();
-    props.setProperty("key", "value");
-    File propsFile = Paths.get(System.getProperty("java.io.tmpdir"), "test.properties").toFile();
-    try {
-      FileUtil.storeProperties(propsFile, props, "comment");
-      Properties actualReadPropertiesResult = FileUtil.readProperties(propsFile, null);
-      assertEquals("value", actualReadPropertiesResult.getProperty("key"));
-
-      actualReadPropertiesResult.clear();
-      FileUtil.readProperties(propsFile, actualReadPropertiesResult);
-      assertEquals("value", actualReadPropertiesResult.getProperty("key"));
-    } finally {
-      assertTrue(FileUtil.delete(propsFile.toPath()));
-    }
-  }
-
-  /** Method under test: {@link FileUtil#copyFolder(Path, Path, CopyOption[])} */
-  @Test
+  @DisplayName("Should copy folders recursively with proper file counting")
   void testCopyFolder() throws IOException {
     Path directory = Paths.get(System.getProperty("java.io.tmpdir"), "tempTest");
     try {
-      Path input = Paths.get(directory.toString(), "src-copy", "dir1");
-      Path output = Paths.get(directory.toString(), "dst-copy");
+      Path input = directory.resolve("src-copy").resolve("dir1");
+      Path output = directory.resolve("dst-copy");
       Files.createDirectories(input);
-      Path file1 = Paths.get(input.toString(), "test1.jpg");
-      Path file2 = Paths.get(input.toString(), "test2.jpg");
+      Path file1 = input.resolve("test1.jpg");
+      Path file2 = input.resolve("test2.jpg");
       Files.createFile(file1);
       Files.createFile(file2);
 
-      ArrayList<File> files = new ArrayList<>();
+      ArrayList<Path> files = new ArrayList<>();
       FileUtil.copyFolder(input.getParent(), output);
-      assertTrue(Files.isReadable(Paths.get(output.toString(), "dir1")));
-      FileUtil.getAllFilesInDirectory(output.toFile(), files);
+      assertTrue(Files.isReadable(output.resolve("dir1")));
+      FileUtil.getAllFilesInDirectory(output, files);
       assertEquals(2, files.size());
     } finally {
-      FileUtil.deleteDirectoryContents(directory.toFile(), 0, 5);
+      FileUtil.deleteDirectoryContents(directory, 0, 5);
       assertFalse(Files.isReadable(directory));
     }
   }

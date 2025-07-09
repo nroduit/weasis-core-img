@@ -9,6 +9,13 @@
  */
 package org.weasis.opencv.data;
 
+import org.weasis.core.util.annotations.Generated;
+
+/** Interface for objects that can report their physical memory size in bytes. */
+@Generated
 public interface ImageSize {
+  /**
+   * @return the physical memory size in bytes
+   */
   long physicalBytes();
 }

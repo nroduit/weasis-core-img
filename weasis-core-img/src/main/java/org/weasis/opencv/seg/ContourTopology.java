@@ -10,6 +10,8 @@
 package org.weasis.opencv.seg;
 
 import java.awt.geom.Point2D;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
@@ -29,10 +31,9 @@ public class ContourTopology {
 
   public ContourTopology(Point[] pts, int parent) {
     this.parent = parent;
-    this.segment = new Segment();
-    for (Point p : pts) {
-      segment.add(new Point2D.Double(p.x, p.y));
-    }
+    this.segment =
+        new Segment(
+            Arrays.stream(pts).map(p -> new Point2D.Double(p.x, p.y)).collect(Collectors.toList()));
   }
 
   public int getParent() {

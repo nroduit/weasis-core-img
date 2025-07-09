@@ -14,18 +14,28 @@ import org.opencv.core.Range;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.weasis.core.util.annotations.Generated;
 
+/**
+ * Enhanced Mat implementation that provides additional memory management features and implements
+ * the PlanarImage interface for consistent image handling.
+ */
 public class ImageCV extends Mat implements PlanarImage {
 
-  private boolean releasedAfterProcessing;
-  private boolean hasBeenReleased = false;
+  private boolean releasedAfterProcessing = false;
+  private boolean released = false;
 
+  // Constructors
   public ImageCV() {
     super();
   }
 
   public ImageCV(int rows, int cols, int type) {
     super(rows, cols, type);
+  }
+
+  public ImageCV(Size size, int type) {
+    super(size, type);
   }
 
   public ImageCV(Size size, int type, Scalar s) {
@@ -48,48 +58,30 @@ public class ImageCV extends Mat implements PlanarImage {
     super(m, roi);
   }
 
-  public ImageCV(Size size, int type) {
-    super(size, type);
-  }
-
   @Override
   public long physicalBytes() {
     return total() * elemSize();
   }
 
-  public static Mat toMat(PlanarImage source) {
-    if (source instanceof Mat mat) {
-      return mat;
-    } else {
-      throw new IllegalAccessError("Not implemented yet");
+  @Override
+  public void release() {
+    if (!released) {
+      super.release();
+      this.released = true;
     }
-  }
-
-  public static ImageCV toImageCV(Mat source) {
-    if (source instanceof ImageCV img) {
-      return img;
-    }
-    ImageCV dstImg = new ImageCV();
-    source.assignTo(dstImg);
-    return dstImg;
   }
 
   @Override
-  public void release() {
-    if (!hasBeenReleased) {
-      super.release();
-      this.hasBeenReleased = true;
-    }
+  public boolean isReleased() {
+    return released;
   }
 
-  public boolean isHasBeenReleased() {
-    return hasBeenReleased;
-  }
-
+  @Override
   public boolean isReleasedAfterProcessing() {
     return releasedAfterProcessing;
   }
 
+  @Override
   public void setReleasedAfterProcessing(boolean releasedAfterProcessing) {
     this.releasedAfterProcessing = releasedAfterProcessing;
   }
@@ -97,5 +89,60 @@ public class ImageCV extends Mat implements PlanarImage {
   @Override
   public void close() {
     release();
+  }
+
+  // Static factory methods
+  /**
+   * Creates an ImageCV from a Mat instance. If the source is already an ImageCV, returns it
+   * directly. Otherwise creates a new ImageCV and copies the data.
+   */
+  public static ImageCV fromMat(Mat source) {
+    if (source instanceof ImageCV imageCV) {
+      return imageCV;
+    }
+    ImageCV result = new ImageCV();
+    source.assignTo(result);
+    return result;
+  }
+
+  /**
+   * Converts a PlanarImage to Mat.
+   *
+   * @param source the source PlanarImage
+   * @return Mat instance
+   * @throws UnsupportedOperationException if conversion is not supported
+   */
+  public static Mat toMat(PlanarImage source) {
+    return source.toMat();
+  }
+
+  // ============================== DEPRECATED FILE-BASED METHODS ==============================
+
+  /**
+   * Checks if the image has been released. This method is deprecated and should be replaced with
+   * {@link #isReleased()}.
+   *
+   * @return false, as this method is deprecated and does not reflect the current state
+   * @deprecated Use {@link #isReleased()} instead.
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  @Override
+  public boolean isHasBeenReleased() {
+    return isReleased();
+  }
+
+  /**
+   * Converts a Mat to an ImageCV instance. This method is deprecated and should be replaced with
+   * {@link #fromMat(Mat)}.
+   *
+   * @param source the source Mat
+   * @return ImageCV instance
+   * @deprecated Use {@link #fromMat(Mat)} instead.
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static ImageCV toImageCV(Mat source) {
+    return fromMat(source);
   }
 }

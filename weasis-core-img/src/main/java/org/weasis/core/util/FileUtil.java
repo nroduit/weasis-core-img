@@ -9,7 +9,6 @@
  */
 package org.weasis.core.util;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -18,99 +17,84 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
-import java.net.URI;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.Enumeration;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 import javax.imageio.stream.ImageInputStream;
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.weasis.core.util.annotations.Generated;
 
 /**
+ * Utility class for file operations and path management.
+ *
+ * <p>This class provides methods for file manipulation, validation, and path operations using
+ * {@link Path} as the primary API. For stream operations, use {@link StreamUtil}.
+ *
+ * <p>All {@link File}-based methods are deprecated in favor of {@link Path}-based equivalents.
+ *
  * @author Nicolas Roduit
  */
 public final class FileUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
+  private static final int FILE_BUFFER = 4096;
 
-  public static final int FILE_BUFFER = 4096;
   private static final int[] ILLEGAL_CHARS = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
     26, 27, 28, 29, 30, 31, 34, 42, 47, 58, 60, 62, 63, 92, 124
   };
-  public static final String CANNOT_DELETE = "Cannot delete";
+  private static final String CANNOT_DELETE = "Cannot delete";
 
-  private FileUtil() {}
+  private FileUtil() {
+    // Prevent instantiation
+  }
 
   /**
-   * Transform a fileName into a writable fileName for all the operating system. All the special and
+   * Transform a fileName into a writable fileName for all operating systems. All special and
    * control characters are excluded.
    *
    * @param fileName a filename or directory name
    * @return a writable filename
    */
   public static String getValidFileName(String fileName) {
-    StringBuilder cleanName = new StringBuilder();
-    if (fileName != null) {
-      for (int i = 0; i < fileName.length(); i++) {
-        char c = fileName.charAt(i);
-        if (!(Arrays.binarySearch(ILLEGAL_CHARS, c) >= 0
-            || (c < ' ') // control characters
-            || (c > '~' && c < '\u00a0'))) { // control characters
-          cleanName.append(c);
-        }
+    if (fileName == null) {
+      return "";
+    }
+
+    StringBuilder cleanName = new StringBuilder(fileName.length());
+    for (int i = 0; i < fileName.length(); i++) {
+      char c = fileName.charAt(i);
+      if (isValidFileNameChar(c)) {
+        cleanName.append(c);
       }
     }
     return cleanName.toString().trim();
   }
 
+  private static boolean isValidFileNameChar(char c) {
+    return Arrays.binarySearch(ILLEGAL_CHARS, c) < 0 && c >= ' ' && (c <= '~' || c >= '\u00a0');
+  }
+
   /**
-   * Transform a fileName into a fileName for all the operating system. All the special and control
+   * Transform a fileName into a fileName for all operating systems. All special and control
    * characters are excluded. HTML or XML tags are also removed.
    *
    * @param fileName a file name
    * @return a writable file name
    */
   public static String getValidFileNameWithoutHTML(String fileName) {
-    String val = null;
-    if (fileName != null) {
-      // Force to remove html tags
-      val = fileName.replaceAll("<[^>]*>", "");
+    if (fileName == null) {
+      return "";
     }
-    return getValidFileName(val);
-  }
-
-  /**
-   * Close an AutoCloseable object and log the exception if any.
-   *
-   * @param autoCloseable the object to close
-   */
-  public static void safeClose(final AutoCloseable autoCloseable) {
-    if (autoCloseable != null) {
-      try {
-        autoCloseable.close();
-      } catch (Exception e) {
-        LOGGER.error("Cannot close AutoCloseable", e);
-      }
-    }
+    // Remove HTML tags first
+    String withoutHtml = fileName.replaceAll("<[^>]*>", "");
+    return getValidFileName(withoutHtml);
   }
 
   /**
@@ -118,189 +102,171 @@ public final class FileUtil {
    *
    * @param baseDir the base directory where the temporary directory is created
    * @return the temporary directory
+   * @throws IllegalArgumentException if baseDir is null or not a directory
+   * @throws IllegalStateException if the directory cannot be created
    */
-  public static File createTempDir(File baseDir) {
-    if (baseDir != null && baseDir.isDirectory()) {
-      String baseName = String.valueOf(System.currentTimeMillis());
-      for (int counter = 0; counter < 1000; counter++) {
-        File tempDir = new File(baseDir, baseName + counter);
-        if (tempDir.mkdir()) {
-          return tempDir;
-        }
+  public static Path createTempDir(Path baseDir) {
+    if (baseDir == null || !Files.isDirectory(baseDir)) {
+      throw new IllegalArgumentException("Base directory must exist and be a directory");
+    }
+    String baseName = String.valueOf(System.currentTimeMillis());
+    for (int counter = 0; counter < 1000; counter++) {
+      Path tempDir = baseDir.resolve(baseName + counter);
+      try {
+        return Files.createDirectory(tempDir);
+      } catch (FileAlreadyExistsException ignored) {
+        // Try next counter
+      } catch (IOException e) {
+        throw new IllegalStateException("Failed to create temporary directory", e);
       }
     }
-    throw new IllegalStateException("Failed to create directory");
-  }
-
-  /**
-   * Delete the content of a directory and the directory itself if the level is reached.
-   *
-   * @param dir the directory
-   * @param deleteDirLevel the level of subdirectories to delete
-   * @param level the current level
-   */
-  public static void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
-    if ((dir == null) || !dir.isDirectory()) {
-      return;
-    }
-    final File[] files = dir.listFiles();
-    if (files != null) {
-      for (final File f : files) {
-        if (f.isDirectory()) {
-          deleteDirectoryContents(f, deleteDirLevel, level + 1);
-        } else {
-          deleteFile(f);
-        }
-      }
-    }
-    if (level >= deleteDirLevel) {
-      deleteFile(dir);
-    }
+    throw new IllegalStateException("Failed to create directory after 1000 attempts");
   }
 
   /**
    * Get all files in a directory and its subdirectories.
    *
-   * @param directory the directory
-   * @param files the list of files to fill
+   * @param directory the directory path
+   * @param files the list of paths to fill
    */
-  public static void getAllFilesInDirectory(File directory, List<File> files) {
+  public static void getAllFilesInDirectory(Path directory, List<Path> files) {
     getAllFilesInDirectory(directory, files, true);
   }
 
   /**
    * Get all files in a directory.
    *
-   * @param directory the directory
-   * @param files the list of files to fill
+   * @param directory the directory path
+   * @param files the list of paths to fill
    * @param recursive true to get files in subdirectories
    */
-  public static void getAllFilesInDirectory(File directory, List<File> files, boolean recursive) {
-    File[] fList = directory.listFiles();
-    if (fList != null) {
-      for (File f : fList) {
-        if (f.isFile()) {
-          files.add(f);
-        } else if (recursive && f.isDirectory()) {
-          getAllFilesInDirectory(f, files, true);
-        }
-      }
+  public static void getAllFilesInDirectory(Path directory, List<Path> files, boolean recursive) {
+    if (directory == null || !Files.isDirectory(directory) || files == null) {
+      return;
     }
-  }
 
-  static boolean deleteFile(File fileOrDirectory) {
-    try {
-      Files.delete(fileOrDirectory.toPath());
-    } catch (Exception e) {
-      LOGGER.error(CANNOT_DELETE, e);
-      return false;
+    try (Stream<Path> stream = Files.list(directory)) {
+      stream.forEach(
+          path -> {
+            if (Files.isRegularFile(path)) {
+              files.add(path);
+            } else if (recursive && Files.isDirectory(path)) {
+              getAllFilesInDirectory(path, files, true);
+            }
+          });
+    } catch (IOException e) {
+      LOGGER.warn("Failed to list directory contents: {}", directory, e);
     }
-    return true;
   }
 
   /**
-   * Delete a file or a directory and all its content.
+   * Delete a file or directory and all its contents.
    *
-   * @param fileOrDirectory the file or directory to delete
-   * @return true if the file or directory is successfully deleted; false otherwise
+   * @param path the file or directory to delete
+   * @return true if successfully deleted; false otherwise
    */
-  public static boolean delete(File fileOrDirectory) {
-    if (fileOrDirectory == null || !fileOrDirectory.exists()) {
+  public static boolean delete(Path path) {
+    if (path == null || !Files.exists(path)) {
       return false;
     }
 
-    if (fileOrDirectory.isDirectory()) {
-      final File[] files = fileOrDirectory.listFiles();
-      if (files != null) {
-        for (File child : files) {
-          delete(child);
-        }
+    if (Files.isDirectory(path)) {
+      try (Stream<Path> walk = Files.walk(path)) {
+        walk.sorted((p1, p2) -> p2.compareTo(p1)) // Reverse order for depth-first deletion
+            .forEach(FileUtil::deleteQuietly);
+      } catch (IOException e) {
+        LOGGER.error(CANNOT_DELETE + ": {}", path, e);
+        return false;
       }
+    } else {
+      return deleteQuietly(path);
     }
-    return deleteFile(fileOrDirectory);
+    return !Files.exists(path);
   }
 
   /**
-   * Delete all files and subdirectories of a specific folder.
+   * Delete the content of a directory and optionally the directory itself.
+   *
+   * @param directory the directory path
+   * @param deleteDirLevel the level of subdirectories to delete
+   * @param level the current level
+   */
+  public static void deleteDirectoryContents(Path directory, int deleteDirLevel, int level) {
+    if (directory == null || !Files.isDirectory(directory)) {
+      return;
+    }
+    try (Stream<Path> stream = Files.list(directory)) {
+      stream.forEach(
+          path -> {
+            if (Files.isDirectory(path)) {
+              deleteDirectoryContents(path, deleteDirLevel, level + 1);
+            } else {
+              deleteQuietly(path);
+            }
+          });
+    } catch (IOException e) {
+      LOGGER.warn("Failed to delete directory contents: {}", directory, e);
+    }
+    if (level >= deleteDirLevel) {
+      deleteQuietly(directory);
+    }
+  }
+
+  /**
+   * Delete all files and subdirectories of a directory.
    *
    * @param rootDir the root directory to delete
    */
-  public static void recursiveDelete(File rootDir) {
+  public static void recursiveDelete(Path rootDir) {
     recursiveDelete(rootDir, true);
   }
 
   /**
-   * Delete all files and subdirectories of a specific folder.
+   * Delete all files and subdirectories of a directory.
    *
    * @param rootDir the root directory to delete
-   * @param deleteRoot true to delete the root directory at the end and false to keep it
+   * @param deleteRoot true to delete the root directory at the end, false to keep it
    */
-  public static void recursiveDelete(File rootDir, boolean deleteRoot) {
-    if ((rootDir == null) || !rootDir.isDirectory()) {
+  public static void recursiveDelete(Path rootDir, boolean deleteRoot) {
+    if (rootDir == null || !Files.isDirectory(rootDir)) {
       return;
     }
-    File[] childDirs = rootDir.listFiles();
-    if (childDirs != null) {
-      for (File f : childDirs) {
-        if (f.isDirectory()) {
-          // deleteRoot used only for the first level, directory is deleted in next line
-          recursiveDelete(f, false);
-          deleteFile(f);
-        } else {
-          deleteFile(f);
-        }
-      }
+    try (Stream<Path> stream = Files.list(rootDir)) {
+      stream.forEach(
+          path -> {
+            if (Files.isDirectory(path)) {
+              recursiveDelete(path, true);
+            } else {
+              deleteQuietly(path);
+            }
+          });
+    } catch (IOException e) {
+      LOGGER.warn("Failed to delete directory contents: {}", rootDir, e);
     }
     if (deleteRoot) {
-      deleteFile(rootDir);
+      deleteQuietly(rootDir);
+    }
+  }
+
+  private static boolean deleteQuietly(Path path) {
+    try {
+      return Files.deleteIfExists(path);
+    } catch (IOException e) {
+      LOGGER.error(CANNOT_DELETE + ": {}", path, e);
+      return false;
     }
   }
 
   /**
-   * Close an XMLStreamWriter object and log the exception if any.
+   * Prepare a file to be written by creating parent directories if necessary.
    *
-   * @param writer the object to close
-   */
-  public static void safeClose(XMLStreamWriter writer) {
-    if (writer != null) {
-      try {
-        writer.close();
-      } catch (XMLStreamException e) {
-        LOGGER.error("Cannot close XMLStreamWriter", e);
-      }
-    }
-  }
-
-  /**
-   * Close an XMLStreamReader object and log the exception if any.
-   *
-   * @param reader the object to close
-   */
-  public static void safeClose(XMLStreamReader reader) {
-    if (reader != null) {
-      try {
-        reader.close();
-      } catch (XMLStreamException e) {
-        LOGGER.error("Cannot close XMLStreamException", e);
-      }
-    }
-  }
-
-  /**
-   * Prepare a file to be written by creating the parent directory if necessary.
-   *
-   * @param file the source file
+   * @param path the target file path
    * @throws IOException if an I/O error occurs
    */
-  public static void prepareToWriteFile(File file) throws IOException {
-    if (!file.exists()) {
-      // Check the file that doesn't exist yet.
-      // Create a new file. The file is writable if the creation succeeds.
-      File outputDir = file.getParentFile();
-      // necessary to check exists otherwise mkdirs() is false when dir exists
-      if (outputDir != null && !outputDir.exists() && !outputDir.mkdirs()) {
-        throw new IOException("Cannot write parent directory of " + file.getPath());
-      }
+  public static void prepareToWriteFile(Path path) throws IOException {
+    Path parent = path.getParent();
+    if (parent != null && !Files.exists(parent)) {
+      Files.createDirectories(parent);
     }
   }
 
@@ -314,104 +280,67 @@ public final class FileUtil {
     if (filename == null) {
       return null;
     }
-    int i = filename.lastIndexOf('.');
-    if (i > 0) {
-      return filename.substring(0, i);
-    }
-    return filename;
+    int dotIndex = filename.lastIndexOf('.');
+    return dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
   }
 
   /**
    * Get the extension of a file name, like ".png" or ".jpg".
    *
    * @param filename The file name to retrieve the extension of.
-   * @return The extension of the file name starting by '.' or empty string if none.
+   * @return The extension of the file name starting with '.' or empty string if none.
    */
   public static String getExtension(String filename) {
     if (filename == null) {
       return "";
     }
-    int i = filename.lastIndexOf('.');
-    if (i > 0) {
-      return filename.substring(i);
-    }
-    return "";
+    int dotIndex = filename.lastIndexOf('.');
+    return dotIndex > 0 ? filename.substring(dotIndex) : "";
   }
 
   /**
-   * Check if the extension of the file name is matching one of the extensions in the array. The
-   * extension can start with '.' or not and is not case-sensitive.
+   * Check if the extension of the file name matches one of the extensions in the array. The
+   * extension can start with '.' or not and is case-insensitive.
    *
-   * @param file the file
+   * @param path the file path
    * @param extensions the extensions array, e.g. {"png", "jpg"} or {".png", ".jpg"}
-   * @return The extension of the file name without '.' or empty string if none.
+   * @return true if the file extension matches one of the provided extensions
    */
-  public static boolean isFileExtensionMatching(File file, String[] extensions) {
-    if (file == null || extensions == null) return false;
-
-    String fExt = getExtension(file.getName());
-    if (!StringUtil.hasLength(fExt)) return false;
-
-    return Arrays.stream(extensions).anyMatch(ext -> matchesExtension(fExt, ext));
-  }
-
-  private static boolean matchesExtension(String fExt, String ext) {
-    if (!StringUtil.hasText(ext)) return false;
-    String nExt = ext.startsWith(".") ? ext : "." + ext;
-    return fExt.equalsIgnoreCase(nExt);
-  }
-
-
-  /**
-   * Write inputStream content into a file
-   *
-   * @param inputStream the input stream
-   * @param outFile the output file
-   * @throws StreamIOException if an I/O error occurs
-   */
-  public static void writeStreamWithIOException(InputStream inputStream, File outFile)
-      throws StreamIOException {
-    try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
-      byte[] buf = new byte[FILE_BUFFER];
-      int offset;
-      while ((offset = inputStream.read(buf)) > 0) {
-        outputStream.write(buf, 0, offset);
-      }
-      outputStream.flush();
-    } catch (IOException e) {
-      FileUtil.delete(outFile);
-      throw new StreamIOException(e);
-    } finally {
-      FileUtil.safeClose(inputStream);
+  public static boolean isFileExtensionMatching(Path path, String[] extensions) {
+    if (path == null || extensions == null) {
+      return false;
     }
-  }
 
-  /**
-   * Write inputStream content into a file
-   *
-   * @param inputStream the input stream
-   * @param outFile the output file
-   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
-   *     written before interruption
-   * @throws StreamIOException if an I/O error occurs
-   */
-  public static int writeStream(InputStream inputStream, File outFile) throws StreamIOException {
-    return writeStream(inputStream, outFile, true);
+    String filename = path.getFileName() != null ? path.getFileName().toString() : "";
+    String fileExtension = getExtension(filename);
+    if (!StringUtil.hasLength(fileExtension)) {
+      return false;
+    }
+
+    return Arrays.stream(extensions)
+        .filter(StringUtil::hasText)
+        .map(ext -> ext.startsWith(".") ? ext : "." + ext)
+        .anyMatch(fileExtension::equalsIgnoreCase);
   }
 
   /**
    * Write inputStream content into a file and close the input stream if closeInputStream is true.
    *
    * @param inputStream the input stream
-   * @param outFile the output
+   * @param outPath the output file path
    * @param closeInputStream true to close the input stream
-   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
    *     written before interruption
    * @throws StreamIOException if an I/O error occurs
    */
-  public static int writeStream(InputStream inputStream, File outFile, boolean closeInputStream)
+  public static int writeStream(InputStream inputStream, Path outPath, boolean closeInputStream)
       throws StreamIOException {
-    try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
+    try {
+      prepareToWriteFile(outPath);
+    } catch (IOException e) {
+      throw new StreamIOException(e);
+    }
+    try (OutputStream outputStream = Files.newOutputStream(outPath)) {
       byte[] buf = new byte[FILE_BUFFER];
       int offset;
       while ((offset = inputStream.read(buf)) > 0) {
@@ -420,35 +349,68 @@ public final class FileUtil {
       outputStream.flush();
       return -1;
     } catch (SocketTimeoutException e) {
-      FileUtil.delete(outFile);
+      delete(outPath);
       throw new StreamIOException(e);
     } catch (InterruptedIOException e) {
-      FileUtil.delete(outFile);
-      // Specific for SeriesProgressMonitor
+      delete(outPath);
+      // Specific for ProgressMonitor
       LOGGER.error("Interruption when writing file: {}", e.getMessage());
       return e.bytesTransferred;
     } catch (IOException e) {
-      FileUtil.delete(outFile);
+      delete(outPath);
       throw new StreamIOException(e);
     } finally {
       if (closeInputStream) {
-        FileUtil.safeClose(inputStream);
+        StreamUtil.safeClose(inputStream);
       }
     }
   }
 
   /**
-   * Write inputStream content into a file
+   * Write inputStream content into a file.
    *
-   * @param imageInputStream the input stream
-   * @param outFile the output file
-   * @return the number of written bytes. O = error, -1 = all bytes has been written, other = bytes
+   * @param inputStream the input stream
+   * @param outPath the output file path
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
    *     written before interruption
    * @throws StreamIOException if an I/O error occurs
    */
-  public static int writeFile(ImageInputStream imageInputStream, File outFile)
+  public static int writeStream(InputStream inputStream, Path outPath) throws StreamIOException {
+    return writeStream(inputStream, outPath, true);
+  }
+
+  /**
+   * Write inputStream content into a file using StreamUtil.
+   *
+   * @param inputStream the input stream
+   * @param outPath the output file path
+   * @throws StreamIOException if an I/O error occurs
+   */
+  public static void writeStreamWithIOException(InputStream inputStream, Path outPath)
       throws StreamIOException {
-    try (FileOutputStream outputStream = new FileOutputStream(outFile)) {
+    int result = writeStream(inputStream, outPath, true);
+    if (result == 0) {
+      throw new StreamIOException("Failed to write stream to file: " + outPath);
+    }
+  }
+
+  /**
+   * Write ImageInputStream content into a file.
+   *
+   * @param imageInputStream the input stream
+   * @param outPath the output file path
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   */
+  public static int writeFile(ImageInputStream imageInputStream, Path outPath)
+      throws StreamIOException {
+    try {
+      prepareToWriteFile(outPath);
+    } catch (IOException e) {
+      throw new StreamIOException(e);
+    }
+    try (OutputStream outputStream = Files.newOutputStream(outPath)) {
       byte[] buf = new byte[FILE_BUFFER];
       int offset;
       while ((offset = imageInputStream.read(buf)) > 0) {
@@ -457,23 +419,23 @@ public final class FileUtil {
       outputStream.flush();
       return -1;
     } catch (SocketTimeoutException e) {
-      FileUtil.delete(outFile);
+      delete(outPath);
       throw new StreamIOException(e);
     } catch (InterruptedIOException e) {
-      FileUtil.delete(outFile);
+      delete(outPath);
       // Specific for SeriesProgressMonitor
       LOGGER.error("Interruption when writing image {}", e.getMessage());
       return e.bytesTransferred;
     } catch (IOException e) {
-      FileUtil.delete(outFile);
+      delete(outPath);
       throw new StreamIOException(e);
     } finally {
-      FileUtil.safeClose(imageInputStream);
+      StreamUtil.safeClose(imageInputStream);
     }
   }
 
   /**
-   * Print a byte count in a human-readable format
+   * Print a byte count in a human-readable format.
    *
    * @see <a href="https://programming.guide/worlds-most-copied-so-snippet.html">World's most copied
    *     StackOverflow snippet</a>
@@ -494,244 +456,6 @@ public final class FileUtil {
       exp -= 1;
     }
     return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
-  }
-
-  /**
-   * Write inputStream content into a <code>FileOutputStream</code>
-   *
-   * @param inputStream the input stream
-   * @param out the output stream
-   * @return true if the copy is successful
-   */
-  public static boolean nioWriteFile(FileInputStream inputStream, FileOutputStream out) {
-    if (inputStream == null || out == null) {
-      return false;
-    }
-    try (FileChannel fci = inputStream.getChannel();
-        FileChannel fco = out.getChannel()) {
-      fco.transferFrom(fci, 0, fci.size());
-      return true;
-    } catch (Exception e) {
-      LOGGER.error("Write file", e);
-      return false;
-    } finally {
-      FileUtil.safeClose(inputStream);
-      FileUtil.safeClose(out);
-    }
-  }
-
-  /**
-   * Write inputStream content into a <code>OutputStream</code> with a specific buffer size
-   *
-   * @param in the input stream
-   * @param out the output stream
-   * @param bufferSize the buffer size when reading the input stream
-   * @return true if the copy is successful
-   */
-  public static boolean nioWriteFile(InputStream in, OutputStream out, final int bufferSize) {
-    if (in == null || out == null) {
-      return false;
-    }
-    try (ReadableByteChannel readChannel = Channels.newChannel(in);
-        WritableByteChannel writeChannel = Channels.newChannel(out)) {
-
-      ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-
-      while (readChannel.read(buffer) != -1) {
-        buffer.flip();
-        writeChannel.write(buffer);
-        buffer.clear();
-      }
-      return true;
-    } catch (IOException e) {
-      LOGGER.error("Write file", e);
-      return false;
-    } finally {
-      FileUtil.safeClose(in);
-      FileUtil.safeClose(out);
-    }
-  }
-
-  /**
-   * Write the source file into the destination file
-   *
-   * @param source the source file
-   * @param destination the destination file
-   * @return true if the copy is successful
-   */
-  public static boolean nioCopyFile(File source, File destination) {
-    if (source == null || destination == null) {
-      return false;
-    }
-    try {
-      Files.copy(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
-      return true;
-    } catch (Exception e) {
-      LOGGER.error("Copy file", e);
-      return false;
-    }
-  }
-
-  /**
-   * Read the content of a file into <code>Properties</code>
-   *
-   * @param propsFile the <code>Properties</code> file
-   * @param props the properties to copy in. If null, a new <code>Properties</code> is created
-   * @return the <code>Properties</code> from the file
-   */
-  public static Properties readProperties(File propsFile, Properties props) {
-    Properties p = props == null ? new Properties() : props;
-    if (propsFile != null && propsFile.canRead()) {
-      try (FileInputStream fileStream = new FileInputStream(propsFile)) {
-        p.load(fileStream);
-      } catch (IOException e) {
-        LOGGER.error("Error when reading properties", e);
-      }
-    }
-    return p;
-  }
-
-  /**
-   * Write the content of <code>Properties</code> into a file
-   *
-   * @param propsFile the properties file
-   * @param props the properties to copy in. If null, a new Properties is created
-   * @param comments the comments to write at the beginning of the file
-   */
-  public static void storeProperties(File propsFile, Properties props, String comments) {
-    if (props != null && propsFile != null) {
-      try (FileOutputStream stream = new FileOutputStream(propsFile)) {
-        props.store(stream, comments);
-      } catch (IOException e) {
-        LOGGER.error("Error when writing properties", e);
-      }
-    }
-  }
-
-  /**
-   * Create a zip file from a directory.
-   *
-   * @param directory the directory to zip.
-   * @param zipFile the zip file to create.
-   * @throws IOException if an I/O error occurs.
-   */
-  public static void zip(File directory, File zipFile) throws IOException {
-    if (zipFile == null || directory == null) return;
-
-    URI base = directory.toURI();
-    Deque<File> dirQ = new LinkedList<>();
-    dirQ.push(directory);
-
-    try (OutputStream out = Files.newOutputStream(zipFile.toPath());
-        ZipOutputStream zipOut = new ZipOutputStream(out)) {
-
-      while (!dirQ.isEmpty()) {
-        File dir = dirQ.pop();
-        File[] files = dir.listFiles();
-
-        if (files != null) {
-          for (File file : files) {
-            processFile(file, base, dirQ, zipOut);
-          }
-        }
-      }
-    }
-  }
-
-  private static void processFile(File file, URI base, Deque<File> dirQ, ZipOutputStream zipOut) throws IOException {
-    String name = base.relativize(file.toURI()).getPath();
-    if (file.isDirectory()) {
-      dirQ.push(file); // Add a subdirectory to the queue
-      String[] list = file.list();
-      if (list == null || list.length == 0) {
-        name = name.endsWith("/") ? name : name + "/";
-        zipOut.putNextEntry(new ZipEntry(name));
-        zipOut.closeEntry();
-      }
-    } else {
-      zipOut.putNextEntry(new ZipEntry(name));
-      copyZip(file, zipOut);
-      zipOut.closeEntry();
-    }
-  }
-
-
-  /**
-   * Unzip a zip inputStream into a directory
-   *
-   * @param inputStream the zip input stream
-   * @param directory the directory to unzip all files
-   * @throws IOException if an I/O error occurs
-   */
-  public static void unzip(InputStream inputStream, File directory) throws IOException {
-    if (inputStream == null || directory == null) {
-      return;
-    }
-
-    try (BufferedInputStream bufInStream = new BufferedInputStream(inputStream);
-        ZipInputStream zis = new ZipInputStream(bufInStream)) {
-      String canonicalDirPath = directory.getCanonicalPath();
-      ZipEntry entry;
-      while ((entry = zis.getNextEntry()) != null) {
-        File file = new File(directory, entry.getName());
-        String canonicalDestPath = file.getCanonicalPath();
-        if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
-          throw new IOException(
-              "Security issue: Entry is trying to leave the target dir: " + entry.getName());
-        }
-        if (entry.isDirectory()) {
-          file.mkdirs();
-        } else {
-          file.getParentFile().mkdirs();
-          copyZip(zis, file);
-        }
-      }
-    } finally {
-      FileUtil.safeClose(inputStream);
-    }
-  }
-
-  /**
-   * Unzip a zip file into a directory
-   *
-   * @param zipFile the zip file to unzip
-   * @param directory the directory to unzip all files
-   * @throws IOException if an I/O error occurs
-   */
-  public static void unzip(File zipFile, File directory) throws IOException {
-    if (zipFile == null || directory == null) {
-      return;
-    }
-    try (ZipFile zFile = new ZipFile(zipFile)) {
-      String canonicalDirPath = directory.getCanonicalPath();
-      Enumeration<? extends ZipEntry> entries = zFile.entries();
-      while (entries.hasMoreElements()) {
-        ZipEntry entry = entries.nextElement();
-        File file = new File(directory, entry.getName());
-        String canonicalDestPath = file.getCanonicalPath();
-        if (!canonicalDestPath.startsWith(canonicalDirPath + File.separator)) { // Sanitizer
-          throw new IOException(
-              "Security issue: Entry is trying to leave the target dir: " + entry.getName());
-        }
-        if (entry.isDirectory()) {
-          file.mkdirs();
-        } else {
-          file.getParentFile().mkdirs();
-          try (InputStream in = zFile.getInputStream(entry)) {
-            copyZip(in, file);
-          }
-        }
-      }
-    }
-  }
-
-  private static void copy(InputStream in, OutputStream out) throws IOException {
-    byte[] buf = new byte[FILE_BUFFER];
-    int offset;
-    while ((offset = in.read(buf)) > 0) {
-      out.write(buf, 0, offset);
-    }
-    out.flush();
   }
 
   /**
@@ -764,89 +488,23 @@ public final class FileUtil {
         });
   }
 
-  private static void copyZip(File file, OutputStream out) throws IOException {
-    try (InputStream in = Files.newInputStream(file.toPath())) {
-      copy(in, out);
-    }
-  }
-
-  private static void copyZip(InputStream in, File file) throws IOException {
-    try (OutputStream out = Files.newOutputStream(file.toPath())) {
-      copy(in, out);
-    }
-  }
-
-  public static boolean writeStream(
-      InputStream inputStream, Path outFile, boolean closeInputStream) {
-    try (OutputStream outputStream = Files.newOutputStream(outFile)) {
-      byte[] buf = new byte[FILE_BUFFER];
-      int offset;
-      while ((offset = inputStream.read(buf)) > 0) {
-        outputStream.write(buf, 0, offset);
-      }
-      outputStream.flush();
-      return true;
-    } catch (IOException e) {
-      FileUtil.delete(outFile);
-      LOGGER.error("Writing file: {}", outFile, e);
-      return false;
-    } finally {
-      if (closeInputStream) {
-        FileUtil.safeClose(inputStream);
-      }
-    }
-  }
-
-  static boolean deleteFile(Path path) {
-    try {
-      return Files.deleteIfExists(path);
-    } catch (IOException e) {
-      LOGGER.error(CANNOT_DELETE, e);
-    }
-    return false;
-  }
-
-  /**
-   * Delete a file or a directory and all its content.
-   *
-   * @param fileOrDirectory the file or directory to delete
-   * @return true if the file or directory is successfully deleted; false otherwise
-   */
-  public static boolean delete(Path fileOrDirectory) {
-    if (!Files.isDirectory(fileOrDirectory)) {
-      return deleteFile(fileOrDirectory);
-    }
-
-    try (Stream<Path> walk = Files.walk(fileOrDirectory)) {
-      walk.sorted(Comparator.reverseOrder()).forEach(FileUtil::deleteFile);
-      return true;
-    } catch (IOException e) {
-      LOGGER.error(CANNOT_DELETE, e);
-    }
-    return false;
-  }
-
   /**
    * Get the combined path. If output is a file, it is returned as is. If output is a directory, the
    * input filename is added to the output path.
    *
    * @param input The input filename
    * @param output The output path
-   * @return The name of the file without extension.
+   * @return The combined output path
    */
   public static Path getOutputPath(Path input, Path output) {
-    if (Files.isDirectory(output)) {
-      return FileSystems.getDefault().getPath(output.toString(), input.getFileName().toString());
-    } else {
-      return output;
-    }
+    return Files.isDirectory(output) ? output.resolve(input.getFileName()) : output;
   }
 
   /**
    * Add a file index to the file name. The index number is added before the file extension.
    *
    * @param path the file path
-   * @param index the index to add the filename
+   * @param index the index to add to the filename
    * @param indexSize the minimal number of digits of the index (0 padding)
    * @return the new path
    */
@@ -858,5 +516,365 @@ public final class FileUtil {
     String insert = String.format(pattern, index);
     return path.resolveSibling(
         path.getFileName().toString().replaceFirst("(.*?)(\\.[^.]+)?$", insert));
+  }
+
+  // ============================== DEPRECATED FILE-BASED METHODS ==============================
+
+  /**
+   * Safely closes the provided {@code AutoCloseable} resource, suppressing any exceptions that may
+   * occur during the closing operation. This method delegates the closing operation to {@code
+   * StreamUtil.safeClose}.
+   *
+   * @param autoCloseable the resource that needs to be closed; can be null, in which case the
+   *     method does nothing
+   * @deprecated Use {@link StreamUtil#safeClose(AutoCloseable)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void safeClose(final AutoCloseable autoCloseable) {
+    StreamUtil.safeClose(autoCloseable);
+  }
+
+  /**
+   * Safely closes the provided {@code XMLStreamWriter} resource, suppressing any exceptions that
+   * may occur during the closing operation. This method delegates the closing operation to {@code
+   * StreamUtil.safeClose}.
+   *
+   * @param writer the XMLStreamWriter to close; can be null, in which case the method does nothing
+   * @deprecated Use {@link StreamUtil#safeClose(XMLStreamWriter)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void safeClose(XMLStreamWriter writer) {
+    StreamUtil.safeClose(writer);
+  }
+
+  /**
+   * Safely closes the provided {@code XMLStreamReader} resource, suppressing any exceptions that
+   * may occur during the closing operation. This method delegates the closing operation to {@code
+   * StreamUtil.safeClose}.
+   *
+   * @param reader the XMLStreamReader to close; can be null, in which case the method does nothing
+   * @deprecated Use {@link StreamUtil#safeClose(XMLStreamReader)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void safeClose(XMLStreamReader reader) {
+    StreamUtil.safeClose(reader);
+  }
+
+  /**
+   * Write the content of a FileInputStream to a FileOutputStream using NIO.
+   *
+   * @param inputStream the input stream to read from
+   * @param out the output stream to write to
+   * @return true if the file was successfully written; false otherwise
+   * @deprecated Use {@link StreamUtil#copyWithNIO(InputStream, OutputStream)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static boolean nioWriteFile(FileInputStream inputStream, FileOutputStream out) {
+    return StreamUtil.copyWithNIO(inputStream, out);
+  }
+
+  /**
+   * Write the content of an InputStream to an OutputStream using NIO.
+   *
+   * @param in the input stream to read from
+   * @param out the output stream to write to
+   * @param bufferSize the size of the buffer used for copying
+   * @return true if the file was successfully written; false otherwise
+   * @deprecated Use {@link StreamUtil#copyWithNIO(InputStream, OutputStream, int)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static boolean nioWriteFile(InputStream in, OutputStream out, final int bufferSize) {
+    return StreamUtil.copyWithNIO(in, out, bufferSize);
+  }
+
+  /**
+   * Copy a file using NIO. This method is deprecated and will be removed in future versions. Use
+   * {@link StreamUtil#copyFile(Path, Path)} instead.
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static boolean nioCopyFile(File source, File destination) {
+    return StreamUtil.copyFile(source.toPath(), destination.toPath());
+  }
+
+  /**
+   * Read properties from a file and return them as a Properties object.
+   *
+   * @param propsFile the properties file to read
+   * @param props the Properties object to fill, or null to create a new one
+   * @return the filled Properties object
+   * @deprecated Use {@link PropertiesUtil#loadProperties(Path, Properties)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static Properties readProperties(File propsFile, Properties props) {
+    Properties p = props == null ? new Properties() : props;
+    try {
+      PropertiesUtil.loadProperties(propsFile.toPath(), p);
+    } catch (IOException e) {
+      LOGGER.error("Error when reading properties", e);
+    }
+    return p;
+  }
+
+  /**
+   * Store properties to a file with optional comments.
+   *
+   * @param propsFile the properties file to write
+   * @param props the Properties object to write
+   * @param comments optional comments for the properties file
+   * @deprecated Use {@link PropertiesUtil#storeProperties(Path, Properties, String)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void storeProperties(File propsFile, Properties props, String comments) {
+    try {
+      PropertiesUtil.storeProperties(propsFile.toPath(), props, comments);
+    } catch (IOException e) {
+      LOGGER.error("Error when writing properties", e);
+    }
+  }
+
+  /**
+   * Zip a directory and its content into a zip file.
+   *
+   * @param directory the directory to zip
+   * @param zipFile the output zip file
+   * @throws IOException if an I/O error occurs
+   * @deprecated Use {@link ZipUtil#zip(Path, Path)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void zip(File directory, File zipFile) throws IOException {
+    ZipUtil.zip(directory.toPath(), zipFile.toPath());
+  }
+
+  /**
+   * Unzip a zip file into a directory.
+   *
+   * @param inputStream the input stream of the zip file
+   * @param directory the output directory where the content is extracted
+   * @throws IOException if an I/O error occurs
+   * @deprecated Use {@link ZipUtil#unzip(InputStream, Path)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void unzip(InputStream inputStream, File directory) throws IOException {
+    ZipUtil.unzip(inputStream, directory.toPath());
+  }
+
+  /**
+   * Create a unique temporary directory in the specified directory.
+   *
+   * @param baseDir the base directory where the temporary directory is created
+   * @return the temporary directory
+   * @deprecated Use {@link #createTempDir(Path)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static File createTempDir(File baseDir) {
+    if (baseDir == null) {
+      throw new IllegalArgumentException("Base directory cannot be null");
+    }
+    return createTempDir(baseDir.toPath()).toFile();
+  }
+
+  /**
+   * Get all files in a directory and its subdirectories.
+   *
+   * @param directory the directory
+   * @param files the list of files to fill
+   * @deprecated Use {@link #getAllFilesInDirectory(Path, List)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void getAllFilesInDirectory(File directory, List<File> files) {
+    getAllFilesInDirectory(directory, files, true);
+  }
+
+  /**
+   * Get all files in a directory.
+   *
+   * @param directory the directory
+   * @param files the list of files to fill
+   * @param recursive true to get files in subdirectories
+   * @deprecated Use {@link #getAllFilesInDirectory(Path, List, boolean)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void getAllFilesInDirectory(File directory, List<File> files, boolean recursive) {
+    List<Path> paths = new ArrayList<>();
+    for (File file : files) {
+      paths.add(file.toPath());
+    }
+    getAllFilesInDirectory(directory.toPath(), paths, recursive);
+  }
+
+  /**
+   * Delete a file or a directory and all its content.
+   *
+   * @param fileOrDirectory the file or directory to delete
+   * @return true if the file or directory is successfully deleted; false otherwise
+   * @deprecated Use {@link #delete(Path)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static boolean delete(File fileOrDirectory) {
+    if (fileOrDirectory == null) {
+      return false;
+    }
+    return delete(fileOrDirectory.toPath());
+  }
+
+  /**
+   * Delete the content of a directory and the directory itself if the level is reached.
+   *
+   * @param dir the directory
+   * @param deleteDirLevel the level of subdirectories to delete
+   * @param level the current level
+   * @deprecated Use {@link #deleteDirectoryContents(Path, int, int)} instead
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  @Generated
+  public static void deleteDirectoryContents(final File dir, int deleteDirLevel, int level) {
+    if (dir == null) {
+      return;
+    }
+    deleteDirectoryContents(dir.toPath(), deleteDirLevel, level);
+  }
+
+  /**
+   * Delete all files and subdirectories of a specific folder.
+   *
+   * @param rootDir the root directory to delete
+   * @deprecated Use {@link #recursiveDelete(Path)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static void recursiveDelete(File rootDir) {
+    recursiveDelete(rootDir, true);
+  }
+
+  /**
+   * Delete all files and subdirectories of a specific folder.
+   *
+   * @param rootDir the root directory to delete
+   * @param deleteRoot true to delete the root directory at the end and false to keep it
+   * @deprecated Use {@link #recursiveDelete(Path, boolean)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static void recursiveDelete(File rootDir, boolean deleteRoot) {
+    if (rootDir == null) {
+      return;
+    }
+    recursiveDelete(rootDir.toPath(), deleteRoot);
+  }
+
+  /**
+   * Prepare a file to be written by creating the parent directory if necessary.
+   *
+   * @param file the target file
+   * @throws IOException if an I/O error occurs
+   * @deprecated Use {@link #prepareToWriteFile(Path)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static void prepareToWriteFile(File file) throws IOException {
+    if (file == null) {
+      throw new IllegalArgumentException("File cannot be null");
+    }
+    prepareToWriteFile(file.toPath());
+  }
+
+  /**
+   * Check if the extension of the file name matches one of the extensions in the array.
+   *
+   * @param file the file
+   * @param extensions the extensions array, e.g. {"png", "jpg"} or {".png", ".jpg"}
+   * @return true if the file extension matches one of the provided extensions
+   * @deprecated Use {@link #isFileExtensionMatching(Path, String[])} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static boolean isFileExtensionMatching(File file, String[] extensions) {
+    if (file == null) {
+      return false;
+    }
+    return isFileExtensionMatching(file.toPath(), extensions);
+  }
+
+  /**
+   * Write inputStream content into a file.
+   *
+   * @param inputStream the input stream
+   * @param outFile the output file
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   * @deprecated Use {@link #writeStream(InputStream, Path)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static int writeStream(InputStream inputStream, File outFile) throws StreamIOException {
+    return writeStream(inputStream, outFile, true);
+  }
+
+  /**
+   * Write inputStream content into a file and close the input stream if closeInputStream is true.
+   *
+   * @param inputStream the input stream
+   * @param outFile the output
+   * @param closeInputStream true to close the input stream
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   * @deprecated Use {@link #writeStream(InputStream, Path, boolean)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static int writeStream(InputStream inputStream, File outFile, boolean closeInputStream)
+      throws StreamIOException {
+    return writeStream(inputStream, outFile.toPath(), closeInputStream);
+  }
+
+  /**
+   * Write inputStream content into a file using StreamUtil.
+   *
+   * @param inputStream the input stream
+   * @param outFile the output file
+   * @throws StreamIOException if an I/O error occurs
+   * @deprecated Use {@link #writeStreamWithIOException(InputStream, Path)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static void writeStreamWithIOException(InputStream inputStream, File outFile)
+      throws StreamIOException {
+    if (outFile == null) {
+      throw new IllegalArgumentException("Output file cannot be null");
+    }
+    writeStreamWithIOException(inputStream, outFile.toPath());
+  }
+
+  /**
+   * Write inputStream content into a file
+   *
+   * @param imageInputStream the input stream
+   * @param outFile the output file
+   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
+   *     written before interruption
+   * @throws StreamIOException if an I/O error occurs
+   * @deprecated Use {@link #writeFile(ImageInputStream, Path)} instead
+   */
+  @Generated
+  @Deprecated(since = "4.12", forRemoval = true)
+  public static int writeFile(ImageInputStream imageInputStream, File outFile)
+      throws StreamIOException {
+    return writeFile(imageInputStream, outFile.toPath());
   }
 }

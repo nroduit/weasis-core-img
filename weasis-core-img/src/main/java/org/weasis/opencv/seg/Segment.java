@@ -13,6 +13,7 @@ import java.awt.Dimension;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -23,11 +24,12 @@ public class Segment extends ArrayList<Point2D> {
     super();
   }
 
-  public Segment(List<Point2D> point2DList) {
+  public Segment(Collection<? extends Point2D> point2DList) {
     this(point2DList, false);
   }
 
-  public Segment(List<Point2D> point2DList, boolean forceClose) {
+  public Segment(Collection<? extends Point2D> point2DList, boolean forceClose) {
+    super();
     setPoints(point2DList, forceClose);
   }
 
@@ -47,11 +49,13 @@ public class Segment extends ArrayList<Point2D> {
     setPoints(pts, inverse, forceClose, dim);
   }
 
-  public void setPoints(List<Point2D> point2DList, boolean forceClose) {
+  public void setPoints(Collection<? extends Point2D> point2DList, boolean forceClose) {
+    clear();
     if (point2DList != null && !point2DList.isEmpty()) {
       addAll(point2DList);
-      if (forceClose && !point2DList.get(0).equals(point2DList.get(point2DList.size() - 1))) {
-        add((Point2D.Double) point2DList.get(0).clone());
+      if (forceClose && shouldCloseSegment(point2DList)) {
+        Point2D firstPoint = point2DList.iterator().next();
+        add(new Point2D.Double(firstPoint.getX(), firstPoint.getY()));
       }
     }
   }
@@ -62,16 +66,10 @@ public class Segment extends ArrayList<Point2D> {
 
   public void setPoints(
       float[] points, AffineTransform inverse, boolean forceClose, Dimension dim) {
-    double[] pts;
-    Objects.requireNonNull(points);
-    if (inverse == null) {
-      pts = convertFloatToDouble(points);
-    } else {
-      double[] dstPoints = new double[points.length];
-      inverse.transform(points, 0, dstPoints, 0, points.length / 2);
-      pts = dstPoints;
-    }
-    addPoints(pts, forceClose, dim);
+    Objects.requireNonNull(points, "Points array cannot be null");
+    double[] transformedPoints = transformPoints(convertFloatToDouble(points), inverse);
+    clear();
+    addPoints(transformedPoints, forceClose, dim);
   }
 
   public void setPoints(double[] points, boolean forceClose, Dimension dim) {
@@ -80,34 +78,52 @@ public class Segment extends ArrayList<Point2D> {
 
   public void setPoints(
       double[] points, AffineTransform inverse, boolean forceClose, Dimension dim) {
-    double[] pts;
-    if (inverse == null) {
-      pts = points;
-    } else {
-      double[] dstPoints = new double[points.length];
-      inverse.transform(points, 0, dstPoints, 0, points.length / 2);
-      pts = dstPoints;
+    Objects.requireNonNull(points, "Points array cannot be null");
+    double[] transformedPoints = transformPoints(points, inverse);
+    clear();
+    addPoints(transformedPoints, forceClose, dim);
+  }
+
+  private double[] transformPoints(double[] points, AffineTransform transform) {
+    if (transform == null) {
+      return points;
     }
-    addPoints(pts, forceClose, dim);
+    double[] transformedPoints = new double[points.length];
+    transform.transform(points, 0, transformedPoints, 0, points.length / 2);
+    return transformedPoints;
   }
 
   protected void addPoints(double[] pts, boolean forceClose, Dimension dim) {
-    clear();
-    if (pts == null) {
+    if (pts == null || pts.length < 4) { // Need at least 2 points (4 coordinates)
       return;
     }
-    int size = pts.length / 2;
-    if (size >= 2) {
-      boolean resize = dim != null && dim.width > 0 && dim.height > 0;
-      for (int i = 0; i < size; i++) {
-        double x = resize ? pts[i * 2] * dim.width : pts[i * 2];
-        double y = resize ? pts[i * 2 + 1] * dim.height : pts[i * 2 + 1];
-        add(new Point2D.Double(x, y));
-      }
-      if (forceClose && !get(0).equals(get(size - 1))) {
-        add((Point2D.Double) get(0).clone());
-      }
+    int pointCount = pts.length / 2;
+    ensureCapacity(pointCount + (forceClose ? 1 : 0)); // Pre-allocate capacity
+
+    boolean shouldResize = dim != null && dim.width > 0 && dim.height > 0;
+
+    for (int i = 0; i < pointCount; i++) {
+      double x = shouldResize ? pts[i * 2] * dim.width : pts[i * 2];
+      double y = shouldResize ? pts[i * 2 + 1] * dim.height : pts[i * 2 + 1];
+      add(new Point2D.Double(x, y));
     }
+
+    var first = get(0);
+    if (forceClose && !first.equals(get(pointCount - 1))) {
+      add(new Point2D.Double(first.getX(), first.getY()));
+    }
+  }
+
+  private boolean shouldCloseSegment(Collection<? extends Point2D> points) {
+    if (points.size() < 2) {
+      return false;
+    }
+    Point2D first = points.iterator().next();
+    Point2D last = null;
+    for (Point2D point : points) {
+      last = point;
+    }
+    return !first.equals(last);
   }
 
   public List<Segment> getChildren() {
@@ -115,22 +131,17 @@ public class Segment extends ArrayList<Point2D> {
   }
 
   public void addChild(Segment child) {
-    children.add(child);
+    if (child != null && child != this) { // Prevent null and self-reference
+      children.add(child);
+    }
   }
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    if (!super.equals(o)) {
-      return false;
-    }
-    Segment point2DS = (Segment) o;
-    return Objects.equals(children, point2DS.children);
+    if (this == o) return true;
+    if (!(o instanceof Segment segment)) return false;
+    if (!super.equals(o)) return false;
+    return Objects.equals(children, segment.children);
   }
 
   @Override
@@ -139,6 +150,9 @@ public class Segment extends ArrayList<Point2D> {
   }
 
   public static double[] convertFloatToDouble(float[] floatArray) {
+    if (floatArray == null) {
+      return null;
+    }
     double[] doubleArray = new double[floatArray.length];
     for (int i = 0; i < floatArray.length; i++) {
       doubleArray[i] = floatArray[i];

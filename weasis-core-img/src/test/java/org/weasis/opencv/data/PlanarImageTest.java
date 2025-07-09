@@ -22,7 +22,7 @@ import org.opencv.osgi.OpenCVNativeLoader;
 class PlanarImageTest {
 
   @BeforeAll
-   static void loadNativeLib() {
+  static void loadNativeLib() {
     // Load the native OpenCV library
     OpenCVNativeLoader loader = new OpenCVNativeLoader();
     loader.init();
@@ -115,7 +115,7 @@ class PlanarImageTest {
           public void assignTo(Mat dstImg) {}
 
           @Override
-          public boolean isHasBeenReleased() {
+          public boolean isReleased() {
             return false;
           }
 
@@ -131,16 +131,21 @@ class PlanarImageTest {
           public void close() {}
 
           @Override
+          public boolean isHasBeenReleased() {
+            return false;
+          }
+
+          @Override
           public long physicalBytes() {
             return 0;
           }
         };
 
-    assertThrowsExactly(IllegalAccessError.class, planarImage::toImageCV);
+    assertThrowsExactly(UnsupportedOperationException.class, planarImage::toImageCV);
 
-    assertThrowsExactly(IllegalAccessError.class, planarImage::toMat);
+    assertThrowsExactly(UnsupportedOperationException.class, planarImage::toMat);
 
-    assertThrowsExactly(IllegalAccessError.class, () -> ImageCV.toMat(planarImage));
+    assertThrowsExactly(UnsupportedOperationException.class, () -> ImageCV.toMat(planarImage));
 
     try (TestCV testCV = new TestCV(new Size(3, 3), CvType.CV_16UC3)) {
       ImageCV imgCV = testCV.toImageCV();
@@ -160,7 +165,7 @@ class PlanarImageTest {
     }
 
     @Override
-    public boolean isHasBeenReleased() {
+    public boolean isReleased() {
       return false;
     }
 
@@ -175,6 +180,11 @@ class PlanarImageTest {
     @Override
     public void close() {
       release();
+    }
+
+    @Override
+    public boolean isHasBeenReleased() {
+      return false;
     }
   }
 }

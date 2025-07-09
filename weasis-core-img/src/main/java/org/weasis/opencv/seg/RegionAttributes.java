@@ -16,40 +16,37 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.op.lut.ColorLut;
 
 public class RegionAttributes implements Comparable<RegionAttributes> {
+
+  private static final float DEFAULT_LINE_THICKNESS = 1.0f;
+  private static final float DEFAULT_OPACITY = 1.0f;
+  private static final float MIN_OPACITY = 0.0f;
+  private static final float MAX_OPACITY = 1.0f;
+  private static final long UNINITIALIZED_PIXEL_COUNT = -1L;
+  private static final String[] LABEL_SEPARATORS = {" ", "_", "-"};
   private final int id;
   private String label;
   private String description;
   private String type;
   private Color color;
-  private boolean filled;
-  private float lineThickness;
-  private boolean visible;
-  private float interiorOpacity;
-  protected long numberOfPixels;
+  private boolean filled = true;
+  private float lineThickness = DEFAULT_LINE_THICKNESS;
+  private boolean visible = true;
+  private float interiorOpacity = DEFAULT_OPACITY;
+  protected long numberOfPixels = UNINITIALIZED_PIXEL_COUNT;
 
   public RegionAttributes(int id, String label) {
     this(id, label, null);
   }
 
   public RegionAttributes(int id, String label, Color color) {
-    if (StringUtil.hasText(label)) {
-      setLabel(label);
-    } else {
-      throw new IllegalArgumentException("Label cannot be null or empty");
-    }
     this.id = id;
-    this.description = null;
-    this.type = null;
+    setLabel(label); // Use setter for validation
     this.color = color;
-    this.filled = true;
-    this.lineThickness = 1.0f;
-    this.visible = true;
-    this.interiorOpacity = 1.0f;
-    this.numberOfPixels = -1;
   }
 
   public int getId() {
@@ -61,6 +58,9 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
   }
 
   public void setLabel(String label) {
+    if (!StringUtil.hasText(label)) {
+      throw new IllegalArgumentException("Label cannot be null or empty");
+    }
     this.label = label;
   }
 
@@ -101,6 +101,9 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
   }
 
   public void setLineThickness(float lineThickness) {
+    if (lineThickness < 0) {
+      throw new IllegalArgumentException("Line thickness cannot be negative");
+    }
     this.lineThickness = lineThickness;
   }
 
@@ -117,11 +120,16 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
   }
 
   /**
-   * @param interiorOpacity the opacity of the interior of the contour. The value is between 0.0 and
-   *     1.0.
+   * Sets the opacity of the interior of the contour.
+   *
+   * @param interiorOpacity the opacity value, automatically clamped between 0.0 and 1.0
    */
   public void setInteriorOpacity(float interiorOpacity) {
-    this.interiorOpacity = Math.max(0.0f, Math.min(interiorOpacity, 1.0f));
+    this.interiorOpacity = clampOpacity(interiorOpacity);
+  }
+
+  private static float clampOpacity(float opacity) {
+    return Math.max(MIN_OPACITY, Math.min(opacity, MAX_OPACITY));
   }
 
   public long getNumberOfPixels() {
@@ -129,63 +137,124 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
   }
 
   public String getPrefix() {
-    return getLabel().split("[ _-]")[0];
+    if (label == null) {
+      return "";
+    }
+
+    int firstSeparatorIndex = label.length();
+    for (String separator : LABEL_SEPARATORS) {
+      int index = label.indexOf(separator);
+      if (index > 3 && index < firstSeparatorIndex) {
+        firstSeparatorIndex = index;
+      }
+    }
+
+    return firstSeparatorIndex == label.length() ? label : label.substring(0, firstSeparatorIndex);
   }
 
   public void addPixels(Region region) {
-    if (region == null || region.getNumberOfPixels() < 0) {
+    if (region == null) {
       return;
     }
-    if (numberOfPixels < 0) {
+
+    long regionPixels = region.getNumberOfPixels();
+    if (regionPixels < 0) {
+      return;
+    }
+    if (isPixelCountUninitialized()) {
       resetPixelCount();
     }
-    this.numberOfPixels += region.getNumberOfPixels();
+    this.numberOfPixels += regionPixels;
   }
 
   public void resetPixelCount() {
     this.numberOfPixels = 0;
   }
 
+  private boolean isPixelCountUninitialized() {
+    return numberOfPixels < 0;
+  }
+
+  /**
+   * Groups regions by their label prefix, maintaining sorted order within each group.
+   *
+   * @param regions the collection of regions to group
+   * @return a map where keys are prefixes and values are sorted lists of regions
+   */
   public static <E extends RegionAttributes> Map<String, List<E>> groupRegions(
       Collection<E> regions) {
-    Map<String, List<E>> map = new HashMap<>();
+    if (regions == null || regions.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<String, List<E>> groupedRegions = new HashMap<>();
     for (E region : regions) {
       String prefix = region.getPrefix();
-      List<E> list = map.computeIfAbsent(prefix, l -> new ArrayList<>());
-      int index = Collections.binarySearch(list, region, RegionAttributes::compareTo);
-      if (index < 0) {
-        list.add(-(index + 1), region);
-      } else {
-        list.add(index, region);
-      }
+      List<E> regionList = groupedRegions.computeIfAbsent(prefix, k -> new ArrayList<>());
+      insertSorted(regionList, region);
     }
-    return map;
+    return groupedRegions;
+  }
+
+  /** Inserts a region into a sorted list maintaining the sort order. */
+  private static <E extends RegionAttributes> void insertSorted(List<E> sortedList, E region) {
+    int insertionPoint = Collections.binarySearch(sortedList, region);
+    int index = insertionPoint < 0 ? -(insertionPoint + 1) : insertionPoint;
+    sortedList.add(index, region);
   }
 
   public static Color getColor(int[] colorRgb, int contourID) {
-    return getColor(colorRgb, contourID, 1.0f);
+    return getColor(colorRgb, contourID, DEFAULT_OPACITY);
   }
 
   public static Color getColor(int[] colorRgb, int contourID, float opacity) {
-    int opacityInt = (int) (opacity * 255f);
-    Color rgbColor;
-    if (colorRgb == null || colorRgb.length < 3) {
-      byte[][] lut = ColorLut.MULTICOLOR.getByteLut().lutTable();
-      int lutIndex = contourID % 256;
-      rgbColor =
-          new Color(
-              lut[0][lutIndex] & 0xFF,
-              lut[1][lutIndex] & 0xFF,
-              lut[2][lutIndex] & 0xFF,
-              opacityInt);
-    } else {
-      rgbColor = new Color(colorRgb[0], colorRgb[1], colorRgb[2], opacityInt);
+    float clampedOpacity = clampOpacity(opacity);
+    int alphaValue = Math.round(clampedOpacity * 255f);
+
+    if (isValidColorArray(colorRgb)) {
+      return new Color(colorRgb[0], colorRgb[1], colorRgb[2], alphaValue);
     }
-    return rgbColor;
+
+    return generateColorFromLut(contourID, alphaValue);
+  }
+
+  private static boolean isValidColorArray(int[] colorRgb) {
+    return colorRgb != null && colorRgb.length >= 3;
+  }
+
+  private static Color generateColorFromLut(int contourID, int alphaValue) {
+    byte[][] lut = ColorLut.MULTICOLOR.getByteLut().lutTable();
+    int lutIndex = Math.abs(contourID) % 256;
+
+    return new Color(
+        lut[0][lutIndex] & 0xFF, lut[1][lutIndex] & 0xFF, lut[2][lutIndex] & 0xFF, alphaValue);
   }
 
   @Override
-  public int compareTo(RegionAttributes o) {
-    return StringUtil.collator.compare(getLabel(), o.getLabel());
+  public int compareTo(RegionAttributes other) {
+    if (other == null) {
+      return 1;
+    }
+    return StringUtil.collator.compare(this.label, other.label);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (!(obj instanceof RegionAttributes other)) return false;
+
+    return id == other.id && Objects.equals(label, other.label);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(id, label);
+  }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "RegionAttributes{id=%d, label='%s', visible=%s, pixels=%d}",
+        id, label, visible, numberOfPixels);
   }
 }

@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.core.version}.1</revision>
+    <revision>${weasis.core.version}.3</revision>
     <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 

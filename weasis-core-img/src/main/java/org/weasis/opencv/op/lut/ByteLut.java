@@ -25,10 +25,41 @@ import javax.swing.Icon;
  */
 public record ByteLut(String name, byte[][] lutTable) {
 
+  /** Default gray LUT used as fallback when lutTable is null */
+  private static final byte[][] DEFAULT_GRAY_LUT;
+
+  static {
+    DEFAULT_GRAY_LUT = new byte[3][256];
+    for (int i = 0; i < 256; i++) {
+      byte value = (byte) i;
+      DEFAULT_GRAY_LUT[0][i] = value; // Blue
+      DEFAULT_GRAY_LUT[1][i] = value; // Green
+      DEFAULT_GRAY_LUT[2][i] = value; // Red
+    }
+  }
+
   public ByteLut {
-    Objects.requireNonNull(name);
-    if (lutTable != null && (lutTable.length != 3 || lutTable[0].length != 256)) {
-      throw new IllegalArgumentException("LUT must have 3 channels and 256 values per channel");
+    Objects.requireNonNull(name, "Name cannot be null");
+    validateLutTable(lutTable);
+  }
+
+  /**
+   * Validates the LUT table structure
+   *
+   * @param lutTable the table to validate
+   * @throws IllegalArgumentException if the table has invalid dimensions
+   */
+  private static void validateLutTable(byte[][] lutTable) {
+    if (lutTable == null) return;
+
+    if (lutTable.length != 3) {
+      throw new IllegalArgumentException("LUT must have exactly 3 channels (RGB)");
+    }
+
+    for (int i = 0; i < 3; i++) {
+      if (lutTable[i] == null || lutTable[i].length != 256) {
+        throw new IllegalArgumentException("Each LUT channel must have exactly 256 values");
+      }
     }
   }
 
@@ -39,62 +70,109 @@ public record ByteLut(String name, byte[][] lutTable) {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    ByteLut byteLut = (ByteLut) o;
-    return Objects.equals(name, byteLut.name) && Arrays.deepEquals(lutTable, byteLut.lutTable);
+    return this == o
+        || (o instanceof ByteLut other
+            && Objects.equals(name, other.name)
+            && Arrays.deepEquals(lutTable, other.lutTable));
   }
 
   @Override
   public int hashCode() {
-    int result = Objects.hash(name);
-    result = 31 * result + Arrays.deepHashCode(lutTable);
-    return result;
+    return Objects.hash(name, Arrays.deepHashCode(lutTable));
   }
 
+  /**
+   * Creates an icon with default width (256) and specified height
+   *
+   * @param height the height of the icon
+   * @return the generated icon
+   */
   public Icon getIcon(int height) {
     return getIcon(256, height);
   }
 
+  /**
+   * Creates an icon with specified dimensions
+   *
+   * @param width the width of the icon (must be positive)
+   * @param height the height of the icon (must be positive)
+   * @return the generated icon
+   * @throws IllegalArgumentException if width or height are not positive
+   */
   public Icon getIcon(int width, int height) {
     if (width < 1 || height < 1) {
-      throw new IllegalArgumentException("Width and height are not valid");
+      throw new IllegalArgumentException("Width and height must be positive values");
     }
-    int border = 2;
-    return new Icon() {
-      @Override
-      public void paintIcon(Component c, Graphics g, int x, int y) {
-        if (g instanceof Graphics2D g2d) {
-          g2d.setStroke(new BasicStroke(1.2f));
-        }
-        int lutHeight = height - 2 * border;
-        int sx = x + border;
-        int sy = y + border;
-        for (int k = 0; k < width; k++) {
-          g.setColor(getColor(k, width));
-          g.drawLine(sx + k, sy, sx + k, sy + lutHeight);
-        }
-      }
 
-      @Override
-      public int getIconWidth() {
-        return width + 2 * border;
-      }
-
-      @Override
-      public int getIconHeight() {
-        return height;
-      }
-    };
+    return new LutIcon(width, height);
   }
 
+  /**
+   * Gets the color at a specific position for the given width
+   *
+   * @param position the position (0 to width-1)
+   * @param width the total width for scaling
+   * @return the color at that position
+   */
   Color getColor(int position, int width) {
-    byte[][] lut = lutTable == null ? ColorLut.GRAY.getByteLut().lutTable() : lutTable;
-    int i = (position * 255) / width;
-    return new Color(lut[2][i] & 0xFF, lut[1][i] & 0xFF, lut[0][i] & 0xFF);
+    byte[][] lut = lutTable != null ? lutTable : DEFAULT_GRAY_LUT;
+
+    int index;
+    // Handle edge case to avoid division by zero
+    if (width <= 1) {
+      index = 255;
+    } else {
+      // Normal case: scale position to LUT index range [0, 255]
+      index = Math.min(255, (position * 255) / (width - 1));
+    }
+
+    int red = lut[2][index] & 0xFF;
+    int green = lut[1][index] & 0xFF;
+    int blue = lut[0][index] & 0xFF;
+
+    return new Color(red, green, blue);
+  }
+
+  /** Inner class for the Icon implementation to improve encapsulation */
+  private class LutIcon implements Icon {
+    private static final int BORDER = 2;
+    private static final float STROKE_WIDTH = 1.2f;
+
+    private final int width;
+    private final int height;
+
+    LutIcon(int width, int height) {
+      this.width = width;
+      this.height = height;
+    }
+
+    @Override
+    public void paintIcon(Component c, Graphics g, int x, int y) {
+      setupGraphics(g);
+
+      int lutHeight = height - 2 * BORDER;
+      int startX = x + BORDER;
+      int startY = y + BORDER;
+      for (int k = 0; k < width; k++) {
+        g.setColor(getColor(k, width));
+        g.drawLine(startX + k, startY, startX + k, startY + lutHeight);
+      }
+    }
+
+    private void setupGraphics(Graphics g) {
+      if (g instanceof Graphics2D g2d) {
+        g2d.setStroke(new BasicStroke(STROKE_WIDTH));
+      }
+    }
+
+    @Override
+    public int getIconWidth() {
+      return width + 2 * BORDER;
+    }
+
+    @Override
+    public int getIconHeight() {
+      return height;
+    }
   }
 }

@@ -20,21 +20,31 @@ import org.opencv.core.Mat;
 import org.weasis.opencv.op.ImageConversion;
 
 /**
- * The {@code LookupTableCV} class defines a lookup table used for fast pixel value transformations
- * in image processing. It can be initialized with different types of data sources, including single
- * or multi-dimensional byte and short arrays, with optional offsets and signed/unsigned
- * interpretation flags. The lookup table data is stored in a {@link DataBuffer}.
+ * The {@code LookupTableCV} class implements a lookup table for fast pixel value transformations in
+ * image processing. It allows efficient mapping of input pixel values to output values using
+ * pre-computed tables.
  *
- * <p>This class supports querying various properties of the lookup table data, such as the number
- * of bands, data type, and entry count. It also facilitates performing lookups on image data in
- * both byte and short formats. The lookup operation can handle images with multiple bands and
- * adjusts the lookup table for mismatched bands if necessary.
+ * <p>The lookup table can be initialized with different data types:
  *
- * <p>Supported data types for storage include: - {@link DataBufferByte} - {@link DataBufferUShort}
- * - {@link DataBufferShort}
+ * <ul>
+ *   <li>Byte arrays - for 8-bit transformations using {@link DataBufferByte}
+ *   <li>Short arrays - for 16-bit transformations using {@link DataBufferUShort} or {@link
+ *       DataBufferShort}
+ * </ul>
  *
- * <p>The class also provides utility functions to extract raw lookup table data and access offsets
- * for a specific band.
+ * <p>Key features include:
+ *
+ * <ul>
+ *   <li>Support for single and multi-band (color) image processing
+ *   <li>Configurable offset values for each band
+ *   <li>Optional unsigned/signed data interpretation
+ *   <li>Automatic band expansion for mismatched channel counts
+ *   <li>Bounds checking and value clamping
+ * </ul>
+ *
+ * <p>The lookup operation is optimized for performance and handles various input/output data type
+ * combinations. When applying the lookup table to images, the class automatically adapts to the
+ * image characteristics including number of channels, bit depth and data type.
  */
 public class LookupTableCV {
 
@@ -42,53 +52,123 @@ public class LookupTableCV {
   private final DataBuffer data;
   private final boolean forceReadingUnsigned;
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   */
   public LookupTableCV(byte[] data) {
-    this(data, 0);
+    this(data, 0, false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data and an offset.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   * @param offset the offset for the band, must be non-negative
+   */
   public LookupTableCV(byte[] data, int offset) {
     this(data, offset, false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data and an offset.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   * @param offset the offset for the band, must be non-negative
+   * @param forceReadingUnsigned if true, forces reading values as unsigned
+   */
   public LookupTableCV(byte[] data, int offset, boolean forceReadingUnsigned) {
-    this.offsets = new int[1];
-    Arrays.fill(offsets, offset);
-    this.data = new DataBufferByte(Objects.requireNonNull(data), data.length);
+    if (data == null || data.length == 0) {
+      throw new IllegalArgumentException("Data array must not be empty.");
+    }
+    this.offsets = new int[] {offset};
+    this.data = new DataBufferByte(data, data.length);
     this.forceReadingUnsigned = forceReadingUnsigned;
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   */
   public LookupTableCV(byte[][] data) {
-    this(data, new int[data.length]);
+    this(data, new int[data.length], false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data and an offset for each band.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   * @param offset the offset for each band, must be non-negative
+   */
   public LookupTableCV(byte[][] data, int offset) {
-    this(data, new int[data.length]);
-    Arrays.fill(offsets, offset);
+    this(data, createFilledArray(data.length, offset), false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data and offsets for each band.
+   *
+   * @param data the byte data for the lookup table, must not be null
+   * @param offsets the offsets for each band, must not be null
+   */
   public LookupTableCV(byte[][] data, int[] offsets) {
     this(data, offsets, false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided byte data and offsets.
+   *
+   * @param data the byte data for the lookup table, must not be null or empty
+   * @param offsets the offsets for each band, must not be null or empty
+   * @param forceReadingUnsigned if true, forces reading values as unsigned
+   */
   public LookupTableCV(byte[][] data, int[] offsets, boolean forceReadingUnsigned) {
+    if (data == null || data.length == 0 || data[0].length == 0) {
+      throw new IllegalArgumentException("Data array must not be empty.");
+    }
+    if (offsets == null || offsets.length != data.length) {
+      throw new IllegalArgumentException("Offsets array must match the number of bands.");
+    }
     this.offsets = Arrays.copyOf(offsets, data.length);
-    this.data = new DataBufferByte(Objects.requireNonNull(data), data[0].length);
+    this.data = new DataBufferByte(data, data[0].length);
     this.forceReadingUnsigned = forceReadingUnsigned;
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided short data.
+   *
+   * @param data the short data for the lookup table, must not be null
+   * @param offset the offset for the band, must be non-negative
+   * @param isUShort if true, interprets the data as unsigned short
+   */
   public LookupTableCV(short[] data, int offset, boolean isUShort) {
     this(data, offset, isUShort, false);
   }
 
+  /**
+   * Constructs a LookupTableCV with the provided short data and an offset.
+   *
+   * @param data the short data for the lookup table, must not be null
+   * @param offset the offset for the band, must be non-negative
+   * @param isUShort if true, interprets the data as unsigned short
+   * @param forceReadingUnsigned if true, forces reading values as unsigned. Bug in some libraries
+   *     that do not handle signed short correctly
+   */
   public LookupTableCV(short[] data, int offset, boolean isUShort, boolean forceReadingUnsigned) {
-    this.offsets = new int[1];
-    Arrays.fill(offsets, offset);
-    if (isUShort) {
-      this.data = new DataBufferUShort(Objects.requireNonNull(data), data.length);
-    } else {
-      this.data = new DataBufferShort(Objects.requireNonNull(data), data.length);
-    }
+    this.offsets = new int[] {offset};
+    this.data =
+        isUShort
+            ? new DataBufferUShort(Objects.requireNonNull(data), data.length)
+            : new DataBufferShort(Objects.requireNonNull(data), data.length);
     this.forceReadingUnsigned = forceReadingUnsigned;
+  }
+
+  // Utility method to create filled arrays
+  private static int[] createFilledArray(int length, int value) {
+    int[] array = new int[length];
+    Arrays.fill(array, value);
+    return array;
   }
 
   public DataBuffer getData() {
@@ -163,12 +243,57 @@ public class LookupTableCV {
 
     Object sourceData = initializeSourceData(src, width, height, channels, cvType);
 
-    // Ensure table data matches source data
+    // Prepare lookup table data for processing
+    LookupData lookupData = prepareLookupData(channels);
+
+    // Process lookup based on the destination type
+    return switch (getDataType()) {
+      case DataBuffer.TYPE_BYTE ->
+          performByteLookup(
+              srcDataType,
+              width,
+              height,
+              lookupData.numBands,
+              channels,
+              sourceData,
+              lookupData.byteData,
+              lookupData.offsets);
+      case DataBuffer.TYPE_USHORT, DataBuffer.TYPE_SHORT ->
+          performShortLookup(
+              srcDataType,
+              width,
+              height,
+              lookupData.numBands,
+              channels,
+              sourceData,
+              lookupData.shortData,
+              lookupData.offsets);
+      default -> throw new IllegalArgumentException("Unsupported LUT transformation.");
+    };
+  }
+
+  // Helper class to encapsulate lookup data preparation
+  private static class LookupData {
+    final int numBands;
+    final int[] offsets;
+    final byte[][] byteData;
+    final short[][] shortData;
+
+    LookupData(int numBands, int[] offsets, byte[][] byteData, short[][] shortData) {
+      this.numBands = numBands;
+      this.offsets = offsets;
+      this.byteData = byteData;
+      this.shortData = shortData;
+    }
+  }
+
+  private LookupData prepareLookupData(int channels) {
     int numBands = getNumBands();
     int[] tblOffsets = getOffsets();
     byte[][] bTblData = getByteData();
     short[][] sTblData = getShortData();
 
+    // Expand lookup table data if needed
     if (numBands < channels) {
       if (bTblData != null) {
         byte[] bandData = bTblData[0];
@@ -180,55 +305,54 @@ public class LookupTableCV {
         Arrays.fill(sTblData, bandData);
       }
       int firstOffset = tblOffsets[0];
-      tblOffsets = new int[channels];
-      Arrays.fill(tblOffsets, firstOffset);
+      tblOffsets = createFilledArray(channels, firstOffset);
       numBands = channels;
     }
 
-    // Process lookup based on the destination type
-    int tblDataType = getDataType();
-
-    if (tblDataType == DataBuffer.TYPE_BYTE) {
-      return performByteLookup(srcDataType, width, height, numBands, channels, sourceData, bTblData, tblOffsets);
-    } else if (tblDataType == DataBuffer.TYPE_USHORT || tblDataType == DataBuffer.TYPE_SHORT) {
-      return performShortLookup(srcDataType, width, height, numBands, channels, sourceData, sTblData, tblOffsets);
-    }
-    throw new IllegalArgumentException("Unsupported LUT transformation.");
+    return new LookupData(numBands, tblOffsets, bTblData, sTblData);
   }
 
   private Object initializeSourceData(Mat src, int width, int height, int channels, int cvType) {
-    switch (CvType.depth(cvType)) {
+    int totalPixels = width * height * channels;
+    return switch (CvType.depth(cvType)) {
       case CvType.CV_8U, CvType.CV_8S -> {
-        byte[] byteData = new byte[width * height * channels];
+        byte[] byteData = new byte[totalPixels];
         src.get(0, 0, byteData);
-        return byteData;
+        yield byteData;
       }
       case CvType.CV_16U, CvType.CV_16S -> {
-        short[] shortData = new short[width * height * channels];
+        short[] shortData = new short[totalPixels];
         src.get(0, 0, shortData);
-        return shortData;
+        yield shortData;
       }
-      default -> throw new IllegalArgumentException(
-          "Not supported dataType for LUT transformation: " + src
-      );
-    }
+      default ->
+          throw new IllegalArgumentException(
+              "Not supported dataType for LUT transformation: " + src);
+    };
   }
 
-  private ImageCV performByteLookup(int srcDataType, int width, int height, int numBands,
-      int channels, Object sourceData, byte[][] tblData, int[] tblOffsets) {
+  private ImageCV performByteLookup(
+      int srcDataType,
+      int width,
+      int height,
+      int numBands,
+      int channels,
+      Object sourceData,
+      byte[][] tblData,
+      int[] tblOffsets) {
     boolean isSourceByte = srcDataType == DataBuffer.TYPE_BYTE;
-    byte[] dstData = isSourceByte && channels >= numBands
-        ? (byte[]) sourceData
-        : new byte[width * height * numBands];
+    byte[] dstData =
+        isSourceByte && channels >= numBands
+            ? (byte[]) sourceData
+            : new byte[width * height * numBands];
 
-    if (isSourceByte) {
-      lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
-    } else if (srcDataType == DataBuffer.TYPE_USHORT) {
-      lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
-    } else if (srcDataType == DataBuffer.TYPE_SHORT) {
-      lookup((short[]) sourceData, dstData, tblOffsets, tblData);
-    } else {
-      throw new IllegalArgumentException("Not supported LUT conversion from source dataType " + srcDataType);
+    switch (srcDataType) {
+      case DataBuffer.TYPE_BYTE -> lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
+      case DataBuffer.TYPE_USHORT -> lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
+      case DataBuffer.TYPE_SHORT -> lookup((short[]) sourceData, dstData, tblOffsets, tblData);
+      default ->
+          throw new IllegalArgumentException(
+              "Not supported LUT conversion from source dataType " + srcDataType);
     }
 
     ImageCV dst = new ImageCV(height, width, CvType.CV_8UC(numBands));
@@ -236,157 +360,130 @@ public class LookupTableCV {
     return dst;
   }
 
-  private ImageCV performShortLookup(int srcDataType, int width, int height, int numBands,
-      int channels, Object sourceData, short[][] tblData, int[] tblOffsets) {
+  private ImageCV performShortLookup(
+      int srcDataType,
+      int width,
+      int height,
+      int numBands,
+      int channels,
+      Object sourceData,
+      short[][] tblData,
+      int[] tblOffsets) {
     boolean isSourceByte = srcDataType == DataBuffer.TYPE_BYTE;
-    short[] dstData = (!isSourceByte && channels >= numBands)
-        ? (short[]) sourceData
-        : new short[width * height * numBands];
+    short[] dstData =
+        (!isSourceByte && channels >= numBands)
+            ? (short[]) sourceData
+            : new short[width * height * numBands];
 
-    if (isSourceByte) {
-      lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
-    } else if (srcDataType == DataBuffer.TYPE_USHORT) {
-      lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
-    } else if (srcDataType == DataBuffer.TYPE_SHORT) {
-      lookup((short[]) sourceData, dstData, tblOffsets, tblData);
-    } else {
-      throw new IllegalArgumentException("Not supported LUT conversion from source dataType " + srcDataType);
+    switch (srcDataType) {
+      case DataBuffer.TYPE_BYTE -> lookup((byte[]) sourceData, dstData, tblOffsets, tblData);
+      case DataBuffer.TYPE_USHORT -> lookupU((short[]) sourceData, dstData, tblOffsets, tblData);
+      case DataBuffer.TYPE_SHORT -> lookup((short[]) sourceData, dstData, tblOffsets, tblData);
+      default ->
+          throw new IllegalArgumentException(
+              "Not supported LUT conversion from source dataType " + srcDataType);
     }
 
-    ImageCV dst = new ImageCV(
-        height,
-        width,
+    int outputType =
         getDataType() == DataBuffer.TYPE_USHORT
-            ? CvType.CV_16UC(channels)
-            : CvType.CV_16SC(channels)
-    );
+            ? CvType.CV_16UC(numBands)
+            : CvType.CV_16SC(numBands);
+
+    ImageCV dst = new ImageCV(height, width, outputType);
     dst.put(0, 0, dstData);
     return dst;
   }
 
-
-  private static int index(int pixel, int offset, int length) {
+  private static int clampIndex(int pixel, int offset, int maxIndex) {
     int val = pixel - offset;
-    if (val < 0) {
-      val = 0;
-    } else if (val > length) {
-      val = length;
-    }
-    return val;
+    return Math.max(0, Math.min(val, maxIndex));
   }
 
-  // byte to byte
+  // Simplified lookup methods using generic approach
   private void lookup(byte[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData) {
-    int bOffset = tblData.length;
-
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = (srcData[i] & 0xFF);
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
-        }
-      }
-    } else {
-      for (int b = 0; b < bOffset; b++) {
-        byte[] t = tblData[b];
-        int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
-
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & 0xFF), tblOffset, maxLength)];
-        }
-      }
-    }
+    performLookup(srcData, dstData, tblOffsets, tblData, 0xFF);
   }
 
-  // ushort to byte
   private void lookupU(short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData) {
-    lookupByte(srcData, dstData, tblOffsets, tblData, 0xFFFF);
+    performLookup(srcData, dstData, tblOffsets, tblData, 0xFFFF);
   }
 
-  // short to byte
   private void lookup(short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData) {
     int mask = forceReadingUnsigned ? 0xFFFF : 0xFFFFFFFF;
-    lookupByte(srcData, dstData, tblOffsets, tblData, mask);
+    performLookup(srcData, dstData, tblOffsets, tblData, mask);
   }
 
-  private static void lookupByte(
-      short[] srcData, byte[] dstData, int[] tblOffsets, byte[][] tblData, int mask) {
-    int bOffset = tblData.length;
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = srcData[i] & mask;
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
-        }
-      }
-    } else {
-      for (int b = 0; b < bOffset; b++) {
-        byte[] t = tblData[b];
-        int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
-
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & mask), tblOffset, maxLength)];
-        }
-      }
-    }
-  }
-
-  // byte to short or ushort
   private void lookup(byte[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
-    int bOffset = tblData.length;
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = (srcData[i] & 0xFF);
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
-        }
-      }
-    } else {
-      for (int b = 0; b < bOffset; b++) {
-        short[] t = tblData[b];
-        int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
-
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & 0xFF), tblOffset, maxLength)];
-        }
-      }
-    }
+    performLookup(srcData, dstData, tblOffsets, tblData, 0xFF);
   }
 
-  // ushort to short or ushort
   private void lookupU(short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
-    lookupShort(srcData, dstData, tblOffsets, tblData, 0xFFFF);
+    performLookup(srcData, dstData, tblOffsets, tblData, 0xFFFF);
   }
 
-  // short to short or ushort
   private void lookup(short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData) {
     int mask = forceReadingUnsigned ? 0xFFFF : 0xFFFFFFFF;
-    lookupShort(srcData, dstData, tblOffsets, tblData, mask);
+    performLookup(srcData, dstData, tblOffsets, tblData, mask);
   }
 
-  private static void lookupShort(
-      short[] srcData, short[] dstData, int[] tblOffsets, short[][] tblData, int mask) {
-    int bOffset = tblData.length;
-    if (srcData.length < dstData.length) {
-      for (int i = 0; i < srcData.length; i++) {
-        int val = (srcData[i] & mask);
-        for (int b = 0; b < bOffset; b++) {
-          dstData[i * bOffset + b] = tblData[b][index(val, tblOffsets[b], tblData[b].length - 1)];
+  // Generic lookup method that handles both byte and short data
+  private <S, D, T> void performLookup(
+      S srcData, D dstData, int[] tblOffsets, T[] tblData, int mask) {
+    int numBands = tblData.length;
+    int srcLength = getSrcLength(srcData);
+    int dstLength = getDstLength(dstData);
+
+    if (srcLength < dstLength) {
+      // Expand channels: one source value maps to multiple destination values
+      for (int i = 0; i < srcLength; i++) {
+        int val = getSrcValue(srcData, i) & mask;
+        for (int b = 0; b < numBands; b++) {
+          int index = clampIndex(val, tblOffsets[b], getTableLength(tblData[b]) - 1);
+          setDstValue(dstData, i * numBands + b, getTableValue(tblData[b], index));
         }
       }
     } else {
-      for (int b = 0; b < bOffset; b++) {
-        short[] t = tblData[b];
+      // Process each band separately
+      for (int b = 0; b < numBands; b++) {
+        T table = tblData[b];
         int tblOffset = tblOffsets[b];
-        int maxLength = t.length - 1;
+        int maxLength = getTableLength(table) - 1;
 
-        for (int i = b; i < srcData.length; i += bOffset) {
-          dstData[i] = t[index((srcData[i] & mask), tblOffset, maxLength)];
+        for (int i = b; i < srcLength; i += numBands) {
+          int val = getSrcValue(srcData, i) & mask;
+          int index = clampIndex(val, tblOffset, maxLength);
+          setDstValue(dstData, i, getTableValue(table, index));
         }
       }
     }
+  }
+
+  // Helper methods for generic lookup
+  private int getSrcLength(Object srcData) {
+    return srcData instanceof byte[] b ? b.length : ((short[]) srcData).length;
+  }
+
+  private int getDstLength(Object dstData) {
+    return dstData instanceof byte[] b ? b.length : ((short[]) dstData).length;
+  }
+
+  private int getSrcValue(Object srcData, int index) {
+    return srcData instanceof byte[] b ? b[index] : ((short[]) srcData)[index];
+  }
+
+  private void setDstValue(Object dstData, int index, int value) {
+    if (dstData instanceof byte[] b) {
+      b[index] = (byte) value;
+    } else {
+      ((short[]) dstData)[index] = (short) value;
+    }
+  }
+
+  private int getTableLength(Object table) {
+    return table instanceof byte[] b ? b.length : ((short[]) table).length;
+  }
+
+  private int getTableValue(Object table, int index) {
+    return table instanceof byte[] b ? b[index] : ((short[]) table)[index];
   }
 }
