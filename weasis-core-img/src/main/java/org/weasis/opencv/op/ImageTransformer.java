@@ -27,8 +27,6 @@ import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.weasis.opencv.data.ImageCV;
 
 /**
@@ -51,8 +49,6 @@ import org.weasis.opencv.data.ImageCV;
  * @since 1.0
  */
 public final class ImageTransformer {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ImageTransformer.class);
-  public static final String UNSUPPORTED_SIZE = "Unsupported size: ";
 
   private ImageTransformer() {
     // Utility class - prevent instantiation

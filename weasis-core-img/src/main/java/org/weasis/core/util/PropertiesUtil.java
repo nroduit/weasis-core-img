@@ -41,9 +41,8 @@ public final class PropertiesUtil {
    *
    * @param path the path to the properties file
    * @return the loaded properties, never null
-   * @throws IOException if an I/O error occurs during reading
    */
-  public static Properties loadProperties(Path path) throws IOException {
+  public static Properties loadProperties(Path path) {
     return loadProperties(path, null, StandardCharsets.UTF_8);
   }
 
@@ -53,9 +52,8 @@ public final class PropertiesUtil {
    * @param path the path to the properties file
    * @param target the properties object to merge into (if null, creates a new one)
    * @return the target properties object with loaded properties merged in
-   * @throws IOException if an I/O error occurs during reading
    */
-  public static Properties loadProperties(Path path, Properties target) throws IOException {
+  public static Properties loadProperties(Path path, Properties target) {
     return loadProperties(path, target, StandardCharsets.UTF_8);
   }
 
@@ -66,10 +64,8 @@ public final class PropertiesUtil {
    * @param path the path to the properties file
    * @param charset the charset to use for reading
    * @return the loaded properties, never null
-   * @throws IOException if an I/O error occurs during reading
    */
-  public static Properties loadProperties(Path path, Properties target, Charset charset)
-      throws IOException {
+  public static Properties loadProperties(Path path, Properties target, Charset charset) {
     Objects.requireNonNull(path, "Path cannot be null");
     Objects.requireNonNull(charset, "Charset cannot be null");
 
@@ -79,6 +75,8 @@ public final class PropertiesUtil {
       try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
         properties.load(reader);
         LOGGER.trace("Loaded {} properties from: {}", properties.size(), path);
+      } catch (IOException e) {
+        LOGGER.error("Failed to load properties from file: {}", path, e);
       }
     } else {
       LOGGER.debug("Properties file not found or not readable: {}", path);
@@ -93,10 +91,8 @@ public final class PropertiesUtil {
    * @param path the path to the properties file
    * @param properties the properties to store
    * @param comments optional comments to write at the beginning of the file
-   * @throws IOException if an I/O error occurs during writing
    */
-  public static void storeProperties(Path path, Properties properties, String comments)
-      throws IOException {
+  public static void storeProperties(Path path, Properties properties, String comments) {
     storeProperties(path, properties, comments, StandardCharsets.UTF_8);
   }
 
@@ -107,18 +103,19 @@ public final class PropertiesUtil {
    * @param properties the properties to store
    * @param comments optional comments to write at the beginning of the file
    * @param charset the charset to use for writing
-   * @throws IOException if an I/O error occurs during writing
    */
   public static void storeProperties(
-      Path path, Properties properties, String comments, Charset charset) throws IOException {
+      Path path, Properties properties, String comments, Charset charset) {
     Objects.requireNonNull(path, "Path cannot be null");
     Objects.requireNonNull(properties, "Properties cannot be null");
     Objects.requireNonNull(charset, "Charset cannot be null");
 
-    // Create parent directories if they don't exist
-    Path parent = path.getParent();
-    if (parent != null && !Files.exists(parent)) {
-      Files.createDirectories(parent);
+    try {
+      // Create parent directories if they don't exist
+      FileUtil.prepareToWriteFile(path);
+    } catch (IOException e) {
+      LOGGER.error("Failed to create parent directories for: {}", path, e);
+      return;
     }
 
     try (BufferedWriter writer =
@@ -130,6 +127,8 @@ public final class PropertiesUtil {
             StandardOpenOption.TRUNCATE_EXISTING)) {
       properties.store(writer, comments);
       LOGGER.trace("Stored {} properties to: {}", properties.size(), path);
+    } catch (IOException e) {
+      LOGGER.error("Failed to store properties to file: {}", path, e);
     }
   }
 

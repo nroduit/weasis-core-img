@@ -21,6 +21,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -43,7 +44,7 @@ import org.weasis.core.util.annotations.Generated;
  */
 public final class FileUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
-  private static final int FILE_BUFFER = 4096;
+  public static final int FILE_BUFFER = 4096;
 
   private static final int[] ILLEGAL_CHARS = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
@@ -172,7 +173,7 @@ public final class FileUtil {
 
     if (Files.isDirectory(path)) {
       try (Stream<Path> walk = Files.walk(path)) {
-        walk.sorted((p1, p2) -> p2.compareTo(p1)) // Reverse order for depth-first deletion
+        walk.sorted(Comparator.reverseOrder()) // Reverse order for depth-first deletion
             .forEach(FileUtil::deleteQuietly);
       } catch (IOException e) {
         LOGGER.error(CANNOT_DELETE + ": {}", path, e);
@@ -593,8 +594,9 @@ public final class FileUtil {
   }
 
   /**
-   * Copy a file using NIO. This method is deprecated and will be removed in future versions. Use
-   * {@link StreamUtil#copyFile(Path, Path)} instead.
+   * Copy a file using NIO. This method is deprecated and will be removed in future versions.
+   *
+   * @deprecated Use {@link StreamUtil#copyFile(Path, Path)} instead
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -614,11 +616,7 @@ public final class FileUtil {
   @Generated
   public static Properties readProperties(File propsFile, Properties props) {
     Properties p = props == null ? new Properties() : props;
-    try {
-      PropertiesUtil.loadProperties(propsFile.toPath(), p);
-    } catch (IOException e) {
-      LOGGER.error("Error when reading properties", e);
-    }
+    PropertiesUtil.loadProperties(propsFile.toPath(), p);
     return p;
   }
 
@@ -633,11 +631,7 @@ public final class FileUtil {
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
   public static void storeProperties(File propsFile, Properties props, String comments) {
-    try {
-      PropertiesUtil.storeProperties(propsFile.toPath(), props, comments);
-    } catch (IOException e) {
-      LOGGER.error("Error when writing properties", e);
-    }
+    PropertiesUtil.storeProperties(propsFile.toPath(), props, comments);
   }
 
   /**

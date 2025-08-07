@@ -36,7 +36,8 @@ import org.slf4j.LoggerFactory;
  */
 public final class StreamUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamUtil.class);
-  private static final int DEFAULT_BUFFER_SIZE = 8192;
+
+  public static final int DEFAULT_BUFFER_SIZE = 8192;
 
   private StreamUtil() {
     // Prevent instantiation
