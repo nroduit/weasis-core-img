@@ -11,39 +11,35 @@ package org.weasis.opencv.data;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
+import org.weasis.core.util.annotations.Generated;
 
+/**
+ * Represents a planar image with OpenCV Mat functionality. Provides resource management through
+ * AutoCloseable and memory size calculation through ImageSize.
+ */
+@Generated
 public interface PlanarImage extends ImageSize, AutoCloseable {
 
-  // javadoc: Mat::channels()
+  // Core properties
   int channels();
 
-  // javadoc: Mat::dims()
   int dims();
 
-  // javadoc: Mat::depth()
   int depth();
 
-  // javadoc: Mat::elemSize()
   long elemSize();
 
-  // javadoc: Mat::elemSize1()
   long elemSize1();
 
-  // javadoc: Mat::release()
-  void release();
-
-  // javadoc: Mat::size()
   Size size();
 
-  // javadoc: Mat::type()
   int type();
 
-  // javadoc:Mat::height()
   int height();
 
-  // javadoc:Mat::width()
   int width();
 
+  // Data access
   double[] get(int row, int column);
 
   int get(int i, int j, byte[] pixelData);
@@ -56,9 +52,13 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   int get(int i, int j, double[] data);
 
+  // Operations
   void assignTo(Mat dstImg);
 
-  boolean isHasBeenReleased();
+  void release();
+
+  // Resource management
+  boolean isReleased();
 
   boolean isReleasedAfterProcessing();
 
@@ -67,24 +67,32 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
   @Override
   void close();
 
+  /** Converts this PlanarImage to a Mat instance. */
   default Mat toMat() {
     if (this instanceof Mat mat) {
       return mat;
-    } else {
-      throw new IllegalAccessError("Not implemented yet");
     }
+    throw new UnsupportedOperationException(
+        "Conversion to Mat not supported for this implementation");
   }
 
+  /** Converts this PlanarImage to an ImageCV instance. */
   default ImageCV toImageCV() {
-    if (this instanceof Mat) {
-      if (this instanceof ImageCV img) {
-        return img;
-      }
-      ImageCV dstImg = new ImageCV();
-      this.assignTo(dstImg);
-      return dstImg;
-    } else {
-      throw new IllegalAccessError("Not implemented yet");
+    if (this instanceof ImageCV imageCV) {
+      return imageCV;
     }
+    if (this instanceof Mat mat) {
+      return ImageCV.fromMat(mat);
+    }
+    throw new UnsupportedOperationException(
+        "Conversion to ImageCV not supported for this implementation");
   }
+
+  // ============================== DEPRECATED FILE-BASED METHODS ==============================
+
+  /**
+   * @deprecated Use {@link #isReleased()} instead.
+   */
+  @Deprecated(since = "4.12", forRemoval = true)
+  boolean isHasBeenReleased();
 }

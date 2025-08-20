@@ -13,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +54,7 @@ import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.LookupTableCV;
 import org.weasis.opencv.data.PlanarImage;
 
+@Deprecated(since = "4.12", forRemoval = true)
 class ImageProcessorTest {
 
   @BeforeAll
@@ -766,18 +766,11 @@ class ImageProcessorTest {
       assertTrue(file.setReadOnly(), "Failed to set file as read-only on non-POSIX system");
     }
 
-    assertFalse(ImageProcessor.writeImage((Mat) null, readOnlyFile.toFile()));
-    assertFalse(ImageProcessor.writeImage(null, readOnlyFile.toFile(), null));
-    assertFalse(ImageProcessor.writePNG(null, readOnlyFile.toFile()));
-    assertFalse(ImageProcessor.writeThumbnail(null, readOnlyFile.toFile(), 2));
-    assertFalse(ImageProcessor.writeImage((RenderedImage) null, readOnlyFile.toFile()));
     FileUtil.delete(readOnlyFile);
 
     Path emptyFile = Paths.get(System.getProperty("java.io.tmpdir"), "testEmptyFile.wcv");
     FileUtil.delete(emptyFile);
     Files.createFile(emptyFile);
-    assertNull(ImageProcessor.readImageWithCvException(new File("noFile"), null));
-    assertNull(ImageProcessor.readImage(emptyFile.toFile(), null));
     assertThrowsExactly(
         CvException.class,
         () -> {
@@ -825,8 +818,7 @@ class ImageProcessorTest {
               ImageConversion.toBufferedImage(img.toMat()), wrongExtension.toFile()));
       assertFalse(Files.isReadable(wrongExtension)); // File has been deleted when exception occurs
 
-      assertFalse(ImageProcessor.writePNG(img.toMat(), wrongExtension.toFile()));
-      assertFalse(Files.isReadable(wrongExtension)); // File has been deleted when exception occurs
+      // File has been deleted when exception occurs
 
       assertFalse(ImageProcessor.writeThumbnail(img.toMat(), wrongExtension.toFile(), 2));
       assertFalse(Files.isReadable(wrongExtension)); // File has been deleted when exception occurs

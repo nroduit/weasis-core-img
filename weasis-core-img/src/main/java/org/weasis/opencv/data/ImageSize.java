@@ -9,6 +9,11 @@
  */
 package org.weasis.opencv.data;
 
+import org.weasis.core.util.annotations.Generated;
+
+/** Provides physical memory size calculation for image-like objects. */
+@Generated
 public interface ImageSize {
+  /** Returns the physical memory size in bytes. */
   long physicalBytes();
 }
