@@ -9,6 +9,7 @@
  */
 package org.weasis.opencv.data;
 
+import java.util.Objects;
 import org.opencv.core.Mat;
 import org.opencv.core.Range;
 import org.opencv.core.Rect;
@@ -17,15 +18,14 @@ import org.opencv.core.Size;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Enhanced Mat implementation that provides additional memory management features and implements
- * the PlanarImage interface for consistent image handling.
+ * Enhanced Mat implementation with additional memory management features. Implements PlanarImage
+ * for consistent image handling across the application.
  */
-public class ImageCV extends Mat implements PlanarImage {
+public final class ImageCV extends Mat implements PlanarImage {
 
-  private boolean releasedAfterProcessing = false;
-  private boolean released = false;
+  private boolean releasedAfterProcessing;
+  private boolean released;
 
-  // Constructors
   public ImageCV() {
     super();
   }
@@ -91,28 +91,20 @@ public class ImageCV extends Mat implements PlanarImage {
     release();
   }
 
-  // Static factory methods
-  /**
-   * Creates an ImageCV from a Mat instance. If the source is already an ImageCV, returns it
-   * directly. Otherwise creates a new ImageCV and copies the data.
-   */
+  /** Creates ImageCV from Mat. Returns the source directly if already ImageCV. */
   public static ImageCV fromMat(Mat source) {
+    Objects.requireNonNull(source, "Source Mat cannot be null");
     if (source instanceof ImageCV imageCV) {
       return imageCV;
     }
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     source.assignTo(result);
     return result;
   }
 
-  /**
-   * Converts a PlanarImage to Mat.
-   *
-   * @param source the source PlanarImage
-   * @return Mat instance
-   * @throws UnsupportedOperationException if conversion is not supported
-   */
+  /** Converts PlanarImage to Mat. */
   public static Mat toMat(PlanarImage source) {
+    Objects.requireNonNull(source, "Source PlanarImage cannot be null");
     return source.toMat();
   }
 

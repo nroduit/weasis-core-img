@@ -10,19 +10,20 @@
 package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,6 +32,7 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Comprehensive test suite for PropertiesUtil class. */
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class PropertiesUtilTest {
 
   @TempDir Path tempDir;
@@ -40,100 +42,112 @@ class PropertiesUtilTest {
 
   @BeforeEach
   void setUp() {
-    testProperties = new Properties();
-    testProperties.setProperty("key1", "value1");
-    testProperties.setProperty("key2", "value2");
-    testProperties.setProperty("unicode.key", "héllo wörld");
-    testProperties.setProperty("special.chars", "!@#$%^&*()");
-    testProperties.setProperty("multiline", "line1\nline2\nline3");
-
+    testProperties = createTestProperties();
     propertiesFile = tempDir.resolve("test.properties");
+  }
+
+  private static Properties createTestProperties() {
+    var properties = new Properties();
+    properties.setProperty("key1", "value1");
+    properties.setProperty("key2", "value2");
+    properties.setProperty("unicode.key", "héllo wörld");
+    properties.setProperty("special.chars", "!@#$%^&*()");
+    properties.setProperty("multiline", "line1\nline2\nline3");
+    return properties;
+  }
+
+  private static Properties createUnicodeProperties() {
+    var properties = new Properties();
+    properties.setProperty("chinese", "你好世界");
+    properties.setProperty("japanese", "こんにちは世界");
+    properties.setProperty("arabic", "مرحبا بالعالم");
+    properties.setProperty("emoji", "🌍🚀💻");
+    return properties;
+  }
+
+  private static Properties createSpecialCharProperties() {
+    var properties = new Properties();
+    properties.setProperty("equals.test", "key=value");
+    properties.setProperty("colon.test", "key:value");
+    properties.setProperty("hash.test", "key#comment");
+    properties.setProperty("exclamation.test", "key!value");
+    return properties;
   }
 
   // ================= Load Properties Tests =================
 
   @Nested
-  @DisplayName("Load Properties Tests")
-  class LoadPropertiesTests {
+  class Load_Properties_Tests {
 
     @Test
-    @DisplayName("Should load properties from existing file with default UTF-8 encoding")
-    void shouldLoadPropertiesFromExistingFileWithDefaultUTF8Encoding() throws IOException {
+    void should_load_properties_from_existing_file_with_default_UTF8_encoding() throws IOException {
       // Arrange
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test properties");
 
       // Act
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertNotNull(loadedProperties);
-      assertEquals(testProperties.size(), loadedProperties.size());
-      assertEquals("value1", loadedProperties.getProperty("key1"));
-      assertEquals("value2", loadedProperties.getProperty("key2"));
-      assertEquals("héllo wörld", loadedProperties.getProperty("unicode.key"));
+      assertThat(loadedProperties)
+          .isNotNull()
+          .hasSameSizeAs(testProperties)
+          .containsEntry("key1", "value1")
+          .containsEntry("key2", "value2")
+          .containsEntry("unicode.key", "héllo wörld");
     }
 
     @Test
-    @DisplayName("Should load properties with custom charset encoding")
-    void shouldLoadPropertiesWithCustomCharsetEncoding() throws IOException {
+    void should_load_properties_with_custom_charset_encoding() throws IOException {
       // Arrange
-      Charset charset = StandardCharsets.ISO_8859_1;
+      var charset = StandardCharsets.ISO_8859_1;
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test properties", charset);
 
       // Act
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile, null, charset);
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile, null, charset);
 
       // Assert
-      assertNotNull(loadedProperties);
-      assertEquals(testProperties.size(), loadedProperties.size());
-      assertEquals("value1", loadedProperties.getProperty("key1"));
-      assertEquals("value2", loadedProperties.getProperty("key2"));
+      assertThat(loadedProperties)
+          .hasSameSizeAs(testProperties)
+          .containsEntry("key1", "value1")
+          .containsEntry("key2", "value2");
     }
 
     @Test
-    @DisplayName("Should return empty properties when file does not exist")
-    void shouldReturnEmptyPropertiesWhenFileDoesNotExist() throws IOException {
+    void should_return_empty_properties_when_file_does_not_exist() {
       // Arrange
-      Path nonExistentFile = tempDir.resolve("nonexistent.properties");
+      var nonExistentFile = tempDir.resolve("nonexistent.properties");
 
       // Act
-      Properties loadedProperties = PropertiesUtil.loadProperties(nonExistentFile);
+      var loadedProperties = PropertiesUtil.loadProperties(nonExistentFile);
 
       // Assert
-      assertNotNull(loadedProperties);
-      assertEquals(0, loadedProperties.size());
-      assertTrue(loadedProperties.isEmpty());
+      assertThat(loadedProperties).isNotNull().isEmpty();
     }
 
     @Test
-    @DisplayName("Should handle empty properties file")
-    void shouldHandleEmptyPropertiesFile() throws IOException {
+    void should_handle_empty_properties_file() throws IOException {
       // Arrange
       Files.createFile(propertiesFile);
 
       // Act
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertNotNull(loadedProperties);
-      assertEquals(0, loadedProperties.size());
-      assertTrue(loadedProperties.isEmpty());
+      assertThat(loadedProperties).isNotNull().isEmpty();
     }
 
     @Test
-    @DisplayName("Should throw exception for null path")
-    void shouldThrowExceptionForNullPath() {
+    void should_throw_exception_for_null_path() {
       // Act & Assert
-      NullPointerException exception =
+      var exception =
           assertThrows(NullPointerException.class, () -> PropertiesUtil.loadProperties(null));
       assertEquals("Path cannot be null", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Should throw exception for null charset")
-    void shouldThrowExceptionForNullCharset() {
+    void should_throw_exception_for_null_charset() {
       // Act & Assert
-      NullPointerException exception =
+      var exception =
           assertThrows(
               NullPointerException.class,
               () -> PropertiesUtil.loadProperties(propertiesFile, null, null));
@@ -141,157 +155,136 @@ class PropertiesUtilTest {
     }
 
     @Test
-    @DisplayName("Should load properties into existing properties object")
-    void shouldLoadPropertiesIntoExistingPropertiesObject() throws IOException {
+    void should_load_properties_into_existing_properties_object() throws IOException {
       // Arrange
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test properties");
-
-      Properties existingProperties = new Properties();
+      var existingProperties = new Properties();
       existingProperties.setProperty("existing.key", "existing.value");
 
       // Act
-      Properties result = PropertiesUtil.loadProperties(propertiesFile, existingProperties);
+      var result = PropertiesUtil.loadProperties(propertiesFile, existingProperties);
 
       // Assert
-      assertSame(existingProperties, result);
-      assertEquals(testProperties.size() + 1, result.size());
-      assertEquals("existing.value", result.getProperty("existing.key"));
-      assertEquals("value1", result.getProperty("key1"));
+      assertThat(result)
+          .isSameAs(existingProperties)
+          .hasSize(testProperties.size() + 1)
+          .containsEntry("existing.key", "existing.value")
+          .containsEntry("key1", "value1");
     }
 
     @Test
-    @DisplayName("Should create new properties object when target is null")
-    void shouldCreateNewPropertiesObjectWhenTargetIsNull() throws IOException {
+    void should_create_new_properties_object_when_target_is_null() throws IOException {
       // Arrange
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test properties");
 
       // Act
-      Properties result = PropertiesUtil.loadProperties(propertiesFile, null);
+      var result = PropertiesUtil.loadProperties(propertiesFile, null);
 
       // Assert
-      assertNotNull(result);
-      assertEquals(testProperties.size(), result.size());
-      assertEquals("value1", result.getProperty("key1"));
+      assertThat(result).isNotNull().hasSameSizeAs(testProperties).containsEntry("key1", "value1");
     }
 
     @Test
-    @DisplayName("Should handle properties with special characters in values")
-    void shouldHandlePropertiesWithSpecialCharactersInValues() throws IOException {
+    void should_handle_properties_with_special_characters_in_values() throws IOException {
       // Arrange
-      Properties specialProperties = new Properties();
-      specialProperties.setProperty("equals.test", "key=value");
-      specialProperties.setProperty("colon.test", "key:value");
-      specialProperties.setProperty("hash.test", "key#comment");
-      specialProperties.setProperty("exclamation.test", "key!value");
-
+      var specialProperties = createSpecialCharProperties();
       PropertiesUtil.storeProperties(propertiesFile, specialProperties, null);
 
       // Act
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertEquals("key=value", loadedProperties.getProperty("equals.test"));
-      assertEquals("key:value", loadedProperties.getProperty("colon.test"));
-      assertEquals("key#comment", loadedProperties.getProperty("hash.test"));
-      assertEquals("key!value", loadedProperties.getProperty("exclamation.test"));
+      assertThat(loadedProperties)
+          .containsEntry("equals.test", "key=value")
+          .containsEntry("colon.test", "key:value")
+          .containsEntry("hash.test", "key#comment")
+          .containsEntry("exclamation.test", "key!value");
     }
   }
 
   // ================= Store Properties Tests =================
 
   @Nested
-  @DisplayName("Store Properties Tests")
-  class StorePropertiesTests {
+  class Store_Properties_Tests {
 
     @Test
-    @DisplayName("Should store properties to file with default UTF-8 encoding")
-    void shouldStorePropertiesToFileWithDefaultUTF8Encoding() throws IOException {
+    void should_store_properties_to_file_with_default_UTF8_encoding() throws IOException {
       // Act
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test comment");
 
       // Assert
-      assertTrue(Files.exists(propertiesFile));
-      assertTrue(Files.isReadable(propertiesFile));
-
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
-      assertEquals(testProperties.size(), loadedProperties.size());
-      assertEquals("value1", loadedProperties.getProperty("key1"));
+      assertThat(propertiesFile).exists();
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      assertThat(loadedProperties).hasSameSizeAs(testProperties).containsEntry("key1", "value1");
     }
 
     @Test
-    @DisplayName("Should store properties with custom charset encoding")
-    void shouldStorePropertiesWithCustomCharsetEncoding() throws IOException {
+    void should_store_properties_with_custom_charset_encoding() throws IOException {
       // Arrange
-      Charset charset = StandardCharsets.ISO_8859_1;
+      var charset = StandardCharsets.ISO_8859_1;
 
       // Act
       PropertiesUtil.storeProperties(propertiesFile, testProperties, "Test comment", charset);
 
       // Assert
-      assertTrue(Files.exists(propertiesFile));
-
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile, null, charset);
-      assertEquals(testProperties.size(), loadedProperties.size());
-      assertEquals("value1", loadedProperties.getProperty("key1"));
+      assertThat(propertiesFile).exists();
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile, null, charset);
+      assertThat(loadedProperties).hasSameSizeAs(testProperties).containsEntry("key1", "value1");
     }
 
     @Test
-    @DisplayName("Should create parent directories when storing properties")
-    void shouldCreateParentDirectoriesWhenStoringProperties() throws IOException {
+    void should_create_parent_directories_when_storing_properties() throws IOException {
       // Arrange
-      Path nestedFile = tempDir.resolve("nested").resolve("deep").resolve("test.properties");
+      var nestedFile = tempDir.resolve("nested").resolve("deep").resolve("test.properties");
 
       // Act
       PropertiesUtil.storeProperties(nestedFile, testProperties, "Nested file test");
 
       // Assert
-      assertTrue(Files.exists(nestedFile));
-      assertTrue(Files.exists(nestedFile.getParent()));
-
-      Properties loadedProperties = PropertiesUtil.loadProperties(nestedFile);
-      assertEquals("value1", loadedProperties.getProperty("key1"));
+      assertThat(nestedFile).exists();
+      assertThat(nestedFile.getParent()).exists();
+      var loadedProperties = PropertiesUtil.loadProperties(nestedFile);
+      assertThat(loadedProperties).containsEntry("key1", "value1");
     }
 
     @Test
-    @DisplayName("Should overwrite existing file when storing properties")
-    void shouldOverwriteExistingFileWhenStoringProperties() throws IOException {
+    void should_overwrite_existing_file_when_storing_properties() throws IOException {
       // Arrange
-      Properties originalProperties = new Properties();
+      var originalProperties = new Properties();
       originalProperties.setProperty("original.key", "original.value");
       PropertiesUtil.storeProperties(propertiesFile, originalProperties, "Original");
 
-      Properties newProperties = new Properties();
+      var newProperties = new Properties();
       newProperties.setProperty("new.key", "new.value");
 
       // Act
       PropertiesUtil.storeProperties(propertiesFile, newProperties, "New properties");
 
       // Assert
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
-      assertEquals(1, loadedProperties.size());
-      assertEquals("new.value", loadedProperties.getProperty("new.key"));
-      assertNull(loadedProperties.getProperty("original.key"));
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      assertThat(loadedProperties)
+          .hasSize(1)
+          .containsEntry("new.key", "new.value")
+          .doesNotContainKey("original.key");
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"Simple comment", "Multi\nline\ncomment"})
-    @DisplayName("Should handle various comment types")
-    void shouldHandleVariousCommentTypes(String comment) throws IOException {
+    void should_handle_various_comment_types(String comment) throws IOException {
       // Act & Assert
       assertDoesNotThrow(
           () -> PropertiesUtil.storeProperties(propertiesFile, testProperties, comment));
-      assertTrue(Files.exists(propertiesFile));
+      assertThat(propertiesFile).exists();
 
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
-      assertEquals(testProperties.size(), loadedProperties.size());
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      assertThat(loadedProperties).hasSameSizeAs(testProperties);
     }
 
     @Test
-    @DisplayName("Should throw exception for null path when storing")
-    void shouldThrowExceptionForNullPathWhenStoring() {
+    void should_throw_exception_for_null_path_when_storing() {
       // Act & Assert
-      NullPointerException exception =
+      var exception =
           assertThrows(
               NullPointerException.class,
               () -> PropertiesUtil.storeProperties(null, testProperties, "comment"));
@@ -299,10 +292,9 @@ class PropertiesUtilTest {
     }
 
     @Test
-    @DisplayName("Should throw exception for null properties when storing")
-    void shouldThrowExceptionForNullPropertiesWhenStoring() {
+    void should_throw_exception_for_null_properties_when_storing() {
       // Act & Assert
-      NullPointerException exception =
+      var exception =
           assertThrows(
               NullPointerException.class,
               () -> PropertiesUtil.storeProperties(propertiesFile, null, "comment"));
@@ -310,10 +302,9 @@ class PropertiesUtilTest {
     }
 
     @Test
-    @DisplayName("Should throw exception for null charset when storing")
-    void shouldThrowExceptionForNullCharsetWhenStoring() {
+    void should_throw_exception_for_null_charset_when_storing() {
       // Act & Assert
-      NullPointerException exception =
+      var exception =
           assertThrows(
               NullPointerException.class,
               () ->
@@ -322,282 +313,324 @@ class PropertiesUtilTest {
     }
 
     @Test
-    @DisplayName("Should preserve unicode characters when storing and loading")
-    void shouldPreserveUnicodeCharactersWhenStoringAndLoading() throws IOException {
+    void should_preserve_unicode_characters_when_storing_and_loading() throws IOException {
       // Arrange
-      Properties unicodeProperties = new Properties();
-      unicodeProperties.setProperty("chinese", "你好世界");
-      unicodeProperties.setProperty("japanese", "こんにちは世界");
-      unicodeProperties.setProperty("arabic", "مرحبا بالعالم");
-      unicodeProperties.setProperty("emoji", "🌍🚀💻");
+      var unicodeProperties = createUnicodeProperties();
 
       // Act
       PropertiesUtil.storeProperties(propertiesFile, unicodeProperties, "Unicode test");
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertEquals("你好世界", loadedProperties.getProperty("chinese"));
-      assertEquals("こんにちは世界", loadedProperties.getProperty("japanese"));
-      assertEquals("مرحبا بالعالم", loadedProperties.getProperty("arabic"));
-      assertEquals("🌍🚀💻", loadedProperties.getProperty("emoji"));
+      assertThat(loadedProperties)
+          .containsEntry("chinese", "你好世界")
+          .containsEntry("japanese", "こんにちは世界")
+          .containsEntry("arabic", "مرحبا بالعالم")
+          .containsEntry("emoji", "🌍🚀💻");
     }
   }
 
   // ================= Utility Methods Tests =================
 
   @Nested
-  @DisplayName("Utility Methods Tests")
-  class UtilityMethodsTests {
+  class Utility_Methods_Tests {
 
     @Test
-    @DisplayName("Should create Properties from Map")
-    void shouldCreatePropertiesFromMap() {
+    void should_create_Properties_from_Map() {
       // Arrange
-      Map<String, String> map = new HashMap<>();
-      map.put("map.key1", "map.value1");
-      map.put("map.key2", "map.value2");
+      var map =
+          Map.of(
+              "map.key1", "map.value1",
+              "map.key2", "map.value2");
 
       // Act
-      Properties properties = PropertiesUtil.fromMap(map);
+      var properties = PropertiesUtil.fromMap(map);
 
       // Assert
-      assertNotNull(properties);
-      assertEquals(2, properties.size());
-      assertEquals("map.value1", properties.getProperty("map.key1"));
-      assertEquals("map.value2", properties.getProperty("map.key2"));
+      assertThat(properties)
+          .isNotNull()
+          .hasSize(2)
+          .containsEntry("map.key1", "map.value1")
+          .containsEntry("map.key2", "map.value2");
     }
 
     @Test
-    @DisplayName("Should handle null map gracefully")
-    void shouldHandleNullMapGracefully() {
+    void should_handle_null_map_gracefully() {
       // Act
-      Properties properties = PropertiesUtil.fromMap(null);
+      var properties = PropertiesUtil.fromMap(null);
 
       // Assert
-      assertNotNull(properties);
-      assertEquals(0, properties.size());
-      assertTrue(properties.isEmpty());
+      assertThat(properties).isNotNull().isEmpty();
     }
 
     @Test
-    @DisplayName("Should handle empty map")
-    void shouldHandleEmptyMap() {
+    void should_handle_empty_map() {
       // Arrange
-      Map<String, String> emptyMap = new HashMap<>();
+      var emptyMap = Map.<String, String>of();
 
       // Act
-      Properties properties = PropertiesUtil.fromMap(emptyMap);
+      var properties = PropertiesUtil.fromMap(emptyMap);
 
       // Assert
-      assertNotNull(properties);
-      assertEquals(0, properties.size());
-      assertTrue(properties.isEmpty());
+      assertThat(properties).isNotNull().isEmpty();
     }
 
     @Test
-    @DisplayName("Should merge multiple Properties objects")
-    void shouldMergeMultiplePropertiesObjects() {
+    void should_merge_multiple_Properties_objects() {
       // Arrange
-      Properties props1 = new Properties();
+      var props1 = new Properties();
       props1.setProperty("key1", "value1");
       props1.setProperty("common", "from_props1");
 
-      Properties props2 = new Properties();
+      var props2 = new Properties();
       props2.setProperty("key2", "value2");
       props2.setProperty("common", "from_props2");
 
-      Properties props3 = new Properties();
+      var props3 = new Properties();
       props3.setProperty("key3", "value3");
 
       // Act
-      Properties merged = PropertiesUtil.merge(props1, props2, props3);
+      var merged = PropertiesUtil.merge(props1, props2, props3);
 
       // Assert
-      assertNotNull(merged);
-      assertEquals(4, merged.size());
-      assertEquals("value1", merged.getProperty("key1"));
-      assertEquals("value2", merged.getProperty("key2"));
-      assertEquals("value3", merged.getProperty("key3"));
-      assertEquals("from_props2", merged.getProperty("common")); // Last one wins
+      assertThat(merged)
+          .hasSize(4)
+          .containsEntry("key1", "value1")
+          .containsEntry("key2", "value2")
+          .containsEntry("key3", "value3")
+          .containsEntry("common", "from_props2"); // Later properties override earlier ones
     }
 
     @Test
-    @DisplayName("Should handle null properties in merge")
-    void shouldHandleNullPropertiesInMerge() {
+    void should_handle_null_properties_in_merge() {
       // Arrange
-      Properties props1 = new Properties();
+      var props1 = new Properties();
       props1.setProperty("key1", "value1");
 
-      Properties props3 = new Properties();
+      var props3 = new Properties();
       props3.setProperty("key3", "value3");
 
       // Act
-      Properties merged = PropertiesUtil.merge(props1, null, props3);
+      var merged = PropertiesUtil.merge(props1, null, props3);
 
       // Assert
-      assertNotNull(merged);
-      assertEquals(2, merged.size());
-      assertEquals("value1", merged.getProperty("key1"));
-      assertEquals("value3", merged.getProperty("key3"));
+      assertThat(merged).hasSize(2).containsEntry("key1", "value1").containsEntry("key3", "value3");
     }
 
     @Test
-    @DisplayName("Should handle null array in merge")
-    void shouldHandleNullArrayInMerge() {
+    void should_handle_null_array_in_merge() {
       // Act
-      Properties merged = PropertiesUtil.merge((Properties[]) null);
+      var merged = PropertiesUtil.merge((Properties[]) null);
 
       // Assert
-      assertNotNull(merged);
-      assertEquals(0, merged.size());
-      assertTrue(merged.isEmpty());
+      assertThat(merged).isNotNull().isEmpty();
     }
 
     @Test
-    @DisplayName("Should handle empty array in merge")
-    void shouldHandleEmptyArrayInMerge() {
+    void should_handle_empty_array_in_merge() {
       // Act
-      Properties merged = PropertiesUtil.merge();
+      var merged = PropertiesUtil.merge();
 
       // Assert
-      assertNotNull(merged);
-      assertEquals(0, merged.size());
-      assertTrue(merged.isEmpty());
+      assertThat(merged).isNotNull().isEmpty();
     }
   }
 
   // ================= Integration Tests =================
 
   @Nested
-  @DisplayName("Integration Tests")
-  class IntegrationTests {
+  class Integration_Tests {
 
     @Test
-    @DisplayName("Should perform complete store and load cycle")
-    void shouldPerformCompleteStoreAndLoadCycle() throws IOException {
-      // Arrange
-      Properties originalProperties = new Properties();
-      originalProperties.setProperty("app.name", "Test Application");
-      originalProperties.setProperty("app.version", "1.0.0");
-      originalProperties.setProperty("app.author", "Test Author");
-      originalProperties.setProperty("app.date", LocalDateTime.now().toString());
-
-      // Act - Store
-      PropertiesUtil.storeProperties(propertiesFile, originalProperties, "Application Properties");
-
-      // Act - Load
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+    void should_perform_complete_store_and_load_cycle() throws IOException {
+      // Act
+      PropertiesUtil.storeProperties(propertiesFile, testProperties, "Complete cycle test");
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertEquals(originalProperties.size(), loadedProperties.size());
-      for (String key : originalProperties.stringPropertyNames()) {
-        assertEquals(originalProperties.getProperty(key), loadedProperties.getProperty(key));
+      assertThat(loadedProperties).isEqualTo(testProperties);
+    }
+
+    @Test
+    void should_handle_concurrent_access_to_different_files() throws IOException {
+      // Arrange
+      var numThreads = 10;
+      var executor = Executors.newFixedThreadPool(numThreads);
+
+      try {
+        var futures =
+            IntStream.range(0, numThreads)
+                .mapToObj(
+                    i ->
+                        CompletableFuture.runAsync(
+                            () -> {
+                              var threadFile = tempDir.resolve("thread-" + i + ".properties");
+                              var threadProperties = new Properties();
+                              threadProperties.setProperty("thread.id", String.valueOf(i));
+                              threadProperties.setProperty("thread.value", "value-" + i);
+
+                              PropertiesUtil.storeProperties(
+                                  threadFile, threadProperties, "Thread " + i);
+                              var loadedProps = PropertiesUtil.loadProperties(threadFile);
+
+                              assertThat(loadedProps)
+                                  .containsEntry("thread.id", String.valueOf(i))
+                                  .containsEntry("thread.value", "value-" + i);
+                            },
+                            executor))
+                .toArray(CompletableFuture[]::new);
+
+        // Act & Assert
+        assertDoesNotThrow(() -> CompletableFuture.allOf(futures).join());
+      } finally {
+        executor.shutdown();
       }
     }
 
     @Test
-    @DisplayName("Should handle concurrent access to different files")
-    void shouldHandleConcurrentAccessToDifferentFiles() throws IOException {
+    void should_work_with_very_large_properties_file() throws IOException {
       // Arrange
-      Path file1 = tempDir.resolve("concurrent1.properties");
-      Path file2 = tempDir.resolve("concurrent2.properties");
-
-      Properties props1 = new Properties();
-      props1.setProperty("file", "one");
-
-      Properties props2 = new Properties();
-      props2.setProperty("file", "two");
+      var largeProperties = new Properties();
+      IntStream.range(0, 10000).forEach(i -> largeProperties.setProperty("key" + i, "value" + i));
 
       // Act
-      PropertiesUtil.storeProperties(file1, props1, "File 1");
-      PropertiesUtil.storeProperties(file2, props2, "File 2");
-
-      Properties loaded1 = PropertiesUtil.loadProperties(file1);
-      Properties loaded2 = PropertiesUtil.loadProperties(file2);
+      PropertiesUtil.storeProperties(propertiesFile, largeProperties, "Large file test");
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertEquals("one", loaded1.getProperty("file"));
-      assertEquals("two", loaded2.getProperty("file"));
+      assertThat(loadedProperties)
+          .hasSameSizeAs(largeProperties)
+          .containsEntry("key0", "value0")
+          .containsEntry("key9999", "value9999");
     }
 
     @Test
-    @DisplayName("Should work with very large properties file")
-    void shouldWorkWithVeryLargePropertiesFile() throws IOException {
-      // Arrange
-      Properties largeProperties = new Properties();
-      for (int i = 0; i < 1000; i++) {
-        largeProperties.setProperty(
-            "key" + i, "value" + i + " - some longer text to make it more realistic");
-      }
+    void should_maintain_property_order_consistency() throws IOException {
+      // Arrange - Properties doesn't guarantee order, but we can test consistent behavior
+      var orderedProps = new Properties();
+      orderedProps.setProperty("a.first", "1");
+      orderedProps.setProperty("b.second", "2");
+      orderedProps.setProperty("c.third", "3");
 
       // Act
-      PropertiesUtil.storeProperties(propertiesFile, largeProperties, "Large properties test");
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+      PropertiesUtil.storeProperties(propertiesFile, orderedProps, "Order test");
+      var loadedOnce = PropertiesUtil.loadProperties(propertiesFile);
+      PropertiesUtil.storeProperties(propertiesFile, loadedOnce, "Order test again");
+      var loadedTwice = PropertiesUtil.loadProperties(propertiesFile);
 
       // Assert
-      assertEquals(1000, loadedProperties.size());
-      assertEquals(
-          "value0 - some longer text to make it more realistic",
-          loadedProperties.getProperty("key0"));
-      assertEquals(
-          "value999 - some longer text to make it more realistic",
-          loadedProperties.getProperty("key999"));
-    }
-
-    @Test
-    @DisplayName("Should maintain property order consistency")
-    void shouldMaintainPropertyOrderConsistency() throws IOException {
-      // Arrange
-      Properties orderedProperties = new Properties();
-      // Add properties in a specific order
-      for (int i = 0; i < 10; i++) {
-        orderedProperties.setProperty(String.format("prop%02d", i), "value" + i);
-      }
-
-      // Act
-      PropertiesUtil.storeProperties(propertiesFile, orderedProperties, "Order test");
-      Properties loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
-
-      // Assert
-      assertEquals(orderedProperties.size(), loadedProperties.size());
-      for (String key : orderedProperties.stringPropertyNames()) {
-        assertEquals(orderedProperties.getProperty(key), loadedProperties.getProperty(key));
-      }
+      assertThat(loadedTwice).isEqualTo(loadedOnce);
     }
   }
 
   // ================= Error Handling Tests =================
 
   @Nested
-  @DisplayName("Error Handling Tests")
-  class ErrorHandlingTests {
+  class Error_Handling_Tests {
 
     @Test
-    @DisplayName("Should handle invalid file permissions gracefully")
-    void shouldHandleInvalidFilePermissionsGracefully() throws IOException {
-      // This test is platform-specific and may not work on all systems
-      // Skipping complex permission tests for cross-platform compatibility
-      assertTrue(true); // Placeholder for permission-based tests
+    void should_handle_invalid_file_permissions_gracefully() throws IOException {
+      // This test is platform-dependent and may not work on all systems
+      assumeTrue(
+          System.getProperty("os.name").toLowerCase().contains("linux")
+              || System.getProperty("os.name").toLowerCase().contains("mac"));
+
+      // Arrange
+      PropertiesUtil.storeProperties(propertiesFile, testProperties, "Permission test");
+      var success = propertiesFile.toFile().setReadable(false);
+      assumeTrue(success, "Unable to modify file permissions on this system");
+
+      try {
+        // Act
+        var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+
+        // Assert
+        assertThat(loadedProperties).isEmpty();
+      } finally {
+        // Cleanup - restore permissions
+        propertiesFile.toFile().setReadable(true);
+      }
     }
 
     @Test
-    @DisplayName("Should handle corrupted properties file")
-    void shouldHandleCorruptedPropertiesFile() throws IOException {
-      // Arrange - Create a malformed properties file
-      try (BufferedWriter writer =
-          Files.newBufferedWriter(propertiesFile, StandardCharsets.UTF_8)) {
-        writer.write("valid.key=valid.value\n");
-        writer.write("invalid line without equals or colon\n");
-        writer.write("another.valid.key=another.value\n");
-      }
+    void should_handle_corrupted_properties_file() throws IOException {
+      // Arrange - Create a file with invalid properties format
+      Files.writeString(
+          propertiesFile,
+          """
+          valid.key=valid.value
+          invalid line without equals
+          another.valid.key=another.valid.value
+          """);
 
-      // Act & Assert - Should still load valid properties
-      assertDoesNotThrow(
-          () -> {
-            Properties properties = PropertiesUtil.loadProperties(propertiesFile);
-            assertEquals("valid.value", properties.getProperty("valid.key"));
-            assertEquals("another.value", properties.getProperty("another.valid.key"));
-          });
+      // Act
+      var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
+
+      // Assert - Should load valid properties and skip invalid ones
+      assertThat(loadedProperties)
+          .containsEntry("valid.key", "valid.value")
+          .containsEntry("another.valid.key", "another.valid.value");
+    }
+  }
+
+  // Helper method to use AssertJ-style assertions (if available)
+  private static PropertiesAssert assertThat(Properties actual) {
+    return new PropertiesAssert(actual);
+  }
+
+  private static PathAssert assertThat(Path actual) {
+    return new PathAssert(actual);
+  }
+
+  // Custom assertion classes for better readability
+  private record PropertiesAssert(Properties actual) {
+
+    PropertiesAssert isNotNull() {
+      assertNotNull(actual);
+      return this;
+    }
+
+    PropertiesAssert isEmpty() {
+      assertTrue(actual.isEmpty());
+      return this;
+    }
+
+    PropertiesAssert hasSize(int expectedSize) {
+      assertEquals(expectedSize, actual.size());
+      return this;
+    }
+
+    PropertiesAssert hasSameSizeAs(Properties other) {
+      assertEquals(other.size(), actual.size());
+      return this;
+    }
+
+    PropertiesAssert containsEntry(String key, String value) {
+      assertEquals(value, actual.getProperty(key));
+      return this;
+    }
+
+    PropertiesAssert doesNotContainKey(String key) {
+      assertNull(actual.getProperty(key));
+      return this;
+    }
+
+    PropertiesAssert isSameAs(Properties expected) {
+      assertSame(expected, actual);
+      return this;
+    }
+
+    PropertiesAssert isEqualTo(Properties expected) {
+      assertEquals(expected, actual);
+      return this;
+    }
+  }
+
+  private record PathAssert(Path actual) {
+
+    PathAssert exists() {
+      assertTrue(Files.exists(actual));
+      return this;
     }
   }
 }

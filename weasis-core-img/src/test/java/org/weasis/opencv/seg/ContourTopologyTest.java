@@ -12,174 +12,160 @@ package org.weasis.opencv.seg;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.geom.Point2D;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.osgi.OpenCVNativeLoader;
 
-@DisplayName("ContourTopology Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ContourTopologyTest {
 
-  // Test constants
+  // Test data factory methods
+  private static final Point ORIGIN = new Point(0, 0);
+  private static final Point UNIT_X = new Point(1, 0);
+  private static final Point UNIT_Y = new Point(0, 1);
   private static final Point POINT_1_2 = new Point(1, 2);
   private static final Point POINT_3_4 = new Point(3, 4);
   private static final Point POINT_5_6 = new Point(5, 6);
   private static final Point POINT_7_8 = new Point(7, 8);
-  private static final double DELTA = 0.001;
+
+  private static final double TOLERANCE = 1e-7;
+  private static final int NO_PARENT = -1;
 
   @BeforeAll
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
-    loader.init();
+  static void setup_opencv() {
+    new OpenCVNativeLoader().init();
+  }
+
+  private static Point[] createRectanglePoints(double width, double height) {
+    return new Point[] {
+      new Point(0, 0), new Point(width, 0), new Point(width, height), new Point(0, height)
+    };
+  }
+
+  private static Point[] createCircleApproximation(double radius, int segments) {
+    return IntStream.range(0, segments)
+        .mapToObj(
+            i -> {
+              double angle = 2.0 * Math.PI * i / segments;
+              return new Point(radius * Math.cos(angle), radius * Math.sin(angle));
+            })
+        .toArray(Point[]::new);
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_tests {
 
     @Nested
-    @DisplayName("MatOfPoint Constructor Tests")
-    class MatOfPointConstructorTests {
+    class MatOfPoint_constructor {
 
       @Test
-      @DisplayName("Should create ContourTopology from MatOfPoint with single point")
-      void createsContourTopologyFromMatOfPointWithSinglePoint() {
-        MatOfPoint contour = new MatOfPoint(POINT_1_2);
+      void creates_topology_from_single_point() {
+        var contour = new MatOfPoint(POINT_1_2);
         int parentId = 5;
 
-        ContourTopology topology = new ContourTopology(contour, parentId);
+        var topology = new ContourTopology(contour, parentId);
 
         assertAll(
-            "Single point contour should be handled correctly",
             () -> assertEquals(parentId, topology.getParent()),
             () -> assertEquals(1, topology.getSegment().size()),
             () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(0)));
       }
 
       @Test
-      @DisplayName("Should create ContourTopology from MatOfPoint with multiple points")
-      void createsContourTopologyFromMatOfPointWithMultiplePoints() {
-        MatOfPoint contour = new MatOfPoint(POINT_1_2, POINT_3_4, POINT_5_6);
+      void creates_topology_from_multiple_points() {
+        var points = new Point[] {POINT_1_2, POINT_3_4, POINT_5_6};
+        var contour = new MatOfPoint(points);
         int parentId = 10;
 
-        ContourTopology topology = new ContourTopology(contour, parentId);
-        Segment segment = topology.getSegment();
+        var topology = new ContourTopology(contour, parentId);
+        var segment = topology.getSegment();
 
-        List<Point2D> expectedPoints =
-            Arrays.asList(
-                new Point2D.Double(1, 2), new Point2D.Double(3, 4), new Point2D.Double(5, 6));
+        var expectedPoints =
+            List.of(new Point2D.Double(1, 2), new Point2D.Double(3, 4), new Point2D.Double(5, 6));
 
         assertAll(
-            "Multiple points contour should be handled correctly",
             () -> assertEquals(parentId, topology.getParent()),
             () -> assertEquals(3, segment.size()),
             () -> assertEquals(expectedPoints, segment));
       }
 
       @Test
-      @DisplayName("Should create empty ContourTopology from empty MatOfPoint")
-      void createsEmptyContourTopologyFromEmptyMatOfPoint() {
-        MatOfPoint emptyContour = new MatOfPoint();
+      void creates_empty_topology_from_empty_contour() {
+        var emptyContour = new MatOfPoint();
         int parentId = 0;
 
-        ContourTopology topology = new ContourTopology(emptyContour, parentId);
+        var topology = new ContourTopology(emptyContour, parentId);
 
         assertAll(
-            "Empty contour should create empty segment",
             () -> assertEquals(parentId, topology.getParent()),
-            () -> assertEquals(0, topology.getSegment().size()),
             () -> assertTrue(topology.getSegment().isEmpty()));
-      }
-
-      @Test
-      @DisplayName("Should handle MatOfPoint with fractional coordinates")
-      void handlesMatOfPointWithFractionalCoordinates() {
-        Point fractionalPoint = new Point(1.5, 2.7);
-        MatOfPoint2f contour = new MatOfPoint2f(fractionalPoint);
-
-        ContourTopology topology = new ContourTopology(contour, 1);
-
-        assertAll(
-            "Fractional coordinates should be preserved",
-            () -> assertEquals(1, topology.getSegment().size()),
-            () -> assertEquals(1.5, topology.getSegment().get(0).getX(), DELTA),
-            () -> assertEquals(2.7, topology.getSegment().get(0).getY(), DELTA));
       }
     }
 
     @Nested
-    @DisplayName("MatOfPoint2f Constructor Tests")
-    class MatOfPoint2fConstructorTests {
+    class MatOfPoint2f_constructor {
 
       @Test
-      @DisplayName("Should create ContourTopology from MatOfPoint2f")
-      void createsContourTopologyFromMatOfPoint2f() {
-        Point[] points = {POINT_1_2, POINT_3_4};
-        MatOfPoint2f contour2f = new MatOfPoint2f(points);
-        int parentId = 7;
+      void creates_topology_preserving_fractional_coordinates() {
+        var fractionalPoint = new Point(1.5, 2.7);
+        var contour = new MatOfPoint2f(fractionalPoint);
 
-        ContourTopology topology = new ContourTopology(contour2f, parentId);
+        var topology = new ContourTopology(contour, 1);
 
         assertAll(
-            "MatOfPoint2f should be handled correctly",
-            () -> assertEquals(parentId, topology.getParent()),
-            () -> assertEquals(2, topology.getSegment().size()),
-            () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(0)),
-            () -> assertEquals(new Point2D.Double(3, 4), topology.getSegment().get(1)));
-      }
-
-      @Test
-      @DisplayName("Should create empty ContourTopology from empty MatOfPoint2f")
-      void createsEmptyContourTopologyFromEmptyMatOfPoint2f() {
-        MatOfPoint2f emptyContour2f = new MatOfPoint2f();
-        int parentId = -1;
-
-        ContourTopology topology = new ContourTopology(emptyContour2f, parentId);
-
-        assertAll(
-            "Empty MatOfPoint2f should create empty segment",
-            () -> assertEquals(parentId, topology.getParent()),
-            () -> assertTrue(topology.getSegment().isEmpty()));
-      }
-
-      @Test
-      @DisplayName("Should handle MatOfPoint2f with high precision coordinates")
-      void handlesMatOfPoint2fWithHighPrecisionCoordinates() {
-        Point precisePoint = new Point(Math.PI, Math.E);
-        MatOfPoint2f contour2f = new MatOfPoint2f(precisePoint);
-
-        ContourTopology topology = new ContourTopology(contour2f, 1);
-
-        assertAll(
-            "High precision coordinates should be preserved",
             () -> assertEquals(1, topology.getSegment().size()),
-            () -> assertEquals(Math.PI, topology.getSegment().get(0).getX(), DELTA),
-            () -> assertEquals(Math.E, topology.getSegment().get(0).getY(), DELTA));
+            () -> assertEquals(1.5, topology.getSegment().get(0).getX(), TOLERANCE),
+            () -> assertEquals(2.7, topology.getSegment().get(0).getY(), TOLERANCE));
+      }
+
+      @Test
+      void creates_topology_with_high_precision_coordinates() {
+        var precisePoint = new Point(Math.PI, Math.E);
+        var contour = new MatOfPoint2f(precisePoint);
+
+        var topology = new ContourTopology(contour, 1);
+
+        assertAll(
+            () -> assertEquals(1, topology.getSegment().size()),
+            () -> assertEquals(Math.PI, topology.getSegment().get(0).getX(), TOLERANCE),
+            () -> assertEquals(Math.E, topology.getSegment().get(0).getY(), TOLERANCE));
+      }
+
+      @Test
+      void creates_empty_topology_from_empty_contour() {
+        var emptyContour = new MatOfPoint2f();
+
+        var topology = new ContourTopology(emptyContour, NO_PARENT);
+
+        assertAll(
+            () -> assertEquals(NO_PARENT, topology.getParent()),
+            () -> assertTrue(topology.getSegment().isEmpty()));
       }
     }
 
     @Nested
-    @DisplayName("Point Array Constructor Tests")
-    class PointArrayConstructorTests {
+    class Point_array_constructor {
 
       @Test
-      @DisplayName("Should create ContourTopology from Point array")
-      void createsContourTopologyFromPointArray() {
-        Point[] points = {POINT_1_2, POINT_3_4, POINT_5_6, POINT_7_8};
+      void creates_topology_from_point_array() {
+        var points = new Point[] {POINT_1_2, POINT_3_4, POINT_5_6, POINT_7_8};
         int parentId = 15;
 
-        ContourTopology topology = new ContourTopology(points, parentId);
+        var topology = new ContourTopology(points, parentId);
 
         assertAll(
-            "Point array should be handled correctly",
             () -> assertEquals(parentId, topology.getParent()),
             () -> assertEquals(4, topology.getSegment().size()),
             () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(0)),
@@ -189,30 +175,24 @@ class ContourTopologyTest {
       }
 
       @Test
-      @DisplayName("Should create empty ContourTopology from empty Point array")
-      void createsEmptyContourTopologyFromEmptyPointArray() {
-        Point[] emptyPoints = {};
-        int parentId = 20;
+      void creates_empty_topology_from_empty_array() {
+        var emptyPoints = new Point[0];
 
-        ContourTopology topology = new ContourTopology(emptyPoints, parentId);
+        var topology = new ContourTopology(emptyPoints, 20);
 
         assertAll(
-            "Empty point array should create empty segment",
-            () -> assertEquals(parentId, topology.getParent()),
+            () -> assertEquals(20, topology.getParent()),
             () -> assertTrue(topology.getSegment().isEmpty()));
       }
 
       @Test
-      @DisplayName("Should handle single point array")
-      void handlesSinglePointArray() {
-        Point[] singlePoint = {POINT_5_6};
-        int parentId = 3;
+      void creates_topology_from_single_point() {
+        var singlePoint = new Point[] {POINT_5_6};
 
-        ContourTopology topology = new ContourTopology(singlePoint, parentId);
+        var topology = new ContourTopology(singlePoint, 3);
 
         assertAll(
-            "Single point array should be handled correctly",
-            () -> assertEquals(parentId, topology.getParent()),
+            () -> assertEquals(3, topology.getParent()),
             () -> assertEquals(1, topology.getSegment().size()),
             () -> assertEquals(new Point2D.Double(5, 6), topology.getSegment().get(0)));
       }
@@ -220,48 +200,47 @@ class ContourTopologyTest {
   }
 
   @Nested
-  @DisplayName("Parent ID Tests")
-  class ParentIdTests {
+  class Parent_relationships {
 
-    @ParameterizedTest
-    @ValueSource(ints = {-1, 0, 1, 10, 100, 1000, Integer.MAX_VALUE, Integer.MIN_VALUE})
-    @DisplayName("Should handle various parent ID values")
-    void handlesVariousParentIdValues(int parentId) {
-      MatOfPoint contour = new MatOfPoint(POINT_1_2);
+    static Stream<Arguments> parent_id_values() {
+      return Stream.of(
+          Arguments.of(NO_PARENT, "no parent"),
+          Arguments.of(0, "root parent"),
+          Arguments.of(1, "first child"),
+          Arguments.of(100, "deep hierarchy"),
+          Arguments.of(Integer.MAX_VALUE, "maximum value"),
+          Arguments.of(Integer.MIN_VALUE, "minimum value"));
+    }
 
-      ContourTopology topology = new ContourTopology(contour, parentId);
+    @ParameterizedTest(name = "handles parent ID {0} ({1})")
+    @MethodSource("parent_id_values")
+    void stores_parent_id_correctly(int parentId, String description) {
+      var contour = new MatOfPoint(POINT_1_2);
 
-      assertEquals(parentId, topology.getParent(), "Should correctly store parent ID: " + parentId);
+      var topology = new ContourTopology(contour, parentId);
+
+      assertEquals(parentId, topology.getParent());
     }
 
     @Test
-    @DisplayName("Should handle negative parent ID correctly")
-    void handlesNegativeParentIdCorrectly() {
-      Point[] points = {POINT_1_2, POINT_3_4};
-      int negativeParentId = -5;
+    void parent_id_is_immutable() {
+      var originalParentId = 42;
+      var topology = new ContourTopology(new MatOfPoint(POINT_1_2), originalParentId);
 
-      ContourTopology topology = new ContourTopology(points, negativeParentId);
-
-      assertAll(
-          "Negative parent ID should be handled correctly",
-          () -> assertEquals(negativeParentId, topology.getParent()),
-          () -> assertEquals(2, topology.getSegment().size()));
+      assertEquals(originalParentId, topology.getParent());
     }
   }
 
   @Nested
-  @DisplayName("Segment Integration Tests")
-  class SegmentIntegrationTests {
+  class Segment_behavior {
 
     @Test
-    @DisplayName("Should create segment that behaves like ArrayList")
-    void createsSegmentThatBehavesLikeArrayList() {
-      Point[] points = {POINT_1_2, POINT_3_4, POINT_5_6};
-      ContourTopology topology = new ContourTopology(points, 1);
-      Segment segment = topology.getSegment();
+    void segment_behaves_like_list() {
+      var points = new Point[] {POINT_1_2, POINT_3_4, POINT_5_6};
+      var topology = new ContourTopology(points, 1);
+      var segment = topology.getSegment();
 
       assertAll(
-          "Segment should behave like ArrayList",
           () -> assertEquals(3, segment.size()),
           () -> assertEquals(new Point2D.Double(3, 4), segment.get(1)),
           () -> assertTrue(segment.contains(new Point2D.Double(5, 6))),
@@ -269,258 +248,167 @@ class ContourTopologyTest {
     }
 
     @Test
-    @DisplayName("Should create segment with no children initially")
-    void createsSegmentWithNoChildrenInitially() {
-      MatOfPoint contour = new MatOfPoint(POINT_1_2, POINT_3_4);
-      ContourTopology topology = new ContourTopology(contour, 1);
+    void newly_created_segment_has_no_children() {
+      var contour = new MatOfPoint(POINT_1_2, POINT_3_4);
+      var topology = new ContourTopology(contour, 1);
 
-      assertTrue(
-          topology.getSegment().getChildren().isEmpty(),
-          "Newly created segment should have no children");
+      assertTrue(topology.getSegment().getChildren().isEmpty());
     }
 
     @Test
-    @DisplayName("Should allow segment modification after creation")
-    void allowsSegmentModificationAfterCreation() {
-      Point[] points = {POINT_1_2, POINT_3_4};
-      ContourTopology topology = new ContourTopology(points, 1);
-      Segment segment = topology.getSegment();
+    void segment_is_mutable_after_creation() {
+      var topology = new ContourTopology(new Point[] {POINT_1_2, POINT_3_4}, 1);
+      var segment = topology.getSegment();
 
-      // Add a point to the segment
-      Point2D newPoint = new Point2D.Double(9, 10);
+      var newPoint = new Point2D.Double(9, 10);
       segment.add(newPoint);
 
       assertAll(
-          "Segment should be modifiable",
           () -> assertEquals(3, segment.size()),
           () -> assertTrue(segment.contains(newPoint)),
           () -> assertEquals(newPoint, segment.get(2)));
     }
-  }
-
-  @Nested
-  @DisplayName("Coordinate Conversion Tests")
-  class CoordinateConversionTests {
 
     @Test
-    @DisplayName("Should preserve coordinate precision during conversion")
-    void preservesCoordinatePrecisionDuringConversion() {
-      double preciseX = 1.23456789;
-      double preciseY = 9.87654321;
-      Point precisePoint = new Point(preciseX, preciseY);
-      MatOfPoint2f contour = new MatOfPoint2f(precisePoint);
+    void returns_same_segment_instance() {
+      var topology = new ContourTopology(new Point[] {POINT_1_2, POINT_3_4}, 1);
 
-      ContourTopology topology = new ContourTopology(contour, 1);
-      Point2D convertedPoint = topology.getSegment().get(0);
+      var segment1 = topology.getSegment();
+      var segment2 = topology.getSegment();
 
-      assertAll(
-          "Coordinate precision should be preserved",
-          () -> assertEquals(preciseX, convertedPoint.getX(), DELTA),
-          () -> assertEquals(preciseY, convertedPoint.getY(), DELTA));
-    }
-
-    @Test
-    @DisplayName("Should handle zero coordinates correctly")
-    void handlesZeroCoordinatesCorrectly() {
-      Point zeroPoint = new Point(0, 0);
-      Point[] points = {zeroPoint, POINT_1_2};
-      ContourTopology topology = new ContourTopology(points, 1);
-
-      assertAll(
-          "Zero coordinates should be handled correctly",
-          () -> assertEquals(0.0, topology.getSegment().get(0).getX(), DELTA),
-          () -> assertEquals(0.0, topology.getSegment().get(0).getY(), DELTA));
-    }
-
-    @Test
-    @DisplayName("Should handle large coordinate values")
-    void handlesLargeCoordinateValues() {
-      Point largePoint = new Point(1000000, -1000000);
-      MatOfPoint2f contour = new MatOfPoint2f(largePoint);
-
-      ContourTopology topology = new ContourTopology(contour, 1);
-      Point2D convertedPoint = topology.getSegment().get(0);
-
-      assertAll(
-          "Large coordinate values should be handled correctly",
-          () -> assertEquals(1000000.0, convertedPoint.getX(), DELTA),
-          () -> assertEquals(-1000000.0, convertedPoint.getY(), DELTA));
+      assertSame(segment1, segment2);
     }
   }
 
   @Nested
-  @DisplayName("Immutability Tests")
-  class ImmutabilityTests {
+  class Coordinate_handling {
 
     @Test
-    @DisplayName("Should have immutable parent ID")
-    void hasImmutableParentId() {
-      MatOfPoint contour = new MatOfPoint(POINT_1_2);
-      int originalParentId = 42;
-      ContourTopology topology = new ContourTopology(contour, originalParentId);
+    void preserves_zero_coordinates() {
+      var points = new Point[] {ORIGIN, POINT_1_2};
+      var topology = new ContourTopology(points, 1);
 
-      // Parent ID should be immutable (final field)
-      assertEquals(originalParentId, topology.getParent(), "Parent ID should remain unchanged");
+      assertAll(
+          () -> assertEquals(0.0, topology.getSegment().get(0).getX(), TOLERANCE),
+          () -> assertEquals(0.0, topology.getSegment().get(0).getY(), TOLERANCE));
     }
 
     @Test
-    @DisplayName("Should return same segment instance consistently")
-    void returnsSameSegmentInstanceConsistently() {
-      Point[] points = {POINT_1_2, POINT_3_4};
-      ContourTopology topology = new ContourTopology(points, 1);
+    void handles_large_coordinate_values() {
+      var largePoint = new Point(1_000_000, -1_000_000);
+      var contour = new MatOfPoint2f(largePoint);
 
-      Segment segment1 = topology.getSegment();
-      Segment segment2 = topology.getSegment();
+      var topology = new ContourTopology(contour, 1);
+      var convertedPoint = topology.getSegment().get(0);
 
-      assertSame(segment1, segment2, "Should return same segment instance");
+      assertAll(
+          () -> assertEquals(1_000_000.0, convertedPoint.getX(), TOLERANCE),
+          () -> assertEquals(-1_000_000.0, convertedPoint.getY(), TOLERANCE));
+    }
+
+    @Test
+    void preserves_small_coordinate_differences() {
+      var point1 = new Point(1.0, 1.0);
+      var point2 = new Point(1.0000001, 1.0000001);
+      var topology = new ContourTopology(new Point[] {point1, point2}, 1);
+
+      assertAll(
+          () -> assertEquals(2, topology.getSegment().size()),
+          () -> assertNotEquals(topology.getSegment().get(0), topology.getSegment().get(1)));
     }
   }
 
   @Nested
-  @DisplayName("Edge Cases and Error Handling Tests")
-  class EdgeCasesAndErrorHandlingTests {
+  class Edge_cases {
 
     @Test
-    @DisplayName("Should handle duplicate points in contour")
-    void handlesDuplicatePointsInContour() {
-      Point[] duplicatePoints = {POINT_1_2, POINT_1_2, POINT_3_4, POINT_1_2};
-      ContourTopology topology = new ContourTopology(duplicatePoints, 1);
+    void handles_duplicate_points() {
+      var duplicatePoints = new Point[] {POINT_1_2, POINT_1_2, POINT_3_4, POINT_1_2};
+      var topology = new ContourTopology(duplicatePoints, 1);
 
+      var expectedPoint = new Point2D.Double(1, 2);
       assertAll(
-          "Duplicate points should be preserved",
           () -> assertEquals(4, topology.getSegment().size()),
-          () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(0)),
-          () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(1)),
-          () -> assertEquals(new Point2D.Double(1, 2), topology.getSegment().get(3)));
+          () -> assertEquals(expectedPoint, topology.getSegment().get(0)),
+          () -> assertEquals(expectedPoint, topology.getSegment().get(1)),
+          () -> assertEquals(expectedPoint, topology.getSegment().get(3)));
     }
 
     @Test
-    @DisplayName("Should handle contour with collinear points")
-    void handlesContourWithCollinearPoints() {
-      Point[] collinearPoints = {
-        new Point(0, 0), new Point(1, 1), new Point(2, 2), new Point(3, 3)
-      };
-      ContourTopology topology = new ContourTopology(collinearPoints, 1);
+    void handles_collinear_points() {
+      var collinearPoints = new Point[] {ORIGIN, UNIT_X, new Point(2, 0), new Point(3, 0)};
+      var topology = new ContourTopology(collinearPoints, 1);
 
       assertAll(
-          "Collinear points should be preserved",
           () -> assertEquals(4, topology.getSegment().size()),
           () -> assertEquals(new Point2D.Double(0, 0), topology.getSegment().get(0)),
-          () -> assertEquals(new Point2D.Double(3, 3), topology.getSegment().get(3)));
-    }
-
-    @Test
-    @DisplayName("Should handle very small coordinate differences")
-    void handlesVerySmallCoordinateDifferences() {
-      Point point1 = new Point(1.0, 1.0);
-      Point point2 = new Point(1.0000001, 1.0000001);
-      Point[] points = {point1, point2};
-
-      ContourTopology topology = new ContourTopology(points, 1);
-
-      assertAll(
-          "Small coordinate differences should be preserved",
-          () -> assertEquals(2, topology.getSegment().size()),
-          () ->
-              assertNotEquals(
-                  topology.getSegment().get(0),
-                  topology.getSegment().get(1),
-                  "Points with small differences should not be equal"));
+          () -> assertEquals(new Point2D.Double(3, 0), topology.getSegment().get(3)));
     }
   }
 
   @Nested
-  @DisplayName("Integration and Real-World Scenario Tests")
-  class IntegrationAndRealWorldScenarioTests {
+  class Real_world_scenarios {
 
     @Test
-    @DisplayName("Should handle typical contour hierarchy scenario")
-    void handlesTypicalContourHierarchyScenario() {
-      // Simulate a typical OpenCV contour hierarchy scenario
-      Point[] outerContour = {
-        new Point(0, 0), new Point(100, 0),
-        new Point(100, 100), new Point(0, 100)
-      };
-      Point[] innerContour = {
-        new Point(25, 25), new Point(75, 25),
-        new Point(75, 75), new Point(25, 75)
-      };
+    void handles_contour_hierarchy() {
+      var outerContour = createRectanglePoints(100, 100);
+      var innerContour = createRectanglePoints(50, 50);
 
-      ContourTopology outer = new ContourTopology(outerContour, -1); // No parent
-      ContourTopology inner = new ContourTopology(innerContour, 0); // Parent is contour 0
+      var outer = new ContourTopology(outerContour, NO_PARENT);
+      var inner = new ContourTopology(innerContour, 0);
 
       assertAll(
-          "Hierarchy scenario should work correctly",
-          () -> assertEquals(-1, outer.getParent(), "Outer contour has no parent"),
-          () -> assertEquals(0, inner.getParent(), "Inner contour's parent is outer"),
+          () -> assertEquals(NO_PARENT, outer.getParent()),
+          () -> assertEquals(0, inner.getParent()),
           () -> assertEquals(4, outer.getSegment().size()),
-          () -> assertEquals(4, inner.getSegment().size()),
-          () -> assertEquals(new Point2D.Double(0, 0), outer.getSegment().get(0)),
-          () -> assertEquals(new Point2D.Double(25, 25), inner.getSegment().get(0)));
+          () -> assertEquals(4, inner.getSegment().size()));
     }
 
     @Test
-    @DisplayName("Should work with realistic image processing coordinates")
-    void worksWithRealisticImageProcessingCoordinates() {
-      // Simulate coordinates from a 1920x1080 image
-      Point[] imageCoords = {
-        new Point(150.5, 200.7),
-        new Point(800.2, 300.1),
-        new Point(1200.9, 600.5),
-        new Point(500.3, 800.8)
-      };
+    void handles_realistic_image_coordinates() {
+      var imageCoords =
+          new Point[] {
+            new Point(150.5, 200.7),
+            new Point(800.2, 300.1),
+            new Point(1200.9, 600.5),
+            new Point(500.3, 800.8)
+          };
 
-      MatOfPoint2f contour = new MatOfPoint2f(imageCoords);
-      ContourTopology topology = new ContourTopology(contour, 2);
+      var topology = new ContourTopology(new MatOfPoint2f(imageCoords), 2);
 
       assertAll(
-          "Image processing coordinates should be handled correctly",
           () -> assertEquals(2, topology.getParent()),
           () -> assertEquals(4, topology.getSegment().size()),
-          () -> assertEquals(150.5, topology.getSegment().get(0).getX(), DELTA),
-          () -> assertEquals(1200.9, topology.getSegment().get(2).getX(), DELTA));
+          () -> assertEquals(150.5, topology.getSegment().get(0).getX(), TOLERANCE));
     }
 
     @Test
-    @DisplayName("Should maintain data integrity through different constructor paths")
-    void maintainsDataIntegrityThroughDifferentConstructorPaths() {
-      Point[] originalPoints = {POINT_1_2, POINT_3_4, POINT_5_6};
+    void maintains_data_integrity_across_constructors() {
+      var originalPoints = new Point[] {POINT_1_2, POINT_3_4, POINT_5_6};
 
-      // Test all three constructor paths with same data
-      ContourTopology fromArray = new ContourTopology(originalPoints, 1);
-      ContourTopology fromMatOfPoint = new ContourTopology(new MatOfPoint(originalPoints), 1);
-      ContourTopology fromMatOfPoint2f = new ContourTopology(new MatOfPoint2f(originalPoints), 1);
+      var fromArray = new ContourTopology(originalPoints, 1);
+      var fromMatOfPoint = new ContourTopology(new MatOfPoint(originalPoints), 1);
+      var fromMatOfPoint2f = new ContourTopology(new MatOfPoint2f(originalPoints), 1);
 
       assertAll(
-          "All constructor paths should produce equivalent results",
           () -> assertEquals(fromArray.getParent(), fromMatOfPoint.getParent()),
           () -> assertEquals(fromMatOfPoint.getParent(), fromMatOfPoint2f.getParent()),
-          () -> assertEquals(fromArray.getSegment().size(), fromMatOfPoint.getSegment().size()),
-          () ->
-              assertEquals(
-                  fromMatOfPoint.getSegment().size(), fromMatOfPoint2f.getSegment().size()),
           () -> assertEquals(fromArray.getSegment(), fromMatOfPoint.getSegment()),
           () -> assertEquals(fromMatOfPoint.getSegment(), fromMatOfPoint2f.getSegment()));
     }
   }
 
   @Nested
-  @DisplayName("Performance and Memory Tests")
-  class PerformanceAndMemoryTests {
+  class Performance_characteristics {
 
     @Test
-    @DisplayName("Should handle large contours efficiently")
-    void handlesLargeContoursEfficiently() {
-      // Create a large contour (1000 points)
-      Point[] largeContour = new Point[1000];
-      for (int i = 0; i < 1000; i++) {
-        largeContour[i] = new Point(i, i * 0.5);
-      }
+    void handles_large_contours_efficiently() {
+      var largeContour =
+          IntStream.range(0, 1000).mapToObj(i -> new Point(i, i * 0.5)).toArray(Point[]::new);
 
-      ContourTopology topology = new ContourTopology(largeContour, 1);
+      var topology = new ContourTopology(largeContour, 1);
 
       assertAll(
-          "Large contour should be handled efficiently",
           () -> assertEquals(1, topology.getParent()),
           () -> assertEquals(1000, topology.getSegment().size()),
           () -> assertEquals(new Point2D.Double(0, 0), topology.getSegment().get(0)),
@@ -528,16 +416,44 @@ class ContourTopologyTest {
     }
 
     @Test
-    @DisplayName("Should not create unnecessary object copies")
-    void doesNotCreateUnnecessaryObjectCopies() {
-      Point[] points = {POINT_1_2, POINT_3_4};
-      ContourTopology topology = new ContourTopology(points, 1);
+    void reuses_segment_instance() {
+      var topology = new ContourTopology(new Point[] {POINT_1_2, POINT_3_4}, 1);
 
-      // Segment should be created once and reused
-      Segment segment1 = topology.getSegment();
-      Segment segment2 = topology.getSegment();
+      var segment1 = topology.getSegment();
+      var segment2 = topology.getSegment();
 
-      assertSame(segment1, segment2, "Should reuse segment instance");
+      assertSame(segment1, segment2);
+    }
+  }
+
+  @Nested
+  class Geometric_patterns {
+
+    @Test
+    void creates_circular_approximation() {
+      var circlePoints = createCircleApproximation(10.0, 8);
+      var topology = new ContourTopology(circlePoints, NO_PARENT);
+
+      assertAll(
+          () -> assertEquals(8, topology.getSegment().size()),
+          () -> assertEquals(NO_PARENT, topology.getParent()),
+          // First point should be at (radius, 0)
+          () -> assertEquals(10.0, topology.getSegment().get(0).getX(), TOLERANCE),
+          () -> assertEquals(0.0, topology.getSegment().get(0).getY(), TOLERANCE));
+    }
+
+    @Test
+    void creates_rectangular_contour() {
+      var rectPoints = createRectanglePoints(50, 30);
+      var topology = new ContourTopology(rectPoints, 1);
+
+      var segment = topology.getSegment();
+      assertAll(
+          () -> assertEquals(4, segment.size()),
+          () -> assertEquals(new Point2D.Double(0, 0), segment.get(0)),
+          () -> assertEquals(new Point2D.Double(50, 0), segment.get(1)),
+          () -> assertEquals(new Point2D.Double(50, 30), segment.get(2)),
+          () -> assertEquals(new Point2D.Double(0, 30), segment.get(3)));
     }
   }
 }

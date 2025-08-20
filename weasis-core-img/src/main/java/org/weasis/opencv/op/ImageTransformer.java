@@ -28,6 +28,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.data.PlanarImage;
 
 /**
  * Provides comprehensive image transformation operations for medical imaging applications.
@@ -50,9 +51,7 @@ import org.weasis.opencv.data.ImageCV;
  */
 public final class ImageTransformer {
 
-  private ImageTransformer() {
-    // Utility class - prevent instantiation
-  }
+  private ImageTransformer() {}
 
   /**
    * Crops the image to the specified rectangular region.
@@ -71,11 +70,12 @@ public final class ImageTransformer {
     ImageIOHandler.validateSource(source);
     Objects.requireNonNull(area, "Crop area cannot be null");
 
-    Rectangle rect =
-        Objects.requireNonNull(area)
-            .intersection(new Rectangle(0, 0, source.width(), source.height()));
-    if (area.width > 1 && area.height > 1) {
-      return ImageCV.fromMat(source.submat(new Rect(rect.x, rect.y, rect.width, rect.height)));
+    var imageBounds = new Rectangle(0, 0, source.width(), source.height());
+    var cropRect = area.intersection(imageBounds);
+
+    if (cropRect.width > 1 && cropRect.height > 1) {
+      return ImageCV.fromMat(
+          source.submat(new Rect(cropRect.x, cropRect.y, cropRect.width, cropRect.height)));
     }
     return ImageCV.fromMat(source.clone());
   }
@@ -125,9 +125,8 @@ public final class ImageTransformer {
       throw new IllegalArgumentException("Target dimensions must be positive: " + dim);
     }
 
-    int interp = interpolation != null ? interpolation : Imgproc.INTER_LINEAR;
-
-    Mat resized = new Mat();
+    int interp = Objects.requireNonNullElse(interpolation, Imgproc.INTER_LINEAR);
+    var resized = new Mat();
     Imgproc.resize(source, resized, new Size(dim.width, dim.height), 0, 0, interp);
 
     return ImageCV.fromMat(resized);
@@ -162,10 +161,8 @@ public final class ImageTransformer {
       throw new IllegalArgumentException("LUT must have 256 entries per channel");
     }
 
-    // Create OpenCV LUT matrix
     Mat lutMat = createLutMat(source, lut);
-
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     Core.LUT(source, lutMat, result);
 
     return result;
@@ -187,7 +184,7 @@ public final class ImageTransformer {
   public static ImageCV rescaleToByte(Mat source, double alpha, double beta) {
     ImageIOHandler.validateSource(source);
 
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     source.convertTo(result, CvType.CV_8U, alpha, beta);
 
     return result;
@@ -212,7 +209,7 @@ public final class ImageTransformer {
   public static ImageCV invertLUT(ImageCV source) {
     ImageIOHandler.validateSource(source);
 
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     Core.bitwise_not(source, result);
 
     return result;
@@ -238,13 +235,13 @@ public final class ImageTransformer {
   public static ImageCV bitwiseAnd(Mat source, int src2Cst) {
     ImageIOHandler.validateSource(source);
 
-    ImageCV mask = new ImageCV(source.size(), source.type(), new Scalar(src2Cst));
-    ImageCV result = new ImageCV();
+    try (var mask = new ImageCV(source.size(), source.type(), new Scalar(src2Cst))) {
+      var result = new ImageCV();
 
-    Core.bitwise_and(source, mask, result);
-    mask.release();
+      Core.bitwise_and(source, mask, result);
 
-    return result;
+      return result;
+    }
   }
 
   /**
@@ -266,13 +263,14 @@ public final class ImageTransformer {
    * @throws IllegalArgumentException if source is null or rotation type is invalid
    */
   public static ImageCV getRotatedImage(Mat source, int rotateCvType) {
+    ImageIOHandler.validateSource(source);
     if (rotateCvType < 0 || rotateCvType > 2) {
       return ImageCV.fromMat(source.clone());
     }
-    Mat srcImg = Objects.requireNonNull(source);
-    ImageCV dstImg = new ImageCV();
-    Core.rotate(srcImg, dstImg, rotateCvType);
-    return dstImg;
+    var result = new ImageCV();
+    Core.rotate(source, result, rotateCvType);
+
+    return result;
   }
 
   /**
@@ -295,7 +293,7 @@ public final class ImageTransformer {
   public static ImageCV flip(Mat source, int flipCvType) {
     ImageIOHandler.validateSource(source);
 
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     Core.flip(source, result, flipCvType);
 
     return result;
@@ -329,9 +327,8 @@ public final class ImageTransformer {
       throw new IllegalArgumentException("Affine matrix must be 2x3");
     }
 
-    int interp = interpolation != null ? interpolation : Imgproc.INTER_LINEAR;
-
-    ImageCV result = new ImageCV();
+    int interp = Objects.requireNonNullElse(interpolation, Imgproc.INTER_LINEAR);
+    var result = new ImageCV();
     Imgproc.warpAffine(source, result, matrix, boxSize, interp);
 
     return result;
@@ -362,11 +359,10 @@ public final class ImageTransformer {
       throw new IllegalArgumentException("Source images must have the same dimensions");
     }
 
-    if (opacity1 < 0.0 || opacity1 > 1.0 || opacity2 < 0.0 || opacity2 > 1.0) {
-      throw new IllegalArgumentException("Opacity values must be between 0.0 and 1.0");
-    }
+    validateOpacity(opacity1);
+    validateOpacity(opacity2);
 
-    ImageCV result = new ImageCV();
+    var result = new ImageCV();
     Core.addWeighted(source1, opacity1, source2, opacity2, 0.0, result);
 
     return result;
@@ -390,38 +386,12 @@ public final class ImageTransformer {
     Objects.requireNonNull(imgOverlay, "Overlay mask cannot be null");
     Objects.requireNonNull(color, "Overlay color cannot be null");
 
-    Integer maxVal = getMaxColorForOverlay(source, color);
+    var maxVal = getMaxColorForOverlay(source, color);
     if (maxVal != null) {
-      Mat grayImg = new Mat(source.size(), source.type(), new Scalar(maxVal));
-      ImageCV dstImg = new ImageCV();
-      source.copyTo(dstImg);
-      grayImg.copyTo(dstImg, imgOverlay);
-      return dstImg;
+      return applyGrayscaleOverlay(source, imgOverlay, maxVal);
     }
 
-    // Apply overlay where mask is non-zero
-    ImageCV dstImg = new ImageCV();
-    if (source.channels() < 3) {
-      Imgproc.cvtColor(source, dstImg, Imgproc.COLOR_GRAY2BGR);
-    } else {
-      source.copyTo(dstImg);
-    }
-
-    Mat colorImg =
-        new Mat(
-            dstImg.size(),
-            CvType.CV_8UC3,
-            new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
-    double alpha = color.getAlpha() / 255.0;
-    if (alpha < 1.0) {
-      ImageCV overlay = new ImageCV();
-      dstImg.copyTo(overlay);
-      Core.copyTo(colorImg, overlay, imgOverlay);
-      Core.addWeighted(overlay, alpha, dstImg, 1 - alpha, 0, dstImg);
-    } else {
-      colorImg.copyTo(dstImg, imgOverlay);
-    }
-    return dstImg;
+    return applyColorOverlay(source, imgOverlay, color);
   }
 
   /**
@@ -439,7 +409,7 @@ public final class ImageTransformer {
   public static ImageCV overlay(Mat source, RenderedImage imgOverlay, Color color) {
     Objects.requireNonNull(imgOverlay, "Overlay image cannot be null");
 
-    Mat overlayMat = ImageConversion.toMat(imgOverlay);
+    var overlayMat = ImageConversion.toMat(imgOverlay);
     return overlay(source, overlayMat, color);
   }
 
@@ -460,10 +430,10 @@ public final class ImageTransformer {
     Objects.requireNonNull(shape, "Shape cannot be null");
     Objects.requireNonNull(color, "Color cannot be null");
 
-    Mat srcImg = ImageConversion.toMat(Objects.requireNonNull(source));
-    List<MatOfPoint> pts = ImageAnalyzer.transformShapeToContour(shape, true);
-    Imgproc.fillPoly(srcImg, pts, getMaxColor(srcImg, color));
-    return ImageConversion.toBufferedImage(srcImg);
+    var srcImg = ImageConversion.toMat(source);
+    var contours = ImageAnalyzer.transformShapeToContour(shape, true);
+    Imgproc.fillPoly(srcImg, contours, getMaxColor(srcImg, color));
+    return ImageConversion.toBufferedImage((PlanarImage) srcImg);
   }
 
   /**
@@ -482,48 +452,15 @@ public final class ImageTransformer {
   public static ImageCV applyCropMask(Mat source, Rectangle bounds, double alpha) {
     ImageIOHandler.validateSource(source);
     Objects.requireNonNull(bounds, "Bounds rectangle cannot be null");
+    validateOpacity(alpha);
 
-    if (alpha < 0.0 || alpha > 1.0) {
-      throw new IllegalArgumentException("Alpha must be between 0.0 and 1.0");
-    }
+    var result = new ImageCV();
+    source.copyTo(result);
 
-    ImageCV dstImg = new ImageCV();
-    source.copyTo(dstImg);
-    bounds.grow(1, 1);
-    if (bounds.getY() > 0) {
-      Imgproc.rectangle(
-          dstImg,
-          new Point(0.0, 0.0),
-          new Point(dstImg.width(), bounds.getMinY()),
-          new Scalar(0),
-          -1);
-    }
-    if (bounds.getX() > 0) {
-      Imgproc.rectangle(
-          dstImg,
-          new Point(0.0, bounds.getMinY()),
-          new Point(bounds.getMinX(), bounds.getMaxY()),
-          new Scalar(0),
-          -1);
-    }
-    if (bounds.getX() < dstImg.width()) {
-      Imgproc.rectangle(
-          dstImg,
-          new Point(bounds.getMaxX(), bounds.getMinY()),
-          new Point(dstImg.width(), bounds.getMaxY()),
-          new Scalar(0),
-          -1);
-    }
-    if (bounds.getY() < dstImg.height()) {
-      Imgproc.rectangle(
-          dstImg,
-          new Point(0.0, bounds.getMaxY()),
-          new Point(dstImg.width(), dstImg.height()),
-          new Scalar(0),
-          -1);
-    }
-    Core.addWeighted(dstImg, alpha, source, 1 - alpha, 0.0, dstImg);
-    return dstImg;
+    drawMaskRegions(result, bounds);
+    Core.addWeighted(result, alpha, source, 1 - alpha, 0.0, result);
+
+    return result;
   }
 
   /**
@@ -572,13 +509,14 @@ public final class ImageTransformer {
     return overlay(source, imgOverlay, color);
   }
 
-  /**
-   * Helper method to create OpenCV LUT matrix from byte array lookup table.
-   *
-   * @param source the source image for determining format requirements
-   * @param lut the lookup table data
-   * @return OpenCV Mat configured for LUT operations
-   */
+  // Private helper methods
+
+  private static void validateOpacity(double opacity) {
+    if (opacity < 0.0 || opacity > 1.0) {
+      throw new IllegalArgumentException("Opacity must be between 0.0 and 1.0");
+    }
+  }
+
   private static Mat createLutMat(Mat source, byte[][] lut) {
     int lutCh = Objects.requireNonNull(lut).length;
     Mat lutMat;
@@ -602,42 +540,120 @@ public final class ImageTransformer {
     return lutMat;
   }
 
-  private static Scalar getMaxColor(Mat source, Color color) {
-    int depth = CvType.depth(source.type());
-    boolean type16bit = depth == CvType.CV_16U || depth == CvType.CV_16S;
-    Scalar scalar;
-    if (type16bit) {
-      int maxColor = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
-      int max = CvType.depth(source.type()) == CvType.CV_16S ? Short.MAX_VALUE : 65535;
-      max = maxColor * max / 255;
-      scalar = new Scalar(max);
+  private static ImageCV applyGrayscaleOverlay(Mat source, Mat imgOverlay, Integer maxVal) {
+    var colorMat = new Mat(source.size(), source.type(), new Scalar(maxVal));
+    var result = new ImageCV();
+    source.copyTo(result);
+    colorMat.copyTo(result, imgOverlay);
+    return result;
+  }
+
+  private static ImageCV applyColorOverlay(Mat source, Mat imgOverlay, Color color) {
+    var result = new ImageCV();
+
+    if (source.channels() < 3) {
+      Imgproc.cvtColor(source, result, Imgproc.COLOR_GRAY2BGR);
     } else {
-      scalar = new Scalar(color.getBlue(), color.getGreen(), color.getRed());
+      source.copyTo(result);
     }
-    return scalar;
+
+    var colorImg =
+        new Mat(
+            result.size(),
+            CvType.CV_8UC3,
+            new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
+    double alpha = color.getAlpha() / 255.0;
+
+    if (alpha < 1.0) {
+      var overlay = new ImageCV();
+      result.copyTo(overlay);
+      colorImg.copyTo(overlay, imgOverlay);
+      Core.addWeighted(overlay, alpha, result, 1 - alpha, 0, result);
+    } else {
+      colorImg.copyTo(result, imgOverlay);
+    }
+
+    return result;
+  }
+
+  private static void drawMaskRegions(ImageCV dstImg, Rectangle bounds) {
+    var expandedBounds = new Rectangle(bounds);
+    expandedBounds.grow(1, 1);
+
+    var blackScalar = new Scalar(0);
+
+    // Top region
+    if (expandedBounds.getY() > 0) {
+      Imgproc.rectangle(
+          dstImg,
+          new Point(0.0, 0.0),
+          new Point(dstImg.width(), expandedBounds.getMinY()),
+          blackScalar,
+          -1);
+    }
+
+    // Left region
+    if (expandedBounds.getX() > 0) {
+      Imgproc.rectangle(
+          dstImg,
+          new Point(0.0, expandedBounds.getMinY()),
+          new Point(expandedBounds.getMinX(), expandedBounds.getMaxY()),
+          blackScalar,
+          -1);
+    }
+
+    // Right region
+    if (expandedBounds.getX() < dstImg.width()) {
+      Imgproc.rectangle(
+          dstImg,
+          new Point(expandedBounds.getMaxX(), expandedBounds.getMinY()),
+          new Point(dstImg.width(), expandedBounds.getMaxY()),
+          blackScalar,
+          -1);
+    }
+
+    // Bottom region
+    if (expandedBounds.getY() < dstImg.height()) {
+      Imgproc.rectangle(
+          dstImg,
+          new Point(0.0, expandedBounds.getMaxY()),
+          new Point(dstImg.width(), dstImg.height()),
+          blackScalar,
+          -1);
+    }
+  }
+
+  private static Scalar getMaxColor(Mat source, Color color) {
+    var depth = CvType.depth(source.type());
+    var is16Bit = depth == CvType.CV_16U || depth == CvType.CV_16S;
+
+    if (is16Bit) {
+      var maxColorComponent = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
+      var maxValue = depth == CvType.CV_16S ? Short.MAX_VALUE : 0xFFFF;
+      var scaledValue = maxColorComponent * maxValue / 255;
+      return new Scalar(scaledValue);
+    }
+    return new Scalar(color.getBlue(), color.getGreen(), color.getRed());
   }
 
   private static Integer getMaxColorForOverlay(Mat source, Color color) {
-    int depth = CvType.depth(source.type());
-    boolean type16bit = depth == CvType.CV_16U || depth == CvType.CV_16S;
+    var depth = CvType.depth(source.type());
+    var is16Bit = depth == CvType.CV_16U || depth == CvType.CV_16S;
+    var isSingleChannel = source.channels() == 1;
 
-    if ((type16bit || isGray(color)) && source.channels() == 1) {
-      int maxColor = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
-      if (type16bit) {
-        int max = depth == CvType.CV_16S ? Short.MAX_VALUE : 65535;
-        maxColor = maxColor * max / 255;
+    // Return scaled color value for 16-bit single-channel or grayscale images
+    if ((is16Bit || isGray(color)) && isSingleChannel) {
+      var maxColorComponent = Math.max(color.getRed(), Math.max(color.getGreen(), color.getBlue()));
+
+      if (is16Bit) {
+        var maxValue = depth == CvType.CV_16S ? Short.MAX_VALUE : 0xFFFF;
+        return maxColorComponent * maxValue / 255;
       }
-      return maxColor;
+      return maxColorComponent;
     }
     return null;
   }
 
-  /**
-   * Helper method to check if a color is grayscale.
-   *
-   * @param color the color to check
-   * @return true if R, G, and B components are equal
-   */
   private static boolean isGray(Color color) {
     return color.getRed() == color.getGreen() && color.getGreen() == color.getBlue();
   }

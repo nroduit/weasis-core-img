@@ -13,870 +13,625 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.geom.Point2D;
 import java.math.RoundingMode;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("MathUtil Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class MathUtilTest {
+
+  // Test data record for floating point comparisons
+  record FloatingPointTestData(
+      double value,
+      double epsilon,
+      boolean expectedEqualToZero,
+      boolean expectedDifferentFromZero) {}
+
+  // Test data record for geometric calculations
+  record GeometricTestData(double x1, double y1, double x2, double y2, double expectedResult) {}
+
+  // Test data record for angle normalization
+  record AngleTestData(double input, double expected) {}
 
   // ================= Constants Tests =================
 
   @Test
-  @DisplayName("Test mathematical constants")
-  void testConstants() {
-    assertEquals(1e-9, MathUtil.DOUBLE_EPSILON);
-    assertEquals(1e-5f, MathUtil.FLOAT_EPSILON);
-    assertEquals(Math.PI / 180.0, MathUtil.DEGREES_TO_RADIANS, 1e-15);
-    assertEquals(180.0 / Math.PI, MathUtil.RADIANS_TO_DEGREES, 1e-13);
+  void mathematical_constants_should_match_expected_values() {
+    assertAll(
+        "Mathematical constants verification",
+        () -> assertEquals(1e-9, MathUtil.DOUBLE_EPSILON),
+        () -> assertEquals(1e-5f, MathUtil.FLOAT_EPSILON),
+        () -> assertEquals(Math.PI / 180.0, MathUtil.DEGREES_TO_RADIANS, 1e-15),
+        () -> assertEquals(180.0 / Math.PI, MathUtil.RADIANS_TO_DEGREES, 1e-13));
   }
 
   // ================= Zero Comparison Tests =================
 
   @Nested
-  @DisplayName("Zero Comparison Tests")
-  class ZeroComparisonTests {
+  class Zero_Comparison_Tests {
 
-    @Test
-    @DisplayName("Test isEqualToZero with double values")
-    void testIsEqualToZero_Double() {
-      assertTrue(MathUtil.isEqualToZero(0.0));
-      assertTrue(MathUtil.isEqualToZero(1e-10)); // Within DOUBLE_EPSILON (1e-9)
-      assertTrue(MathUtil.isEqualToZero(-1e-10));
-
-      assertFalse(MathUtil.isEqualToZero(Double.NaN));
-      assertFalse(MathUtil.isEqualToZero(1e-8)); // Outside DOUBLE_EPSILON
-      assertFalse(MathUtil.isEqualToZero(-1e-8));
-      assertFalse(MathUtil.isEqualToZero(1.0));
-      assertFalse(MathUtil.isEqualToZero(Double.POSITIVE_INFINITY));
-      assertFalse(MathUtil.isEqualToZero(Double.NEGATIVE_INFINITY));
+    static Stream<FloatingPointTestData> double_zero_comparison_test_data() {
+      return Stream.of(
+          new FloatingPointTestData(0.0, MathUtil.DOUBLE_EPSILON, true, false),
+          new FloatingPointTestData(1e-10, MathUtil.DOUBLE_EPSILON, true, false),
+          new FloatingPointTestData(-1e-10, MathUtil.DOUBLE_EPSILON, true, false),
+          new FloatingPointTestData(1e-8, MathUtil.DOUBLE_EPSILON, false, true),
+          new FloatingPointTestData(-1e-8, MathUtil.DOUBLE_EPSILON, false, true),
+          new FloatingPointTestData(1.0, MathUtil.DOUBLE_EPSILON, false, true));
     }
 
-    @Test
-    @DisplayName("Test isEqualToZero with custom epsilon")
-    void testIsEqualToZero_Double_CustomEpsilon() {
-      assertTrue(MathUtil.isEqualToZero(0.001, 0.01));
-      assertTrue(MathUtil.isEqualToZero(-0.005, 0.01));
-      assertFalse(MathUtil.isEqualToZero(0.02, 0.01));
-      assertFalse(MathUtil.isEqualToZero(Double.NaN, 0.01));
+    static Stream<FloatingPointTestData> float_zero_comparison_test_data() {
+      return Stream.of(
+          new FloatingPointTestData(0.0f, MathUtil.FLOAT_EPSILON, true, false),
+          new FloatingPointTestData(1e-6f, MathUtil.FLOAT_EPSILON, true, false),
+          new FloatingPointTestData(-1e-6f, MathUtil.FLOAT_EPSILON, true, false),
+          new FloatingPointTestData(1e-4f, MathUtil.FLOAT_EPSILON, false, true),
+          new FloatingPointTestData(-1e-4f, MathUtil.FLOAT_EPSILON, false, true),
+          new FloatingPointTestData(1.0f, MathUtil.FLOAT_EPSILON, false, true));
     }
 
-    @Test
-    @DisplayName("Test isEqualToZero with float values")
-    void testIsEqualToZero_Float() {
-      assertTrue(MathUtil.isEqualToZero(0.0f));
-      assertTrue(MathUtil.isEqualToZero(1e-6f)); // Within FLOAT_EPSILON (1e-5)
-      assertTrue(MathUtil.isEqualToZero(-1e-6f));
-
-      assertFalse(MathUtil.isEqualToZero(Float.NaN));
-      assertFalse(MathUtil.isEqualToZero(1e-4f)); // Outside FLOAT_EPSILON
-      assertFalse(MathUtil.isEqualToZero(-1e-4f));
-      assertFalse(MathUtil.isEqualToZero(1.0f));
-      assertFalse(MathUtil.isEqualToZero(Float.POSITIVE_INFINITY));
-      assertFalse(MathUtil.isEqualToZero(Float.NEGATIVE_INFINITY));
+    @ParameterizedTest
+    @MethodSource("double_zero_comparison_test_data")
+    void double_zero_comparisons_with_default_epsilon(FloatingPointTestData testData) {
+      assertEquals(
+          testData.expectedEqualToZero(),
+          MathUtil.isEqualToZero(testData.value()),
+          () -> "isEqualToZero failed for value: " + testData.value());
+      assertEquals(
+          testData.expectedDifferentFromZero(),
+          MathUtil.isDifferentFromZero(testData.value()),
+          () -> "isDifferentFromZero failed for value: " + testData.value());
     }
 
-    @Test
-    @DisplayName("Test isEqualToZero with float custom epsilon")
-    void testIsEqualToZero_Float_CustomEpsilon() {
-      assertTrue(MathUtil.isEqualToZero(0.001f, 0.01f));
-      assertTrue(MathUtil.isEqualToZero(-0.005f, 0.01f));
-      assertFalse(MathUtil.isEqualToZero(0.02f, 0.01f));
-      assertFalse(MathUtil.isEqualToZero(Float.NaN, 0.01f));
+    @ParameterizedTest
+    @MethodSource("float_zero_comparison_test_data")
+    void float_zero_comparisons_with_default_epsilon(FloatingPointTestData testData) {
+      assertEquals(
+          testData.expectedEqualToZero(),
+          MathUtil.isEqualToZero((float) testData.value()),
+          () -> "isEqualToZero failed for float value: " + testData.value());
+      assertEquals(
+          testData.expectedDifferentFromZero(),
+          MathUtil.isDifferentFromZero((float) testData.value()),
+          () -> "isDifferentFromZero failed for float value: " + testData.value());
     }
 
-    @Test
-    @DisplayName("Test isDifferentFromZero with double values")
-    void testIsDifferentFromZero_Double() {
-      assertFalse(MathUtil.isDifferentFromZero(0.0));
-      assertFalse(MathUtil.isDifferentFromZero(1e-10)); // Within DOUBLE_EPSILON
-      assertFalse(MathUtil.isDifferentFromZero(-1e-10));
-      assertFalse(MathUtil.isDifferentFromZero(Double.NaN)); // NaN should be false
-
-      assertTrue(MathUtil.isDifferentFromZero(1e-8)); // Outside DOUBLE_EPSILON
-      assertTrue(MathUtil.isDifferentFromZero(-1e-8));
-      assertTrue(MathUtil.isDifferentFromZero(1.0));
-      assertTrue(MathUtil.isDifferentFromZero(Double.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Double.NEGATIVE_INFINITY));
+    @ParameterizedTest
+    @CsvSource({"0.001, 0.01, true", "-0.005, 0.01, true", "0.02, 0.01, false"})
+    void double_zero_comparisons_with_custom_epsilon(
+        double value, double epsilon, boolean expectedEqualToZero) {
+      assertEquals(expectedEqualToZero, MathUtil.isEqualToZero(value, epsilon));
+      assertEquals(!expectedEqualToZero, MathUtil.isDifferentFromZero(value, epsilon));
     }
 
-    @Test
-    @DisplayName("Test isDifferentFromZero with custom epsilon")
-    void testIsDifferentFromZero_Double_CustomEpsilon() {
-      assertFalse(MathUtil.isDifferentFromZero(0.001, 0.01));
-      assertTrue(MathUtil.isDifferentFromZero(0.02, 0.01));
-      assertFalse(MathUtil.isDifferentFromZero(Double.NaN, 0.01)); // NaN handling
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+    void special_double_values_should_not_be_equal_to_zero(double specialValue) {
+      assertFalse(MathUtil.isEqualToZero(specialValue));
+      // NaN should return false for isDifferentFromZero, but infinities should return true
+      assertEquals(!Double.isNaN(specialValue), MathUtil.isDifferentFromZero(specialValue));
     }
 
-    @Test
-    @DisplayName("Test isDifferentFromZero with float values")
-    void testIsDifferentFromZero_Float() {
-      assertFalse(MathUtil.isDifferentFromZero(0.0f));
-      assertFalse(MathUtil.isDifferentFromZero(1e-6f)); // Within FLOAT_EPSILON
-      assertFalse(MathUtil.isDifferentFromZero(-1e-6f));
-      assertFalse(MathUtil.isDifferentFromZero(Float.NaN)); // NaN should be false
-
-      assertTrue(MathUtil.isDifferentFromZero(1e-4f)); // Outside FLOAT_EPSILON
-      assertTrue(MathUtil.isDifferentFromZero(-1e-4f));
-      assertTrue(MathUtil.isDifferentFromZero(1.0f));
-      assertTrue(MathUtil.isDifferentFromZero(Float.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Float.NEGATIVE_INFINITY));
-    }
-
-    @Test
-    @DisplayName("Test isDifferentFromZero with float custom epsilon")
-    void testIsDifferentFromZero_Float_CustomEpsilon() {
-      assertFalse(MathUtil.isDifferentFromZero(0.001f, 0.01f));
-      assertTrue(MathUtil.isDifferentFromZero(0.02f, 0.01f));
-      assertFalse(MathUtil.isDifferentFromZero(Float.NaN, 0.01f)); // NaN handling
+    @ParameterizedTest
+    @ValueSource(floats = {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY})
+    void special_float_values_should_not_be_equal_to_zero(float specialValue) {
+      assertFalse(MathUtil.isEqualToZero(specialValue));
+      // NaN should return false for isDifferentFromZero, but infinities should return true
+      assertEquals(!Float.isNaN(specialValue), MathUtil.isDifferentFromZero(specialValue));
     }
   }
 
   // ================= Equality Comparison Tests =================
 
   @Nested
-  @DisplayName("Equality Comparison Tests")
-  class EqualityComparisonTests {
+  class Equality_Comparison_Tests {
 
-    @Test
-    @DisplayName("Test isEqual with double values using default epsilon")
-    void testIsEqual_Double_DefaultEpsilon() {
-      // Exact equality
-      assertTrue(MathUtil.isEqual(10.0, 10.0));
-      assertTrue(MathUtil.isEqual(0.0, 0.0));
-      assertTrue(MathUtil.isEqual(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isEqual(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
-      assertTrue(MathUtil.isEqual(Double.NaN, Double.NaN));
+    static Stream<Arguments> double_equality_test_data() {
+      return Stream.of(
+          Arguments.of(10.0, 10.0, MathUtil.DOUBLE_EPSILON, true, "exact equality"),
+          Arguments.of(0.0, 0.0, MathUtil.DOUBLE_EPSILON, true, "zero equality"),
+          Arguments.of(10.0, 10.0 + 5e-9, MathUtil.DOUBLE_EPSILON, true, "within tolerance"),
+          Arguments.of(10.0, 10.0 + 2e-8, MathUtil.DOUBLE_EPSILON, false, "outside tolerance"),
+          Arguments.of(10.0, 11.0, MathUtil.DOUBLE_EPSILON, false, "clearly different"));
+    }
 
-      // Within relative tolerance (DOUBLE_EPSILON = 1e-9)
-      // For numbers around 10.0, relative epsilon = 1e-9 * 10 = 1e-8
-      assertTrue(MathUtil.isEqual(10.0, 10.0 + 5e-9)); // Well within tolerance
+    static Stream<Arguments> float_equality_test_data() {
+      return Stream.of(
+          Arguments.of(10.0f, 10.0f, MathUtil.FLOAT_EPSILON, true, "exact equality"),
+          Arguments.of(0.0f, 0.0f, MathUtil.FLOAT_EPSILON, true, "zero equality"),
+          Arguments.of(10.0f, 10.0f + 5e-5f, MathUtil.FLOAT_EPSILON, true, "within tolerance"),
+          Arguments.of(10.0f, 10.0f + 2e-4f, MathUtil.FLOAT_EPSILON, false, "outside tolerance"),
+          Arguments.of(10.0f, 11.0f, MathUtil.FLOAT_EPSILON, false, "clearly different"));
+    }
 
-      // Outside relative tolerance
-      assertFalse(MathUtil.isEqual(10.0, 10.0 + 2e-8)); // Outside tolerance
-      assertFalse(MathUtil.isEqual(10.0, 11.0));
-      assertFalse(MathUtil.isEqual(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY));
-      assertFalse(MathUtil.isEqual(Double.NaN, 1.0));
-      assertFalse(MathUtil.isEqual(1.0, Double.NaN));
+    @ParameterizedTest
+    @MethodSource("double_equality_test_data")
+    void double_equality_comparisons(
+        double a, double b, double epsilon, boolean expected, String description) {
+      assertEquals(expected, MathUtil.isEqual(a, b, epsilon), description);
+      assertEquals(
+          !expected,
+          MathUtil.isDifferent(a, b, epsilon),
+          "isDifferent should be opposite: " + description);
+    }
+
+    @ParameterizedTest
+    @MethodSource("float_equality_test_data")
+    void float_equality_comparisons(
+        float a, float b, float epsilon, boolean expected, String description) {
+      assertEquals(expected, MathUtil.isEqual(a, b, epsilon), description);
+      assertEquals(
+          !expected,
+          MathUtil.isDifferent(a, b, epsilon),
+          "isDifferent should be opposite: " + description);
     }
 
     @Test
-    @DisplayName("Test isEqual with double custom epsilon")
-    void testIsEqual_Double_CustomEpsilon() {
-      assertTrue(MathUtil.isEqual(10.0, 10.01, 0.02));
-      assertTrue(MathUtil.isEqual(10.0, 10.05, 0.02));
-      assertTrue(MathUtil.isEqual(Double.NaN, Double.NaN, 0.01));
-      assertFalse(MathUtil.isEqual(Double.NaN, 1.0, 0.01));
+    void special_values_equality_handling() {
+      assertAll(
+          "Special values equality",
+          // Infinity comparisons
+          () -> assertTrue(MathUtil.isEqual(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY)),
+          () -> assertTrue(MathUtil.isEqual(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY)),
+          () -> assertFalse(MathUtil.isEqual(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)),
+          // NaN comparisons
+          () -> assertTrue(MathUtil.isEqual(Double.NaN, Double.NaN)),
+          () -> assertFalse(MathUtil.isEqual(Double.NaN, 1.0)),
+          () -> assertFalse(MathUtil.isEqual(1.0, Double.NaN)));
     }
 
     @Test
-    @DisplayName("Test isEqual with float values using default epsilon")
-    void testIsEqual_Float_DefaultEpsilon() {
-      // Exact equality
-      assertTrue(MathUtil.isEqual(10.0f, 10.0f));
-      assertTrue(MathUtil.isEqual(0.0f, 0.0f));
-      assertTrue(MathUtil.isEqual(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isEqual(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY));
-      assertTrue(MathUtil.isEqual(Float.NaN, Float.NaN));
+    void small_values_use_absolute_comparison() {
+      // Values smaller than MIN_EPSILON should use absolute comparison
+      assertTrue(MathUtil.isEqual(1e-15, 2e-15, 1e-9));
+      assertTrue(MathUtil.isEqual(0.0, 1e-10));
+      assertTrue(MathUtil.isEqual(0.0f, 1e-6f));
 
-      // Within relative tolerance (FLOAT_EPSILON = 1e-5)
-      // For numbers around 10.0f, relative epsilon = 1e-5 * 10 = 1e-4
-      assertTrue(MathUtil.isEqual(10.0f, 10.0f + 5e-5f)); // Within tolerance
-
-      // Outside relative tolerance
-      assertFalse(MathUtil.isEqual(10.0f, 10.0f + 2e-4f)); // Outside tolerance
-      assertFalse(MathUtil.isEqual(10.0f, 11.0f));
-      assertFalse(MathUtil.isEqual(Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY));
-      assertFalse(MathUtil.isEqual(Float.NaN, 1.0f));
-      assertFalse(MathUtil.isEqual(1.0f, Float.NaN));
-    }
-
-    @Test
-    @DisplayName("Test isEqual with float custom epsilon")
-    void testIsEqual_Float_CustomEpsilon() {
-      assertTrue(MathUtil.isEqual(10.0f, 10.01f, 0.02f));
-      assertTrue(MathUtil.isEqual(10.0f, 10.05f, 0.02f));
-      assertTrue(MathUtil.isEqual(Float.NaN, Float.NaN, 0.01f));
-      assertFalse(MathUtil.isEqual(Float.NaN, 1.0f, 0.01f));
-    }
-
-    @Test
-    @DisplayName("Test isEqual with small values")
-    void testIsEqual_SmallValues() {
-      // Test near-zero values with absolute comparison
-      // Values smaller than MIN_EPSILON use absolute comparison
-      assertTrue(MathUtil.isEqual(1e-15, 2e-15, 1e-9)); // Both very small, use absolute
-      assertTrue(MathUtil.isEqual(0.0, 1e-10)); // Within DOUBLE_EPSILON
-      assertTrue(MathUtil.isEqual(0.0f, 1e-6f)); // Within FLOAT_EPSILON
-
-      assertFalse(MathUtil.isEqual(0.0, 1e-8)); // Outside DOUBLE_EPSILON
-      assertFalse(MathUtil.isEqual(0.0f, 1e-4f)); // Outside FLOAT_EPSILON
-    }
-
-    @Test
-    @DisplayName("Test isDifferent with double values")
-    void testIsDifferent_Double() {
-      // Should be opposite of isEqual
-      assertFalse(MathUtil.isDifferent(10.0, 10.0 + 5e-9)); // Within tolerance
-      assertTrue(MathUtil.isDifferent(10.0, 10.0 + 2e-8)); // Outside tolerance
-      assertTrue(MathUtil.isDifferent(10.0, 11.0));
-      assertFalse(MathUtil.isDifferent(Double.NaN, Double.NaN));
-      assertTrue(MathUtil.isDifferent(Double.NaN, 1.0));
-    }
-
-    @Test
-    @DisplayName("Test isDifferent with double custom epsilon")
-    void testIsDifferent_Double_CustomEpsilon() {
-      assertFalse(MathUtil.isDifferent(10.0, 10.01, 0.02));
-      assertFalse(MathUtil.isDifferent(10.0, 10.05, 0.02));
-      assertFalse(MathUtil.isDifferent(Double.NaN, Double.NaN, 0.01));
-      assertTrue(MathUtil.isDifferent(Double.NaN, 1.0, 0.01));
-    }
-
-    @Test
-    @DisplayName("Test isDifferent with float values")
-    void testIsDifferent_Float() {
-      // Should be opposite of isEqual
-      assertFalse(MathUtil.isDifferent(10.0f, 10.0f + 5e-5f)); // Within tolerance
-      assertTrue(MathUtil.isDifferent(10.0f, 10.0f + 2e-4f)); // Outside tolerance
-      assertTrue(MathUtil.isDifferent(10.0f, 11.0f));
-      assertFalse(MathUtil.isDifferent(Float.NaN, Float.NaN));
-      assertTrue(MathUtil.isDifferent(Float.NaN, 1.0f));
-    }
-
-    @Test
-    @DisplayName("Test isDifferent with float custom epsilon")
-    void testIsDifferent_Float_CustomEpsilon() {
-      assertFalse(MathUtil.isDifferent(10.0f, 10.01f, 0.02f));
-      assertFalse(MathUtil.isDifferent(10.0f, 10.05f, 0.02f));
-      assertFalse(MathUtil.isDifferent(Float.NaN, Float.NaN, 0.01f));
+      assertFalse(MathUtil.isEqual(0.0, 1e-8));
+      assertFalse(MathUtil.isEqual(0.0f, 1e-4f));
     }
   }
 
   // ================= Geometric Calculations Tests =================
 
   @Nested
-  @DisplayName("Geometric Calculations Tests")
-  class GeometricCalculationsTests {
+  class Geometric_Calculations_Tests {
 
-    @Test
-    @DisplayName("Test getOrientation with coordinates")
-    void testGetOrientation_Coordinates() {
-      // Image coordinates (Y increases downward)
-      // Test basic orientations
-      assertEquals(0.0, MathUtil.getOrientation(0.0, 0.0, 1.0, 0.0), 1e-10); // Horizontal right
-      assertEquals(135.0, MathUtil.getOrientation(0.0, 0.0, 1.0, 1.0), 1e-10); // 135° down-right
-      assertEquals(45.0, MathUtil.getOrientation(0.0, 0.0, -1.0, 1.0), 1e-10); // 45° down-left
-      assertEquals(90.0, MathUtil.getOrientation(0.0, 0.0, 0.0, 1.0), 1e-10); // Vertical down
-      assertEquals(180.0, MathUtil.getOrientation(0.0, 0.0, -1.0, 0.0), 1e-10); // Horizontal left
-
-      // Test diagonal cases in image coordinates
-      assertEquals(45.0, MathUtil.getOrientation(0.0, 0.0, 1.0, -1.0), 1e-10); // Up-right in image
-      assertEquals(135.0, MathUtil.getOrientation(0.0, 0.0, -1.0, -1.0), 1e-10); // Up-left in image
-
-      // Test specific image coordinate scenarios
-      assertEquals(90.0, MathUtil.getOrientation(10.0, 10.0, 10.0, 20.0), 1e-10); // Vertical down
-      assertEquals(0.0, MathUtil.getOrientation(10.0, 10.0, 20.0, 10.0), 1e-10); // Horizontal right
+    static Stream<GeometricTestData> orientation_test_data() {
+      return Stream.of(
+          new GeometricTestData(0.0, 0.0, 1.0, 0.0, 0.0), // Horizontal right
+          new GeometricTestData(0.0, 0.0, 1.0, 1.0, 135.0), // Down-right diagonal
+          new GeometricTestData(0.0, 0.0, -1.0, 1.0, 45.0), // Down-left diagonal
+          new GeometricTestData(0.0, 0.0, 0.0, 1.0, 90.0), // Vertical down
+          new GeometricTestData(0.0, 0.0, -1.0, 0.0, 180.0), // Horizontal left
+          new GeometricTestData(0.0, 0.0, 1.0, -1.0, 45.0), // Up-right in image
+          new GeometricTestData(0.0, 0.0, -1.0, -1.0, 135.0) // Up-left in image
+          );
     }
 
-    @Test
-    @DisplayName("Test getOrientation with Point2D objects")
-    void testGetOrientation_Points() {
-      // Image coordinates using Point2D
-      Point2D origin = new Point2D.Double(0.0, 0.0);
-      Point2D right = new Point2D.Double(1.0, 0.0);
-      Point2D downRight = new Point2D.Double(1.0, 1.0);
-
-      assertEquals(0.0, MathUtil.getOrientation(origin, right), 1e-10);
-      assertEquals(135.0, MathUtil.getOrientation(origin, downRight), 1e-10);
-
-      // Test with null inputs
-      assertNull(MathUtil.getOrientation(null, right));
-      assertNull(MathUtil.getOrientation(origin, null));
-      assertNull(MathUtil.getOrientation(null, null));
+    static Stream<GeometricTestData> azimuth_test_data() {
+      return Stream.of(
+          new GeometricTestData(0.0, 0.0, 0.0, -1.0, 0.0), // North
+          new GeometricTestData(0.0, 0.0, 1.0, 0.0, 90.0), // East
+          new GeometricTestData(0.0, 0.0, 0.0, 1.0, 180.0), // South
+          new GeometricTestData(0.0, 0.0, -1.0, 0.0, 270.0), // West
+          new GeometricTestData(0.0, 0.0, 1.0, -1.0, 45.0), // Northeast
+          new GeometricTestData(0.0, 0.0, -1.0, -1.0, 315.0), // Northwest
+          new GeometricTestData(0.0, 0.0, -1.0, 1.0, 225.0), // Southwest
+          new GeometricTestData(0.0, 0.0, 1.0, 1.0, 135.0) // Southeast
+          );
     }
 
-    @Test
-    @DisplayName("Test getOrientation with null inputs")
-    void testGetOrientation_NullInputs() {
-      assertNull(MathUtil.getOrientation(null, null));
-      assertNull(MathUtil.getOrientation(new Point2D.Double(1, 1), null));
-      assertNull(MathUtil.getOrientation(null, new Point2D.Double(1, 1)));
+    static Stream<GeometricTestData> distance_test_data() {
+      return Stream.of(
+          new GeometricTestData(0.0, 0.0, 3.0, 4.0, 5.0), // Pythagorean triple
+          new GeometricTestData(1.0, 1.0, 1.0, 1.0, 0.0), // Same point
+          new GeometricTestData(0.0, 0.0, 1.0, 1.0, Math.sqrt(2)), // Diagonal unit
+          new GeometricTestData(-3.0, -4.0, 0.0, 0.0, 5.0), // Negative coordinates
+          new GeometricTestData(1000.0, 1000.0, 1003.0, 1004.0, 5.0) // Large coordinates
+          );
     }
 
-    @Test
-    @DisplayName("Test getOrientation with invalid inputs")
-    void testGetOrientation_InvalidInputs() {
-      // Test with infinite coordinates
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> MathUtil.getOrientation(Double.POSITIVE_INFINITY, 0, 1, 1));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.getOrientation(0, Double.NaN, 1, 1));
-    }
-
-    @Test
-    @DisplayName("Test getAzimuth with coordinates")
-    void testGetAzimuth_Coordinates() {
-      // Image coordinates (Y increases downward) - North = negative Y
-      assertEquals(0.0, MathUtil.getAzimuth(0.0, 0.0, 0.0, -1.0), 1e-10); // North (up in image)
-      assertEquals(90.0, MathUtil.getAzimuth(0.0, 0.0, 1.0, 0.0), 1e-10); // East
-      assertEquals(180.0, MathUtil.getAzimuth(0.0, 0.0, 0.0, 1.0), 1e-10); // South (down in image)
-      assertEquals(270.0, MathUtil.getAzimuth(0.0, 0.0, -1.0, 0.0), 1e-10); // West
-
-      // Test diagonal directions in image coordinates
-      assertEquals(45.0, MathUtil.getAzimuth(0.0, 0.0, 1.0, -1.0), 1e-10); // NE
-      assertEquals(315.0, MathUtil.getAzimuth(0.0, 0.0, -1.0, -1.0), 1e-10); // NW
-      assertEquals(225.0, MathUtil.getAzimuth(0.0, 0.0, -1.0, 1.0), 1e-10); // SW
-      assertEquals(135.0, MathUtil.getAzimuth(0.0, 0.0, 1.0, 1.0), 1e-10); // SE
-
-      // Test with different starting points in image coordinates
+    @ParameterizedTest
+    @MethodSource("orientation_test_data")
+    void orientation_calculations_with_coordinates(GeometricTestData testData) {
+      double result =
+          MathUtil.getOrientation(testData.x1(), testData.y1(), testData.x2(), testData.y2());
       assertEquals(
-          0.0, MathUtil.getAzimuth(100.0, 100.0, 100.0, 50.0), 1e-10); // North (up in image)
-      assertEquals(90.0, MathUtil.getAzimuth(100.0, 100.0, 150.0, 100.0), 1e-10); // East
+          testData.expectedResult(),
+          result,
+          1e-10,
+          () ->
+              String.format(
+                  "Orientation from (%.1f,%.1f) to (%.1f,%.1f)",
+                  testData.x1(), testData.y1(), testData.x2(), testData.y2()));
+    }
+
+    @ParameterizedTest
+    @MethodSource("azimuth_test_data")
+    void azimuth_calculations_with_coordinates(GeometricTestData testData) {
+      double result =
+          MathUtil.getAzimuth(testData.x1(), testData.y1(), testData.x2(), testData.y2());
+      assertEquals(
+          testData.expectedResult(),
+          result,
+          1e-10,
+          () ->
+              String.format(
+                  "Azimuth from (%.1f,%.1f) to (%.1f,%.1f)",
+                  testData.x1(), testData.y1(), testData.x2(), testData.y2()));
+    }
+
+    @ParameterizedTest
+    @MethodSource("distance_test_data")
+    void distance_calculations_with_coordinates(GeometricTestData testData) {
+      double result =
+          MathUtil.getDistance(testData.x1(), testData.y1(), testData.x2(), testData.y2());
+      assertEquals(
+          testData.expectedResult(),
+          result,
+          1e-10,
+          () ->
+              String.format(
+                  "Distance from (%.1f,%.1f) to (%.1f,%.1f)",
+                  testData.x1(), testData.y1(), testData.x2(), testData.y2()));
     }
 
     @Test
-    @DisplayName("Test getAzimuth with Point2D objects")
-    void testGetAzimuth_Points() {
-      // Image coordinates using Point2D
-      Point2D origin = new Point2D.Double(0.0, 0.0);
-      Point2D south = new Point2D.Double(0.0, 1.0); // South in image coordinates
-      Point2D east = new Point2D.Double(1.0, 0.0);
+    void point2d_geometric_operations() {
+      var origin = new Point2D.Double(0.0, 0.0);
+      var right = new Point2D.Double(1.0, 0.0);
+      var downRight = new Point2D.Double(1.0, 1.0);
+      var point345 = new Point2D.Double(3.0, 4.0);
 
-      assertEquals(180.0, MathUtil.getAzimuth(origin, south), 1e-10); // South (down in image)
-      assertEquals(90.0, MathUtil.getAzimuth(origin, east), 1e-10); // East
-
-      // Test with null inputs
-      assertNull(MathUtil.getAzimuth(null, south));
-      assertNull(MathUtil.getAzimuth(origin, null));
-      assertNull(MathUtil.getAzimuth(null, null));
+      assertAll(
+          "Point2D geometric operations",
+          () -> assertEquals(0.0, MathUtil.getOrientation(origin, right), 1e-10),
+          () -> assertEquals(135.0, MathUtil.getOrientation(origin, downRight), 1e-10),
+          () -> assertEquals(90.0, MathUtil.getAzimuth(origin, right), 1e-10),
+          () -> assertEquals(5.0, MathUtil.getDistance(origin, point345), 1e-10));
     }
 
     @Test
-    @DisplayName("Test getAzimuth with null inputs")
-    void testGetAzimuth_NullInputs() {
-      assertNull(MathUtil.getAzimuth(null, null));
-      assertNull(MathUtil.getAzimuth(new Point2D.Double(1, 1), null));
-      assertNull(MathUtil.getAzimuth(null, new Point2D.Double(1, 1)));
+    void null_point_inputs_should_return_null() {
+      var validPoint = new Point2D.Double(1.0, 1.0);
+
+      assertAll(
+          "Null point handling",
+          () -> assertNull(MathUtil.getOrientation(null, validPoint)),
+          () -> assertNull(MathUtil.getOrientation(validPoint, null)),
+          () -> assertNull(MathUtil.getAzimuth(null, validPoint)),
+          () -> assertNull(MathUtil.getAzimuth(validPoint, null)),
+          () -> assertNull(MathUtil.getDistance(null, validPoint)),
+          () -> assertNull(MathUtil.getDistance(validPoint, null)));
     }
 
     @Test
-    @DisplayName("Test getAzimuth with invalid inputs")
-    void testGetAzimuth_InvalidInputs() {
-      // Test with infinite coordinates
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> MathUtil.getAzimuth(Double.POSITIVE_INFINITY, 0, 1, 1));
-      assertThrows(IllegalArgumentException.class, () -> MathUtil.getAzimuth(0, Double.NaN, 1, 1));
+    void invalid_coordinate_inputs_should_throw_exception() {
+      assertAll(
+          "Invalid coordinate validation",
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getOrientation(Double.NaN, 0, 1, 1)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getAzimuth(Double.POSITIVE_INFINITY, 0, 1, 1)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getDistance(0, Double.NEGATIVE_INFINITY, 1, 1)));
     }
 
-    @Test
-    @DisplayName("Test getDistance with coordinates")
-    void testGetDistance_Coordinates() {
-      // Test Pythagorean theorem
-      assertEquals(5.0, MathUtil.getDistance(0.0, 0.0, 3.0, 4.0), 1e-10);
-      assertEquals(0.0, MathUtil.getDistance(1.0, 1.0, 1.0, 1.0), 1e-10);
-      assertEquals(Math.sqrt(2), MathUtil.getDistance(0.0, 0.0, 1.0, 1.0), 1e-10);
-
-      // Test with negative coordinates
-      assertEquals(5.0, MathUtil.getDistance(-3.0, -4.0, 0.0, 0.0), 1e-10);
-      // Test with large values
-      assertEquals(5.0, MathUtil.getDistance(1000.0, 1000.0, 1003.0, 1004.0), 1e-10);
+    static Stream<AngleTestData> normalize_angle_test_data() {
+      return Stream.of(
+          new AngleTestData(0.0, 0.0),
+          new AngleTestData(360.0, 0.0),
+          new AngleTestData(-360.0, 0.0),
+          new AngleTestData(90.0, 90.0),
+          new AngleTestData(-90.0, 270.0),
+          new AngleTestData(405.0, 45.0),
+          new AngleTestData(-45.0, 315.0),
+          new AngleTestData(180.0, 180.0),
+          new AngleTestData(-180.0, 180.0),
+          new AngleTestData(720.0 + 90.0, 90.0),
+          new AngleTestData(-720.0 - 90.0, 270.0));
     }
 
-    @Test
-    @DisplayName("Test getDistance with Point2D objects")
-    void testGetDistance_Points() {
-      Point2D p1 = new Point2D.Double(0, 0);
-      Point2D p2 = new Point2D.Double(3, 4);
-      assertEquals(5.0, MathUtil.getDistance(p1, p2), 1e-10);
-      // Test same point
-      assertEquals(0.0, MathUtil.getDistance(p1, p1), 1e-10);
+    @ParameterizedTest
+    @MethodSource("normalize_angle_test_data")
+    void angle_normalization(AngleTestData testData) {
+      assertEquals(
+          testData.expected(),
+          MathUtil.normalizeAngle(testData.input()),
+          1e-10,
+          () -> "Normalizing angle: " + testData.input());
     }
 
-    @Test
-    @DisplayName("Test getDistance with null inputs")
-    void testGetDistance_NullInputs() {
-      assertNull(MathUtil.getDistance(null, null));
-      assertNull(MathUtil.getDistance(new Point2D.Double(1, 1), null));
-      assertNull(MathUtil.getDistance(null, new Point2D.Double(1, 1)));
-    }
-
-    @Test
-    @DisplayName("Test getDistance with invalid inputs")
-    void testGetDistance_InvalidInputs() {
-      // Test with infinite coordinates
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> MathUtil.getDistance(Double.POSITIVE_INFINITY, 0, 1, 1));
-      assertThrows(IllegalArgumentException.class, () -> MathUtil.getDistance(0, Double.NaN, 1, 1));
-    }
-
-    @Test
-    @DisplayName("Test normalizeAngle")
-    void testNormalizeAngle() {
-      assertEquals(0.0, MathUtil.normalizeAngle(0.0), 1e-10);
-      assertEquals(0.0, MathUtil.normalizeAngle(360.0), 1e-10);
-      assertEquals(0.0, MathUtil.normalizeAngle(-360.0), 1e-10);
-      assertEquals(90.0, MathUtil.normalizeAngle(90.0), 1e-10);
-      assertEquals(270.0, MathUtil.normalizeAngle(-90.0), 1e-10);
-      assertEquals(45.0, MathUtil.normalizeAngle(405.0), 1e-10);
-      assertEquals(315.0, MathUtil.normalizeAngle(-45.0), 1e-10);
-      assertEquals(180.0, MathUtil.normalizeAngle(180.0), 1e-10);
-      assertEquals(180.0, MathUtil.normalizeAngle(-180.0), 1e-10);
-
-      // Test multiple rotations
-      assertEquals(90.0, MathUtil.normalizeAngle(720.0 + 90.0), 1e-10);
-      assertEquals(270.0, MathUtil.normalizeAngle(-720.0 - 90.0), 1e-10);
-    }
-
-    @Test
-    @DisplayName("Test normalizeAngle with invalid inputs")
-    void testNormalizeAngle_InvalidInputs() {
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.normalizeAngle(Double.POSITIVE_INFINITY));
-      assertThrows(IllegalArgumentException.class, () -> MathUtil.normalizeAngle(Double.NaN));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.normalizeAngle(Double.NEGATIVE_INFINITY));
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.POSITIVE_INFINITY, Double.NaN, Double.NEGATIVE_INFINITY})
+    void invalid_angles_should_throw_exception(double invalidAngle) {
+      assertThrows(IllegalArgumentException.class, () -> MathUtil.normalizeAngle(invalidAngle));
     }
   }
 
   // ================= Rounding Tests =================
 
   @Nested
-  @DisplayName("Rounding and Precision Tests")
-  class RoundingTests {
+  class Rounding_Tests {
+
+    record RoundingTestData(
+        double value, int places, RoundingMode mode, double expected, String description) {}
+
+    static Stream<RoundingTestData> rounding_test_data() {
+      return Stream.of(
+          new RoundingTestData(3.14159, 2, RoundingMode.HALF_UP, 3.14, "basic rounding"),
+          new RoundingTestData(3.14559, 2, RoundingMode.HALF_UP, 3.15, "round up"),
+          new RoundingTestData(2.5, 0, RoundingMode.HALF_UP, 3.0, "half up positive"),
+          new RoundingTestData(-2.5, 0, RoundingMode.HALF_UP, -3.0, "half up negative"),
+          new RoundingTestData(3.14559, 2, RoundingMode.HALF_DOWN, 3.15, "half down"),
+          new RoundingTestData(3.14999, 2, RoundingMode.DOWN, 3.14, "down"),
+          new RoundingTestData(3.14001, 2, RoundingMode.UP, 3.15, "up"),
+          new RoundingTestData(2.5, 0, RoundingMode.HALF_EVEN, 2.0, "half even to even"),
+          new RoundingTestData(3.5, 0, RoundingMode.HALF_EVEN, 4.0, "half even to even"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("rounding_test_data")
+    void rounding_with_various_modes(RoundingTestData testData) {
+      double result = MathUtil.round(testData.value(), testData.places(), testData.mode());
+      assertEquals(testData.expected(), result, 1e-10, testData.description());
+    }
 
     @Test
-    @DisplayName("Test round with default HALF_UP mode")
-    void testRound_DefaultMode() {
+    void default_rounding_uses_half_up() {
       assertEquals(3.14, MathUtil.round(3.14159, 2), 1e-10);
-      assertEquals(3.15, MathUtil.round(3.14559, 2), 1e-10);
-      assertEquals(0.0, MathUtil.round(0.0, 2), 1e-10);
-      assertEquals(-3.14, MathUtil.round(-3.14159, 2), 1e-10);
+      assertEquals(3.0, MathUtil.round(2.5, 0), 1e-10);
+    }
 
-      // Test edge cases
-      assertEquals(3.0, MathUtil.round(2.5, 0), 1e-10); // HALF_UP rounds up
-      assertEquals(-3.0, MathUtil.round(-2.5, 0), 1e-10); // HALF_UP rounds away from zero
-
-      // Test zero places
-      assertEquals(123.0, MathUtil.round(123.456, 0), 1e-10);
-      assertEquals(124.0, MathUtil.round(123.56, 0), 1e-10);
-
-      // Test with larger decimals
-      assertEquals(3.14159, MathUtil.round(3.141592653589793, 5), 1e-10);
+    @ParameterizedTest
+    @CsvSource({
+      "3.14999, 2, 3.14",
+      "-3.14999, 2, -3.14",
+      "123.456, 0, 123.0",
+      "-123.456, 0, -123.0",
+      "3.141592653589793, 5, 3.14159"
+    })
+    void truncate_operations(double value, int places, double expected) {
+      assertEquals(expected, MathUtil.truncate(value, places), 1e-10);
     }
 
     @Test
-    @DisplayName("Test round with custom rounding mode")
-    void testRound_CustomMode() {
-      assertEquals(3.15, MathUtil.round(3.14559, 2, RoundingMode.HALF_DOWN), 1e-10);
-      assertEquals(3.15, MathUtil.round(3.14559, 2, RoundingMode.HALF_UP), 1e-10);
-      assertEquals(3.14, MathUtil.round(3.14999, 2, RoundingMode.DOWN), 1e-10);
-      assertEquals(3.15, MathUtil.round(3.14001, 2, RoundingMode.UP), 1e-10);
-      // Test CEILING and FLOOR
-      assertEquals(3.15, MathUtil.round(3.14001, 2, RoundingMode.CEILING), 1e-10);
-      assertEquals(3.14, MathUtil.round(3.14999, 2, RoundingMode.FLOOR), 1e-10);
-      assertEquals(-3.14, MathUtil.round(-3.14999, 2, RoundingMode.CEILING), 1e-10);
-      assertEquals(-3.15, MathUtil.round(-3.14001, 2, RoundingMode.FLOOR), 1e-10);
-
-      // Test HALF_EVEN
-      assertEquals(2.0, MathUtil.round(2.5, 0, RoundingMode.HALF_EVEN), 1e-10);
-      assertEquals(4.0, MathUtil.round(3.5, 0, RoundingMode.HALF_EVEN), 1e-10);
+    void special_values_rounding() {
+      assertAll(
+          "Special values rounding",
+          () -> assertTrue(Double.isNaN(MathUtil.round(Double.NaN, 2))),
+          () -> assertEquals(Double.POSITIVE_INFINITY, MathUtil.round(Double.POSITIVE_INFINITY, 2)),
+          () ->
+              assertEquals(Double.NEGATIVE_INFINITY, MathUtil.round(Double.NEGATIVE_INFINITY, 2)));
     }
 
     @Test
-    @DisplayName("Test round with invalid places")
-    void testRound_InvalidPlaces() {
+    void invalid_places_should_throw_exception() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.round(3.14159, -1));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.round(3.14159, -5, RoundingMode.HALF_UP));
-    }
-
-    @Test
-    @DisplayName("Test round with special values")
-    void testRound_SpecialValues() {
-      // Test with NaN
-      assertTrue(Double.isNaN(MathUtil.round(Double.NaN, 2)));
-      assertTrue(Double.isNaN(MathUtil.round(Double.NaN, 2, RoundingMode.HALF_UP)));
-
-      // Test with infinity
-      assertEquals(Double.POSITIVE_INFINITY, MathUtil.round(Double.POSITIVE_INFINITY, 2), 1e-10);
-      assertEquals(Double.NEGATIVE_INFINITY, MathUtil.round(Double.NEGATIVE_INFINITY, 2), 1e-10);
-    }
-
-    @Test
-    @DisplayName("Test truncate")
-    void testTruncate() {
-      assertEquals(3.14, MathUtil.truncate(3.14999, 2), 1e-10);
-      assertEquals(-3.14, MathUtil.truncate(-3.14999, 2), 1e-10);
-      assertEquals(0.0, MathUtil.truncate(0.999, 0), 1e-10);
-      assertEquals(123.0, MathUtil.truncate(123.456, 0), 1e-10);
-      assertEquals(-123.0, MathUtil.truncate(-123.456, 0), 1e-10);
-
-      // Test with zero
-      assertEquals(0.0, MathUtil.truncate(0.0, 2), 1e-10);
-
-      // Test with larger precision
-      assertEquals(3.14159, MathUtil.truncate(3.141592653589793, 5), 1e-10);
-    }
-
-    @Test
-    @DisplayName("Test truncate with invalid places")
-    void testTruncate_InvalidPlaces() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.truncate(3.14159, -1));
     }
 
-    @Test
-    @DisplayName("Test truncate with special values")
-    void testTruncate_SpecialValues() {
-      // Test with NaN
-      assertTrue(Double.isNaN(MathUtil.truncate(Double.NaN, 2)));
-
-      // Test with infinity
-      assertEquals(Double.POSITIVE_INFINITY, MathUtil.truncate(Double.POSITIVE_INFINITY, 2), 1e-10);
-      assertEquals(Double.NEGATIVE_INFINITY, MathUtil.truncate(Double.NEGATIVE_INFINITY, 2), 1e-10);
+    @ParameterizedTest
+    @CsvSource({"3.14, 3", "3.5, 4", "3.6, 4", "-3.14, -3", "-3.6, -4", "0.0, 0", "0.5, 1"})
+    void round_to_long_conversions(double value, long expected) {
+      assertEquals(expected, MathUtil.roundToLong(value));
     }
 
-    @Test
-    @DisplayName("Test roundToLong")
-    void testRoundToLong() {
-      assertEquals(3L, MathUtil.roundToLong(3.14));
-      assertEquals(4L, MathUtil.roundToLong(3.5));
-      assertEquals(4L, MathUtil.roundToLong(3.6));
-      assertEquals(-3L, MathUtil.roundToLong(-3.14));
-      assertEquals(-3L, MathUtil.roundToLong(-3.5));
-      assertEquals(-4L, MathUtil.roundToLong(-3.6));
-      assertEquals(0L, MathUtil.roundToLong(0.0));
-      assertEquals(0L, MathUtil.roundToLong(0.4));
-      assertEquals(1L, MathUtil.roundToLong(0.5));
-
-      // Test with large values
-      assertEquals(Long.MAX_VALUE, MathUtil.roundToLong(Double.MAX_VALUE));
-      assertEquals(Long.MIN_VALUE, MathUtil.roundToLong(-Double.MAX_VALUE));
-    }
-
-    @Test
-    @DisplayName("Test roundToLong with special values")
-    void testRoundToLong_SpecialValues() {
-      // Test with NaN
-      assertThrows(IllegalArgumentException.class, () -> MathUtil.roundToLong(Double.NaN));
-
-      // Test with infinity
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.roundToLong(Double.POSITIVE_INFINITY));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.roundToLong(Double.NEGATIVE_INFINITY));
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+    void round_to_long_with_invalid_values_should_throw_exception(double invalidValue) {
+      assertThrows(IllegalArgumentException.class, () -> MathUtil.roundToLong(invalidValue));
     }
   }
 
   // ================= Range and Interpolation Tests =================
 
   @Nested
-  @DisplayName("Range and Interpolation Tests")
-  class RangeAndInterpolationTests {
+  class Range_And_Interpolation_Tests {
 
-    @Test
-    @DisplayName("Test clamp with double values")
-    void testClamp_Double() {
-      assertEquals(5.0, MathUtil.clamp(10.0, 0.0, 5.0), 1e-10);
-      assertEquals(0.0, MathUtil.clamp(-5.0, 0.0, 10.0), 1e-10);
-      assertEquals(7.5, MathUtil.clamp(7.5, 0.0, 10.0), 1e-10);
-      assertEquals(0.0, MathUtil.clamp(0.0, 0.0, 10.0), 1e-10);
-      assertEquals(10.0, MathUtil.clamp(10.0, 0.0, 10.0), 1e-10);
-      // Test with negative ranges
-      assertEquals(-2.0, MathUtil.clamp(-5.0, -2.0, 5.0), 1e-10);
-      assertEquals(5.0, MathUtil.clamp(10.0, -2.0, 5.0), 1e-10);
-      assertEquals(0.0, MathUtil.clamp(0.0, -2.0, 5.0), 1e-10);
+    @ParameterizedTest
+    @CsvSource({
+      "10.0, 0.0, 5.0, 5.0", // Clamp above max
+      "-5.0, 0.0, 10.0, 0.0", // Clamp below min
+      "7.5, 0.0, 10.0, 7.5", // Within range
+      "0.0, 0.0, 10.0, 0.0", // At minimum
+      "10.0, 0.0, 10.0, 10.0" // At maximum
+    })
+    void double_clamp_operations(double value, double min, double max, double expected) {
+      assertEquals(expected, MathUtil.clamp(value, min, max), 1e-10);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, 0, 5, 5", "-5, 0, 10, 0", "7, 0, 10, 7"})
+    void integer_clamp_operations(int value, int min, int max, int expected) {
+      assertEquals(expected, MathUtil.clamp(value, min, max));
     }
 
     @Test
-    @DisplayName("Test clamp with integer values")
-    void testClamp_Integer() {
-      assertEquals(5, MathUtil.clamp(10, 0, 5));
-      assertEquals(0, MathUtil.clamp(-5, 0, 10));
-      assertEquals(7, MathUtil.clamp(7, 0, 10));
-      assertEquals(0, MathUtil.clamp(0, 0, 10));
-      assertEquals(10, MathUtil.clamp(10, 0, 10));
-      // Test with negative ranges
-      assertEquals(-2, MathUtil.clamp(-5, -2, 5));
-      assertEquals(5, MathUtil.clamp(10, -2, 5));
-      assertEquals(0, MathUtil.clamp(0, -2, 5));
-    }
-
-    @Test
-    @DisplayName("Test clamp with invalid range")
-    void testClamp_InvalidRange() {
+    void clamp_with_invalid_range_should_throw_exception() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.clamp(5.0, 10.0, 0.0));
       assertThrows(IllegalArgumentException.class, () -> MathUtil.clamp(5, 10, 0));
     }
 
     @Test
-    @DisplayName("Test clamp with special values")
-    void testClamp_SpecialValues() {
-      // Test with NaN
+    void clamp_with_nan_preserves_nan() {
       assertTrue(Double.isNaN(MathUtil.clamp(Double.NaN, 0.0, 10.0)));
+    }
 
-      // Test with infinity
-      assertEquals(10.0, MathUtil.clamp(Double.POSITIVE_INFINITY, 0.0, 10.0), 1e-10);
-      assertEquals(0.0, MathUtil.clamp(Double.NEGATIVE_INFINITY, 0.0, 10.0), 1e-10);
+    @ParameterizedTest
+    @CsvSource({
+      "0.0, 10.0, 0.0, 0.0", // Start
+      "0.0, 10.0, 0.5, 5.0", // Middle
+      "0.0, 10.0, 1.0, 10.0", // End
+      "5.0, 10.0, 0.5, 7.5", // Different range
+      "-10.0, 0.0, 0.5, -5.0", // Negative values
+      "0.0, 10.0, -0.5, -5.0", // Extrapolation below
+      "0.0, 10.0, 1.5, 15.0" // Extrapolation above
+    })
+    void linear_interpolation(double start, double end, double t, double expected) {
+      assertEquals(expected, MathUtil.lerp(start, end, t), 1e-10);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+      "0.0, 10.0, 0.0, 0.0",
+      "0.0, 10.0, 5.0, 0.5",
+      "0.0, 10.0, 10.0, 1.0",
+      "5.0, 10.0, 7.5, 0.5"
+    })
+    void inverse_linear_interpolation(double start, double end, double value, double expected) {
+      assertEquals(expected, MathUtil.invLerp(start, end, value), 1e-10);
     }
 
     @Test
-    @DisplayName("Test linear interpolation")
-    void testLerp() {
-      assertEquals(0.0, MathUtil.lerp(0.0, 10.0, 0.0), 1e-10);
-      assertEquals(5.0, MathUtil.lerp(0.0, 10.0, 0.5), 1e-10);
-      assertEquals(10.0, MathUtil.lerp(0.0, 10.0, 1.0), 1e-10);
-      assertEquals(7.5, MathUtil.lerp(5.0, 10.0, 0.5), 1e-10);
-
-      // Test with negative values
-      assertEquals(-5.0, MathUtil.lerp(-10.0, 0.0, 0.5), 1e-10);
-      assertEquals(0.0, MathUtil.lerp(-5.0, 5.0, 0.5), 1e-10);
-      // Test extrapolation
-      assertEquals(-5.0, MathUtil.lerp(0.0, 10.0, -0.5), 1e-10);
-      assertEquals(15.0, MathUtil.lerp(0.0, 10.0, 1.5), 1e-10);
-      // Test same start and end
-      assertEquals(5.0, MathUtil.lerp(5.0, 5.0, 0.5), 1e-10);
-    }
-
-    @Test
-    @DisplayName("Test inverse linear interpolation")
-    void testInvLerp() {
-      assertEquals(0.0, MathUtil.invLerp(0.0, 10.0, 0.0), 1e-10);
-      assertEquals(0.5, MathUtil.invLerp(0.0, 10.0, 5.0), 1e-10);
-      assertEquals(1.0, MathUtil.invLerp(0.0, 10.0, 10.0), 1e-10);
-      assertEquals(0.5, MathUtil.invLerp(5.0, 10.0, 7.5), 1e-10);
-      // Test with negative values
-      assertEquals(0.5, MathUtil.invLerp(-10.0, 0.0, -5.0), 1e-10);
-      assertEquals(0.5, MathUtil.invLerp(-5.0, 5.0, 0.0), 1e-10);
-
-      // Test extrapolation
-      assertEquals(-0.5, MathUtil.invLerp(0.0, 10.0, -5.0), 1e-10);
-      assertEquals(1.5, MathUtil.invLerp(0.0, 10.0, 15.0), 1e-10);
-    }
-
-    @Test
-    @DisplayName("Test invLerp with invalid range")
-    void testInvLerp_InvalidRange() {
+    void inverse_lerp_with_equal_start_and_end_should_throw_exception() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.invLerp(5.0, 5.0, 7.0));
     }
 
-    @Test
-    @DisplayName("Test map function")
-    void testMap() {
-      assertEquals(50.0, MathUtil.map(5.0, 0.0, 10.0, 0.0, 100.0), 1e-10);
-      assertEquals(0.0, MathUtil.map(0.0, 0.0, 10.0, 0.0, 100.0), 1e-10);
-      assertEquals(100.0, MathUtil.map(10.0, 0.0, 10.0, 0.0, 100.0), 1e-10);
-
-      // Test different ranges
-      assertEquals(15.0, MathUtil.map(0.5, 0.0, 1.0, 10.0, 20.0), 1e-10);
-      assertEquals(0.0, MathUtil.map(5.0, 0.0, 10.0, -10.0, 10.0), 1e-10);
-      // Test with negative source range
-      assertEquals(50.0, MathUtil.map(0.0, -5.0, 5.0, 0.0, 100.0), 1e-10);
-
-      // Test extrapolation
-      assertEquals(-50.0, MathUtil.map(-5.0, 0.0, 10.0, 0.0, 100.0), 1e-10);
-      assertEquals(150.0, MathUtil.map(15.0, 0.0, 10.0, 0.0, 100.0), 1e-10);
+    @ParameterizedTest
+    @CsvSource({
+      "5.0, 0.0, 10.0, 0.0, 100.0, 50.0",
+      "0.0, 0.0, 10.0, 0.0, 100.0, 0.0",
+      "10.0, 0.0, 10.0, 0.0, 100.0, 100.0"
+    })
+    void map_function(
+        double value, double fromMin, double fromMax, double toMin, double toMax, double expected) {
+      assertEquals(expected, MathUtil.map(value, fromMin, fromMax, toMin, toMax), 1e-10);
     }
 
     @Test
-    @DisplayName("Test map with invalid source range")
-    void testMap_InvalidRange() {
+    void map_with_invalid_source_range_should_throw_exception() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.map(5.0, 10.0, 10.0, 0.0, 100.0));
     }
 
-    @Test
-    @DisplayName("Test inRange")
-    void testInRange() {
-      assertTrue(MathUtil.inRange(5.0, 0.0, 10.0));
-      assertTrue(MathUtil.inRange(0.0, 0.0, 10.0));
-      assertTrue(MathUtil.inRange(10.0, 0.0, 10.0));
-      assertFalse(MathUtil.inRange(-1.0, 0.0, 10.0));
-      assertFalse(MathUtil.inRange(11.0, 0.0, 10.0));
-
-      // Test with negative ranges
-      assertTrue(MathUtil.inRange(0.0, -5.0, 5.0));
-      assertFalse(MathUtil.inRange(-6.0, -5.0, 5.0));
-      assertFalse(MathUtil.inRange(6.0, -5.0, 5.0));
-
-      // Test edge case
-      assertTrue(MathUtil.inRange(5.0, 5.0, 5.0)); // Single point range
+    @ParameterizedTest
+    @CsvSource({
+      "5.0, 0.0, 10.0, true",
+      "-1.0, 0.0, 10.0, false",
+      "11.0, 0.0, 10.0, false",
+      "0.0, 0.0, 10.0, true",
+      "10.0, 0.0, 10.0, true"
+    })
+    void in_range_checks(double value, double min, double max, boolean expected) {
+      assertEquals(expected, MathUtil.inRange(value, min, max));
     }
 
     @Test
-    @DisplayName("Test inRange with special values")
-    void testInRange_SpecialValues() {
-      // Test with NaN
+    void in_range_with_special_values() {
       assertFalse(MathUtil.inRange(Double.NaN, 0.0, 10.0));
-
-      // Test with infinity
       assertFalse(MathUtil.inRange(Double.POSITIVE_INFINITY, 0.0, 10.0));
       assertFalse(MathUtil.inRange(Double.NEGATIVE_INFINITY, 0.0, 10.0));
     }
 
-    @Test
-    @DisplayName("Test percentage calculation")
-    void testPercentage() {
-      assertEquals(0.5, MathUtil.percentage(5.0, 0.0, 10.0), 1e-10);
-      assertEquals(0.0, MathUtil.percentage(0.0, 0.0, 10.0), 1e-10);
-      assertEquals(1.0, MathUtil.percentage(10.0, 0.0, 10.0), 1e-10);
-      assertEquals(0.25, MathUtil.percentage(2.5, 0.0, 10.0), 1e-10);
-
-      // Test with negative range
-      assertEquals(0.5, MathUtil.percentage(0.0, -10.0, 10.0), 1e-10);
-      assertEquals(0.0, MathUtil.percentage(-10.0, -10.0, 10.0), 1e-10);
-      assertEquals(1.0, MathUtil.percentage(10.0, -10.0, 10.0), 1e-10);
-
-      // Test extrapolation
-      assertEquals(0.0, MathUtil.percentage(-5.0, 0.0, 10.0), 1e-10);
-      assertEquals(1.0, MathUtil.percentage(15.0, 0.0, 10.0), 1e-10);
+    @ParameterizedTest
+    @CsvSource({
+      "5.0, 0.0, 10.0, 0.5",
+      "0.0, 0.0, 10.0, 0.0",
+      "10.0, 0.0, 10.0, 1.0",
+      "-5.0, 0.0, 10.0, 0.0", // Clamped to 0.0
+      "15.0, 0.0, 10.0, 1.0" // Clamped to 1.0
+    })
+    void percentage_calculations(double value, double min, double max, double expected) {
+      assertEquals(expected, MathUtil.percentage(value, min, max), 1e-10);
     }
 
     @Test
-    @DisplayName("Test percentage with invalid range")
-    void testPercentage_InvalidRange() {
+    void percentage_with_zero_width_range_should_throw_exception() {
       assertThrows(IllegalArgumentException.class, () -> MathUtil.percentage(5.0, 10.0, 10.0));
     }
   }
 
-  // ================= Edge Cases and Special Values Tests =================
+  // ================= Edge Cases and Validation Tests =================
 
   @Nested
-  @DisplayName("Edge Cases and Special Values Tests")
-  class EdgeCasesTests {
+  class Edge_Cases_And_Validation_Tests {
 
     @Test
-    @DisplayName("Test methods with special double values")
-    void testSpecialDoubleValues() {
-      // Test with infinity
-      assertFalse(MathUtil.isEqualToZero(Double.POSITIVE_INFINITY));
-      assertFalse(MathUtil.isEqualToZero(Double.NEGATIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Double.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Double.NEGATIVE_INFINITY));
-
-      // Test with NaN
-      assertFalse(MathUtil.isEqualToZero(Double.NaN));
-      assertFalse(MathUtil.isDifferentFromZero(Double.NaN));
-      assertTrue(MathUtil.isEqual(Double.NaN, Double.NaN));
-      assertFalse(MathUtil.isDifferent(Double.NaN, Double.NaN));
+    void very_small_values_handling() {
+      assertAll(
+          "Very small values",
+          () -> assertTrue(MathUtil.isEqualToZero(1e-15)),
+          () -> assertTrue(MathUtil.isEqual(1e-15, 2e-15, 1e-9)),
+          () -> assertFalse(MathUtil.isDifferentFromZero(1e-15)),
+          () -> assertTrue(MathUtil.isEqualToZero(Double.MIN_VALUE)),
+          () -> assertTrue(MathUtil.isEqualToZero(Float.MIN_VALUE)));
     }
 
     @Test
-    @DisplayName("Test methods with special float values")
-    void testSpecialFloatValues() {
-      // Test with infinity
-      assertFalse(MathUtil.isEqualToZero(Float.POSITIVE_INFINITY));
-      assertFalse(MathUtil.isEqualToZero(Float.NEGATIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Float.POSITIVE_INFINITY));
-      assertTrue(MathUtil.isDifferentFromZero(Float.NEGATIVE_INFINITY));
-
-      // Test with NaN
-      assertFalse(MathUtil.isEqualToZero(Float.NaN));
-      assertFalse(MathUtil.isDifferentFromZero(Float.NaN));
-      assertTrue(MathUtil.isEqual(Float.NaN, Float.NaN));
-      assertFalse(MathUtil.isDifferent(Float.NaN, Float.NaN));
+    void extreme_value_calculations() {
+      assertAll(
+          "Extreme values",
+          () -> assertTrue(MathUtil.isEqual(Double.MAX_VALUE, Double.MAX_VALUE)),
+          () -> assertFalse(MathUtil.isDifferent(Double.MAX_VALUE, Double.MAX_VALUE)),
+          () -> assertEquals(100.0, MathUtil.clamp(Double.MAX_VALUE, 0.0, 100.0)),
+          () -> assertEquals(0.0, MathUtil.clamp(-Double.MAX_VALUE, 0.0, 100.0)));
     }
 
     @Test
-    @DisplayName("Test methods with very small values")
-    void testVerySmallValues() {
-      // Test with values smaller than epsilon
-      assertTrue(MathUtil.isEqualToZero(1e-15));
-      assertTrue(MathUtil.isEqual(1e-15, 2e-15, 1e-9));
-      assertFalse(MathUtil.isDifferentFromZero(1e-15));
-      // Test subnormal values
-      assertTrue(MathUtil.isEqualToZero(Double.MIN_VALUE));
-      assertTrue(MathUtil.isEqualToZero(Float.MIN_VALUE));
-    }
-
-    @Test
-    @DisplayName("Test custom epsilon methods")
-    void testCustomEpsilonMethods() {
-      // Test with custom epsilon values
-      assertTrue(MathUtil.isEqualToZero(0.001, 0.01));
-      assertFalse(MathUtil.isEqualToZero(0.1, 0.01));
-
-      assertTrue(MathUtil.isEqual(1.0, 1.01, 0.02));
-      assertFalse(MathUtil.isEqual(1.0, 1.05, 0.02));
-
-      assertTrue(MathUtil.isDifferent(1.0, 1.05, 0.02));
-      assertFalse(MathUtil.isDifferent(1.0, 1.01, 0.02));
-      // Test with zero epsilon
-      assertFalse(MathUtil.isEqual(1.0, 1.0001, 0.0));
-      assertTrue(MathUtil.isEqual(1.0, 1.0, 0.0));
-
-      // Test with very large epsilon
-      assertTrue(MathUtil.isEqual(1.0, 2.0, 10.0));
-      assertFalse(MathUtil.isDifferent(1.0, 2.0, 10.0));
-    }
-
-    @Test
-    @DisplayName("Test extreme value calculations")
-    void testExtremeValues() {
-      // Test with maximum values
-      assertTrue(MathUtil.isEqual(Double.MAX_VALUE, Double.MAX_VALUE));
-      assertFalse(MathUtil.isDifferent(Double.MAX_VALUE, Double.MAX_VALUE));
-
-      // Test with minimum positive values
-      assertTrue(MathUtil.isEqualToZero(Double.MIN_VALUE));
-      assertTrue(MathUtil.isEqualToZero(Float.MIN_VALUE));
-
-      // Test clamping with extreme values
-      assertEquals(100.0, MathUtil.clamp(Double.MAX_VALUE, 0.0, 100.0), 1e-10);
-      assertEquals(0.0, MathUtil.clamp(-Double.MAX_VALUE, 0.0, 100.0), 1e-10);
-    }
-  }
-
-  // ================= Additional Validation Tests =================
-
-  @Nested
-  @DisplayName("Additional Validation Tests")
-  class ValidationTests {
-
-    @Test
-    @DisplayName("Test validateFiniteValues behavior")
-    void testValidateFiniteValues() {
-      // These should not throw exceptions as they test internal validation
-      // We test this indirectly through methods that use validation
-
-      // Test geometric methods with invalid values
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.getOrientation(Double.NaN, 0, 1, 1));
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> MathUtil.getAzimuth(Double.POSITIVE_INFINITY, 0, 1, 1));
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> MathUtil.getDistance(0, Double.NEGATIVE_INFINITY, 1, 1));
-    }
-
-    @Test
-    @DisplayName("Test Point2D input validation")
-    void testPoint2DValidation() {
-      Point2D invalidPoint = new Point2D.Double(Double.NaN, 0);
-      Point2D validPoint = new Point2D.Double(1, 1);
-
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.getOrientation(invalidPoint, validPoint));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.getAzimuth(invalidPoint, validPoint));
-      assertThrows(
-          IllegalArgumentException.class, () -> MathUtil.getDistance(invalidPoint, validPoint));
-    }
-
-    @Test
-    @DisplayName("Test precision edge cases")
-    void testPrecisionEdgeCases() {
-      // Test values at the epsilon boundary
+    void precision_edge_cases() {
       double epsilon = MathUtil.DOUBLE_EPSILON;
-      assertTrue(MathUtil.isEqual(1.0, 1.0 + epsilon / 2));
-      assertFalse(MathUtil.isEqual(1.0, 1.0 + epsilon * 2));
-
       float floatEpsilon = MathUtil.FLOAT_EPSILON;
-      assertTrue(MathUtil.isEqual(1.0f, 1.0f + floatEpsilon / 2));
-      assertFalse(MathUtil.isEqual(1.0f, 1.0f + floatEpsilon * 2));
+
+      assertAll(
+          "Precision edge cases",
+          () -> assertTrue(MathUtil.isEqual(1.0, 1.0 + epsilon / 2)),
+          () -> assertFalse(MathUtil.isEqual(1.0, 1.0 + epsilon * 2)),
+          () -> assertTrue(MathUtil.isEqual(1.0f, 1.0f + floatEpsilon / 2)),
+          () -> assertFalse(MathUtil.isEqual(1.0f, 1.0f + floatEpsilon * 2)));
+    }
+
+    @Test
+    void point2d_input_validation() {
+      var invalidPoint = new Point2D.Double(Double.NaN, 0);
+      var validPoint = new Point2D.Double(1, 1);
+
+      assertAll(
+          "Point2D input validation",
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getOrientation(invalidPoint, validPoint)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getAzimuth(invalidPoint, validPoint)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.getDistance(invalidPoint, validPoint)));
+    }
+
+    @Test
+    void finite_value_validation() {
+      assertAll(
+          "Finite value validation",
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class, () -> MathUtil.lerp(Double.NaN, 1.0, 0.5)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.invLerp(Double.POSITIVE_INFINITY, 1.0, 0.5)),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> MathUtil.map(1.0, Double.NEGATIVE_INFINITY, 10.0, 0.0, 100.0)));
     }
   }
 }

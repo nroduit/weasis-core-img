@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Weasis Team and other contributors.
+ * Copyright (c) 2025 Weasis Team and other contributors.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse
  * Public License 2.0 which is available at https://www.eclipse.org/legal/epl-2.0, or the Apache
@@ -12,328 +12,307 @@ package org.weasis.opencv.op.lut;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
-import org.junit.jupiter.api.DisplayName;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.IntStream;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-@DisplayName("ColorLut Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ColorLutTest {
 
+  private static final int LUT_SIZE = 256;
+  private static final int CHANNEL_COUNT = 3;
+  private static final List<ColorLut> NON_IMAGE_LUTS =
+      List.of(
+          ColorLut.FLAG,
+          ColorLut.MULTICOLOR,
+          ColorLut.HUE,
+          ColorLut.RED,
+          ColorLut.GREEN,
+          ColorLut.BLUE,
+          ColorLut.GRAY);
+
   @Nested
-  @DisplayName("ByteLut Creation Tests")
-  class ByteLutCreationTests {
+  class Lut_Creation_Tests {
 
     @Test
-    @DisplayName("Should create IMAGE ColorLut with null LUT table")
-    void shouldCreateImageColorLutWithNullTable() {
-      assertNull(
-          ColorLut.IMAGE.getByteLut().lutTable(),
-          "IMAGE ColorLut should have null LUT table to use default gray LUT");
+    void image_lut_should_have_null_table() {
+      assertNull(ColorLut.IMAGE.getByteLut().lutTable());
     }
 
     @ParameterizedTest
     @EnumSource(
         value = ColorLut.class,
         names = {"FLAG", "MULTICOLOR", "HUE", "RED", "GREEN", "BLUE", "GRAY"})
-    @DisplayName("Should create non-IMAGE ColorLuts with valid LUT tables")
-    void shouldCreateNonImageColorLutsWithValidTables(ColorLut colorLut) {
-      byte[][] lutTable = colorLut.getByteLut().lutTable();
+    void non_image_luts_should_have_valid_structure(ColorLut colorLut) {
+      var lutTable = colorLut.getByteLut().lutTable();
 
-      assertNotNull(lutTable, colorLut.name() + " should have a non-null LUT table");
-      assertEquals(3, lutTable.length, colorLut.name() + " should have 3 color channels");
-
-      for (int channel = 0; channel < 3; channel++) {
-        assertNotNull(
-            lutTable[channel], colorLut.name() + " channel " + channel + " should not be null");
-        assertEquals(
-            256,
-            lutTable[channel].length,
-            colorLut.name() + " channel " + channel + " should have 256 entries");
-      }
-    }
-
-    @Test
-    @DisplayName("Should create ByteLut instances for all ColorLut values")
-    void shouldCreateByteLutInstancesForAllValues() {
-      for (ColorLut colorLut : ColorLut.values()) {
-        assertNotNull(
-            colorLut.getByteLut(), colorLut.name() + " should have a non-null ByteLut instance");
-      }
-    }
-  }
-
-  @Nested
-  @DisplayName("String Representation Tests")
-  class StringRepresentationTests {
-
-    @Test
-    @DisplayName("Should return correct names for all ColorLut values")
-    void shouldReturnCorrectNames() {
       assertAll(
-          "ColorLut names",
-          () -> assertEquals("Default (image)", ColorLut.IMAGE.getName()),
-          () -> assertEquals("Flag", ColorLut.FLAG.getName()),
-          () -> assertEquals("Multi-Color", ColorLut.MULTICOLOR.getName()),
-          () -> assertEquals("Hue", ColorLut.HUE.getName()),
-          () -> assertEquals("Red", ColorLut.RED.getName()),
-          () -> assertEquals("Green", ColorLut.GREEN.getName()),
-          () -> assertEquals("Blue", ColorLut.BLUE.getName()),
-          () -> assertEquals("Gray", ColorLut.GRAY.getName()));
+          () -> assertNotNull(lutTable),
+          () -> assertEquals(CHANNEL_COUNT, lutTable.length),
+          () ->
+              Arrays.stream(lutTable)
+                  .forEach(
+                      channel -> {
+                        assertNotNull(channel);
+                        assertEquals(LUT_SIZE, channel.length);
+                      }));
     }
 
     @Test
-    @DisplayName("Should have toString() consistent with getName()")
-    void shouldHaveToStringConsistentWithGetName() {
-      for (ColorLut colorLut : ColorLut.values()) {
-        assertEquals(
-            colorLut.getName(),
-            colorLut.toString(),
-            colorLut.name() + " toString() should match getName()");
-      }
+    void all_color_luts_should_have_byte_lut_instances() {
+      Arrays.stream(ColorLut.values()).forEach(colorLut -> assertNotNull(colorLut.getByteLut()));
     }
   }
 
   @Nested
-  @DisplayName("LUT Pattern Validation Tests")
-  class LutPatternValidationTests {
+  class String_Representation_Tests {
+
+    private static final List<LutNamePair> EXPECTED_NAMES =
+        List.of(
+            new LutNamePair(ColorLut.IMAGE, "Default (image)"),
+            new LutNamePair(ColorLut.FLAG, "Flag"),
+            new LutNamePair(ColorLut.MULTICOLOR, "Multi-Color"),
+            new LutNamePair(ColorLut.HUE, "Hue"),
+            new LutNamePair(ColorLut.RED, "Red"),
+            new LutNamePair(ColorLut.GREEN, "Green"),
+            new LutNamePair(ColorLut.BLUE, "Blue"),
+            new LutNamePair(ColorLut.GRAY, "Gray"));
 
     @Test
-    @DisplayName("Should create FLAG LUT with correct repeating pattern")
-    void shouldCreateFlagLutWithCorrectPattern() {
-      byte[][] flagLut = ColorLut.FLAG.getByteLut().lutTable();
+    void should_return_correct_names() {
+      EXPECTED_NAMES.forEach(pair -> assertEquals(pair.expectedName(), pair.colorLut().getName()));
+    }
 
-      // Flag pattern repeats every 4 values based on actual implementation
-      // Actual pattern from ColorLut: Red, White, Blue, Black
-      int[][] expectedRGB = {
-        {255, 0, 0}, // Red
-        {255, 255, 255}, // White
-        {0, 0, 255}, // Blue
-        {0, 0, 0} // Black
+    @Test
+    void to_string_should_match_get_name() {
+      Arrays.stream(ColorLut.values())
+          .forEach(colorLut -> assertEquals(colorLut.getName(), colorLut.toString()));
+    }
+
+    private record LutNamePair(ColorLut colorLut, String expectedName) {}
+  }
+
+  @Nested
+  class Pattern_Validation_Tests {
+
+    @Test
+    void flag_lut_should_have_correct_pattern() {
+      var flagLut = ColorLut.FLAG.getByteLut().lutTable();
+      var expectedPattern = createFlagPattern();
+
+      IntStream.range(0, 16)
+          .forEach(
+              i -> {
+                var patternIndex = i % expectedPattern.length;
+                var expected = expectedPattern[patternIndex];
+
+                assertAll(
+                    () -> assertEquals(expected.blue(), Byte.toUnsignedInt(flagLut[0][i])),
+                    () -> assertEquals(expected.green(), Byte.toUnsignedInt(flagLut[1][i])),
+                    () -> assertEquals(expected.red(), Byte.toUnsignedInt(flagLut[2][i])));
+              });
+    }
+
+    @Test
+    void single_channel_luts_should_activate_correct_channels() {
+      var singleChannelLuts =
+          List.of(
+              new ChannelTestData(ColorLut.RED, 2),
+              new ChannelTestData(ColorLut.GREEN, 1),
+              new ChannelTestData(ColorLut.BLUE, 0));
+
+      singleChannelLuts.forEach(this::verifySingleChannelLut);
+    }
+
+    @Test
+    void gray_lut_should_have_equal_rgb_values() {
+      var grayLut = ColorLut.GRAY.getByteLut().lutTable();
+
+      IntStream.range(0, LUT_SIZE)
+          .forEach(
+              i -> {
+                var blue = Byte.toUnsignedInt(grayLut[0][i]);
+                var green = Byte.toUnsignedInt(grayLut[1][i]);
+                var red = Byte.toUnsignedInt(grayLut[2][i]);
+
+                assertAll(
+                    () -> assertEquals(i, blue),
+                    () -> assertEquals(i, green),
+                    () -> assertEquals(i, red));
+              });
+    }
+
+    @Test
+    void hue_lut_should_match_hsb_color_mapping() {
+      var hueLut = ColorLut.HUE.getByteLut().lutTable();
+
+      IntStream.iterate(0, i -> i < LUT_SIZE, i -> i + 32)
+          .forEach(
+              i -> {
+                var expectedColor = Color.getHSBColor(i / 255f, 1f, 1f);
+
+                assertAll(
+                    () -> assertEquals(expectedColor.getBlue(), Byte.toUnsignedInt(hueLut[0][i])),
+                    () -> assertEquals(expectedColor.getGreen(), Byte.toUnsignedInt(hueLut[1][i])),
+                    () -> assertEquals(expectedColor.getRed(), Byte.toUnsignedInt(hueLut[2][i])));
+              });
+    }
+
+    @Test
+    void multicolor_lut_should_repeat_36_color_pattern() {
+      var multicolorLut = ColorLut.MULTICOLOR.getByteLut().lutTable();
+      var patternSize = 36;
+
+      IntStream.range(0, 72)
+          .forEach(
+              i -> {
+                var patternIndex = i % patternSize;
+
+                assertAll(
+                    () ->
+                        assertEquals(
+                            Byte.toUnsignedInt(multicolorLut[0][patternIndex]),
+                            Byte.toUnsignedInt(multicolorLut[0][i])),
+                    () ->
+                        assertEquals(
+                            Byte.toUnsignedInt(multicolorLut[1][patternIndex]),
+                            Byte.toUnsignedInt(multicolorLut[1][i])),
+                    () ->
+                        assertEquals(
+                            Byte.toUnsignedInt(multicolorLut[2][patternIndex]),
+                            Byte.toUnsignedInt(multicolorLut[2][i])));
+              });
+    }
+
+    private ColorRGB[] createFlagPattern() {
+      return new ColorRGB[] {
+        new ColorRGB(0, 0, 255), // Blue
+        new ColorRGB(255, 255, 255), // White
+        new ColorRGB(255, 0, 255), // Magenta
+        new ColorRGB(0, 0, 0) // Black
       };
-
-      for (int i = 0; i < 16; i++) { // Test first 16 entries to verify pattern
-        int patternIndex = i % 4;
-        int expectedRed = expectedRGB[patternIndex][0];
-        int expectedGreen = expectedRGB[patternIndex][1];
-        int expectedBlue = expectedRGB[patternIndex][2];
-
-        assertEquals(
-            expectedBlue, flagLut[0][i] & 0xFF, "FLAG LUT blue channel mismatch at index " + i);
-        assertEquals(
-            expectedGreen, flagLut[1][i] & 0xFF, "FLAG LUT green channel mismatch at index " + i);
-        assertEquals(
-            expectedRed, flagLut[2][i] & 0xFF, "FLAG LUT red channel mismatch at index " + i);
-      }
     }
 
-    @Test
-    @DisplayName("Should create single-channel LUTs with correct channel activation")
-    void shouldCreateSingleChannelLutsCorrectly() {
-      // Test RED LUT (channel 2 active)
-      byte[][] redLut = ColorLut.RED.getByteLut().lutTable();
-      for (int i = 0; i < 256; i++) {
-        assertEquals(0, redLut[0][i] & 0xFF, "RED LUT blue channel should be 0 at index " + i);
-        assertEquals(0, redLut[1][i] & 0xFF, "RED LUT green channel should be 0 at index " + i);
-        assertEquals(i, redLut[2][i] & 0xFF, "RED LUT red channel should equal index at " + i);
-      }
+    private void verifySingleChannelLut(ChannelTestData testData) {
+      var lut = testData.colorLut().getByteLut().lutTable();
 
-      // Test GREEN LUT (channel 1 active)
-      byte[][] greenLut = ColorLut.GREEN.getByteLut().lutTable();
-      for (int i = 0; i < 256; i++) {
-        assertEquals(0, greenLut[0][i] & 0xFF, "GREEN LUT blue channel should be 0 at index " + i);
-        assertEquals(
-            i, greenLut[1][i] & 0xFF, "GREEN LUT green channel should equal index at " + i);
-        assertEquals(0, greenLut[2][i] & 0xFF, "GREEN LUT red channel should be 0 at index " + i);
-      }
-
-      // Test BLUE LUT (channel 0 active)
-      byte[][] blueLut = ColorLut.BLUE.getByteLut().lutTable();
-      for (int i = 0; i < 256; i++) {
-        assertEquals(i, blueLut[0][i] & 0xFF, "BLUE LUT blue channel should equal index at " + i);
-        assertEquals(0, blueLut[1][i] & 0xFF, "BLUE LUT green channel should be 0 at index " + i);
-        assertEquals(0, blueLut[2][i] & 0xFF, "BLUE LUT red channel should be 0 at index " + i);
-      }
+      IntStream.range(0, LUT_SIZE)
+          .forEach(
+              i -> {
+                for (int channel = 0; channel < CHANNEL_COUNT; channel++) {
+                  var expected = channel == testData.activeChannel() ? i : 0;
+                  assertEquals(expected, Byte.toUnsignedInt(lut[channel][i]));
+                }
+              });
     }
 
-    @Test
-    @DisplayName("Should create GRAY LUT with equal RGB values")
-    void shouldCreateGrayLutWithEqualRgbValues() {
-      byte[][] grayLut = ColorLut.GRAY.getByteLut().lutTable();
+    private record ColorRGB(int red, int green, int blue) {}
 
-      for (int i = 0; i < 256; i++) {
-        int blueValue = grayLut[0][i] & 0xFF;
-        int greenValue = grayLut[1][i] & 0xFF;
-        int redValue = grayLut[2][i] & 0xFF;
-
-        assertEquals(i, blueValue, "GRAY LUT blue value should equal index at " + i);
-        assertEquals(i, greenValue, "GRAY LUT green value should equal index at " + i);
-        assertEquals(i, redValue, "GRAY LUT red value should equal index at " + i);
-
-        assertEquals(
-            blueValue, greenValue, "GRAY LUT blue and green should be equal at index " + i);
-        assertEquals(greenValue, redValue, "GRAY LUT green and red should be equal at index " + i);
-      }
-    }
-
-    @Test
-    @DisplayName("Should create HUE LUT with valid HSB color mapping")
-    void shouldCreateHueLutWithValidHsbMapping() {
-      byte[][] hueLut = ColorLut.HUE.getByteLut().lutTable();
-
-      // Test a few key points in the hue spectrum
-      for (int i = 0; i < 256; i += 64) { // Test every 64th entry
-        float hue = i / 255f;
-        Color expectedColor = Color.getHSBColor(hue, 1f, 1f);
-
-        int actualBlue = hueLut[0][i] & 0xFF;
-        int actualGreen = hueLut[1][i] & 0xFF;
-        int actualRed = hueLut[2][i] & 0xFF;
-
-        assertEquals(expectedColor.getBlue(), actualBlue, "HUE LUT blue mismatch at index " + i);
-        assertEquals(expectedColor.getGreen(), actualGreen, "HUE LUT green mismatch at index " + i);
-        assertEquals(expectedColor.getRed(), actualRed, "HUE LUT red mismatch at index " + i);
-      }
-    }
-
-    @Test
-    @DisplayName("Should create MULTICOLOR LUT with 36-color palette pattern")
-    void shouldCreateMulticolorLutWith36ColorPattern() {
-      byte[][] multicolorLut = ColorLut.MULTICOLOR.getByteLut().lutTable();
-
-      // Verify the pattern repeats every 36 values
-      for (int i = 0; i < 72; i++) { // Test first 72 entries (2 complete cycles)
-        int patternIndex = i % 36;
-        int expectedBlue = multicolorLut[0][patternIndex] & 0xFF;
-        int expectedGreen = multicolorLut[1][patternIndex] & 0xFF;
-        int expectedRed = multicolorLut[2][patternIndex] & 0xFF;
-
-        assertEquals(
-            expectedBlue,
-            multicolorLut[0][i] & 0xFF,
-            "MULTICOLOR LUT blue pattern mismatch at index " + i);
-        assertEquals(
-            expectedGreen,
-            multicolorLut[1][i] & 0xFF,
-            "MULTICOLOR LUT green pattern mismatch at index " + i);
-        assertEquals(
-            expectedRed,
-            multicolorLut[2][i] & 0xFF,
-            "MULTICOLOR LUT red pattern mismatch at index " + i);
-      }
-    }
+    private record ChannelTestData(ColorLut colorLut, int activeChannel) {}
   }
 
   @Nested
-  @DisplayName("Boundary Value Tests")
-  class BoundaryValueTests {
+  class Boundary_Tests {
 
     @ParameterizedTest
-    @EnumSource(ColorLut.class)
-    @DisplayName("Should have valid RGB values at LUT boundaries")
-    void shouldHaveValidRgbValuesAtBoundaries(ColorLut colorLut) {
-      if (colorLut == ColorLut.IMAGE) {
-        // IMAGE uses null table, so skip boundary testing
-        return;
-      }
+    @EnumSource(value = ColorLut.class, names = "IMAGE", mode = EnumSource.Mode.EXCLUDE)
+    void lut_values_should_be_valid_at_boundaries(ColorLut colorLut) {
+      var lutTable = colorLut.getByteLut().lutTable();
+      var boundaryIndices = List.of(0, LUT_SIZE - 1);
 
-      byte[][] lutTable = colorLut.getByteLut().lutTable();
-
-      // Test first entry (index 0)
-      for (int channel = 0; channel < 3; channel++) {
-        int value = lutTable[channel][0] & 0xFF;
-        assertTrue(
-            value >= 0 && value <= 255,
-            colorLut.name()
-                + " channel "
-                + channel
-                + " at index 0 should be valid RGB value: "
-                + value);
-      }
-
-      // Test last entry (index 255)
-      for (int channel = 0; channel < 3; channel++) {
-        int value = lutTable[channel][255] & 0xFF;
-        assertTrue(
-            value >= 0 && value <= 255,
-            colorLut.name()
-                + " channel "
-                + channel
-                + " at index 255 should be valid RGB value: "
-                + value);
-      }
+      boundaryIndices.forEach(
+          index ->
+              IntStream.range(0, CHANNEL_COUNT)
+                  .forEach(
+                      channel -> {
+                        var value = Byte.toUnsignedInt(lutTable[channel][index]);
+                        assertTrue(value >= 0 && value <= 255);
+                      }));
     }
 
     @Test
-    @DisplayName("Should have all ColorLut enum values covered")
-    void shouldHaveAllEnumValuesCovered() {
-      ColorLut[] expectedValues = {
-        ColorLut.IMAGE, ColorLut.FLAG, ColorLut.MULTICOLOR, ColorLut.HUE,
-        ColorLut.RED, ColorLut.GREEN, ColorLut.BLUE, ColorLut.GRAY
-      };
+    void should_have_expected_enum_values() {
+      var expectedLuts =
+          Set.of(
+              ColorLut.IMAGE,
+              ColorLut.FLAG,
+              ColorLut.MULTICOLOR,
+              ColorLut.HUE,
+              ColorLut.RED,
+              ColorLut.GREEN,
+              ColorLut.BLUE,
+              ColorLut.GRAY);
 
-      ColorLut[] actualValues = ColorLut.values();
-      assertEquals(
-          expectedValues.length,
-          actualValues.length,
-          "Number of ColorLut enum values should match expected count");
+      var actualLuts = Set.of(ColorLut.values());
 
-      for (ColorLut expected : expectedValues) {
-        boolean found = false;
-        for (ColorLut actual : actualValues) {
-          if (expected == actual) {
-            found = true;
-            break;
-          }
-        }
-        assertTrue(found, "Expected ColorLut value should exist: " + expected);
-      }
+      assertEquals(expectedLuts, actualLuts);
     }
   }
 
   @Nested
-  @DisplayName("Integration Tests")
-  class IntegrationTests {
+  class Color_Generation_Tests {
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 64, 128, 192, 255})
+    void single_channel_luts_should_generate_distinct_colors(int testIndex) {
+      var colorData =
+          List.of(
+              new ColorExpectation(ColorLut.RED, testIndex, testIndex, 0, 0),
+              new ColorExpectation(ColorLut.GREEN, testIndex, 0, testIndex, 0),
+              new ColorExpectation(ColorLut.BLUE, testIndex, 0, 0, testIndex),
+              new ColorExpectation(ColorLut.GRAY, testIndex, testIndex, testIndex, testIndex));
+
+      colorData.forEach(this::verifyColorExpectation);
+    }
 
     @Test
-    @DisplayName("Should generate different colors for different LUT types")
-    void shouldGenerateDifferentColorsForDifferentLutTypes() {
-      // Compare colors at middle index (128) for different LUTs
-      int testIndex = 128;
+    void different_luts_should_produce_different_colors() {
+      var testIndex = 128;
 
-      Color redColor = getColorFromLut(ColorLut.RED, testIndex);
-      Color greenColor = getColorFromLut(ColorLut.GREEN, testIndex);
-      Color blueColor = getColorFromLut(ColorLut.BLUE, testIndex);
-      Color grayColor = getColorFromLut(ColorLut.GRAY, testIndex);
+      var colors =
+          NON_IMAGE_LUTS.stream()
+              .collect(
+                  java.util.stream.Collectors.toMap(
+                      lut -> lut, lut -> extractColorFromLut(lut, testIndex)));
 
-      // RED LUT should have only red component
-      assertEquals(0, redColor.getBlue());
-      assertEquals(0, redColor.getGreen());
-      assertEquals(testIndex, redColor.getRed());
+      // Verify that single-channel LUTs produce expected distinct colors
+      var redColor = colors.get(ColorLut.RED);
+      var greenColor = colors.get(ColorLut.GREEN);
+      var blueColor = colors.get(ColorLut.BLUE);
 
-      // GREEN LUT should have only green component
-      assertEquals(0, greenColor.getBlue());
-      assertEquals(testIndex, greenColor.getGreen());
-      assertEquals(0, greenColor.getRed());
-
-      // BLUE LUT should have only blue component
-      assertEquals(testIndex, blueColor.getBlue());
-      assertEquals(0, blueColor.getGreen());
-      assertEquals(0, blueColor.getRed());
-
-      // GRAY LUT should have equal RGB components
-      assertEquals(testIndex, grayColor.getRed());
-      assertEquals(testIndex, grayColor.getGreen());
-      assertEquals(testIndex, grayColor.getBlue());
+      assertAll(
+          () -> assertNotEquals(redColor, greenColor),
+          () -> assertNotEquals(greenColor, blueColor),
+          () -> assertNotEquals(blueColor, redColor));
     }
 
-    private Color getColorFromLut(ColorLut colorLut, int index) {
-      byte[][] lutTable = colorLut.getByteLut().lutTable();
-      int red = lutTable[2][index] & 0xFF;
-      int green = lutTable[1][index] & 0xFF;
-      int blue = lutTable[0][index] & 0xFF;
-      return new Color(red, green, blue);
+    private void verifyColorExpectation(ColorExpectation expectation) {
+      var color = extractColorFromLut(expectation.colorLut(), expectation.index());
+
+      assertAll(
+          () -> assertEquals(expectation.expectedRed(), color.getRed()),
+          () -> assertEquals(expectation.expectedGreen(), color.getGreen()),
+          () -> assertEquals(expectation.expectedBlue(), color.getBlue()));
     }
+
+    private Color extractColorFromLut(ColorLut colorLut, int index) {
+      var lutTable = colorLut.getByteLut().lutTable();
+      return new Color(
+          Byte.toUnsignedInt(lutTable[2][index]), // Red
+          Byte.toUnsignedInt(lutTable[1][index]), // Green
+          Byte.toUnsignedInt(lutTable[0][index]) // Blue
+          );
+    }
+
+    private record ColorExpectation(
+        ColorLut colorLut, int index, int expectedRed, int expectedGreen, int expectedBlue) {}
   }
 }

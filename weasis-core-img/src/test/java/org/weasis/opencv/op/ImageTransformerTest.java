@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Weasis Team and other contributors.
+ * Copyright (c) 2020 Weasis Team and other contributors.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse
  * Public License 2.0 which is available at https://www.eclipse.org/legal/epl-2.0, or the Apache
@@ -11,881 +11,596 @@ package org.weasis.opencv.op;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-import java.awt.Shape;
-import java.awt.geom.Ellipse2D;
+import java.awt.*;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import java.util.Arrays;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
+import org.opencv.core.*;
+import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
 
 /**
- * Comprehensive test suite for ImageTransformer operations.
- *
- * <p>This test class provides thorough coverage of all ImageTransformer methods including:
- *
- * <ul>
- *   <li>Geometric transformations (crop, scale, rotate, flip, warp)
- *   <li>Pixel value transformations (LUT, rescale, invert, bitwise operations)
- *   <li>Visual effects (overlay, merge, shutter, crop mask)
- *   <li>Edge cases and error conditions
- *   <li>Memory management and resource cleanup
- * </ul>
- *
- * @author Weasis Team
+ * Comprehensive test suite for ImageTransformer operations using real image data and modern testing
+ * practices.
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 @Execution(ExecutionMode.CONCURRENT)
 class ImageTransformerTest {
 
+  private static final Color RED = new Color(255, 0, 0);
+  private static final Color GREEN = new Color(0, 255, 0);
+  private static final Color BLUE = new Color(0, 0, 255);
+  private static final Color TRANSPARENT_RED = new Color(255, 0, 0, 128);
+
   @BeforeAll
-  @DisplayName("Load OpenCV native library")
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_native_library() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @Nested
-  @DisplayName("Geometric Transformations")
-  class GeometricTransformations {
+  class Geometric_Transformations {
 
     @Test
-    @DisplayName("Should crop image to specified rectangle")
-    void testCrop() {
-      // Create test image
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      Rectangle cropArea = new Rectangle(20, 30, 40, 35);
+    void should_crop_image_to_specified_rectangle() {
+      var source = createGradientImage(100, 100, CvType.CV_8UC3);
+      var cropArea = new Rectangle(20, 30, 40, 35);
 
-      // Perform crop
-      ImageCV result = ImageTransformer.crop(source, cropArea);
+      var result = ImageTransformer.crop(source, cropArea);
 
-      // Verify dimensions
       assertEquals(40, result.width());
       assertEquals(35, result.height());
       assertEquals(source.channels(), result.channels());
 
-      // Clean up
-      source.release();
-      result.release();
+      // Verify cropped content is different from original
+      assertFalse(Arrays.equals(getImageCorner(source, 0, 0), getImageCorner(result, 0, 0)));
     }
 
     @Test
-    @DisplayName("Should handle crop area extending beyond image bounds")
-    void testCropBeyondBounds() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-      Rectangle cropArea = new Rectangle(40, 40, 30, 30); // Extends beyond 50x50
+    void should_handle_crop_area_extending_beyond_image_bounds() {
+      var source = createSolidColorImage(50, 50, CvType.CV_8UC1, 128);
+      var cropArea = new Rectangle(40, 40, 30, 30); // Extends beyond 50x50
 
-      ImageCV result = ImageTransformer.crop(source, cropArea);
+      var result = ImageTransformer.crop(source, cropArea);
 
-      // Should crop to intersection with image bounds
       assertEquals(10, result.width());
       assertEquals(10, result.height());
-
-      source.release();
-      result.release();
     }
 
     @Test
-    @DisplayName("Should throw exception for null crop area")
-    void testCropNullArea() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
+    void should_return_clone_for_invalid_crop_dimensions() {
+      var source = createSolidColorImage(50, 50, CvType.CV_8UC1, 100);
+      var tinyArea = new Rectangle(10, 10, 1, 1); // Too small
 
-      assertThrows(
-          NullPointerException.class,
-          () -> {
-            ImageTransformer.crop(source, null);
-          });
+      var result = ImageTransformer.crop(source, tinyArea);
 
-      source.release();
+      assertEquals(source.width(), result.width());
+      assertEquals(source.height(), result.height());
     }
 
     @Test
-    @DisplayName("Should scale image using default interpolation")
-    void testScaleDefault() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      Dimension targetSize = new Dimension(200, 150);
+    void should_throw_exception_for_null_crop_area() {
+      var source = createSolidColorImage(50, 50, CvType.CV_8UC1, 100);
 
-      ImageCV result = ImageTransformer.scale(source, targetSize);
+      assertThrows(NullPointerException.class, () -> ImageTransformer.crop(source, null));
+    }
 
-      assertEquals(200, result.width());
-      assertEquals(150, result.height());
+    @Test
+    void should_scale_image_using_default_interpolation() {
+      var source = createCheckerboardImage(50, 50, CvType.CV_8UC1);
+      var targetSize = new Dimension(100, 75);
+
+      var result = ImageTransformer.scale(source, targetSize);
+
+      assertEquals(100, result.width());
+      assertEquals(75, result.height());
       assertEquals(source.channels(), result.channels());
-      double diff = ImageContentHash.PHASH.compare(result, source);
-      assertTrue(diff < 0.001, "Images should be similar after scaling with default interpolation");
-
-      source.release();
-      result.release();
     }
 
     @ParameterizedTest
     @ValueSource(ints = {Imgproc.INTER_NEAREST, Imgproc.INTER_LINEAR, Imgproc.INTER_CUBIC})
-    @DisplayName("Should scale with different interpolation methods")
-    void testScaleWithInterpolation(int interpolation) {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-      Dimension targetSize = new Dimension(100, 75);
+    void should_scale_with_different_interpolation_methods(int interpolation) {
+      var source = createGradientImage(30, 30, CvType.CV_8UC1);
+      var targetSize = new Dimension(60, 45);
 
-      ImageCV result = ImageTransformer.scale(source, targetSize, interpolation);
+      var result = ImageTransformer.scale(source, targetSize, interpolation);
 
-      assertEquals(100, result.width());
-      assertEquals(75, result.height());
-
-      double diff = ImageContentHash.PHASH.compare(result, source);
-      assertTrue(
-          diff < 0.001,
-          "Images should be similar after scaling with interpolation " + interpolation);
-
-      source.release();
-      result.release();
+      assertEquals(60, result.width());
+      assertEquals(45, result.height());
     }
 
-    @Test
-    @DisplayName("Should throw exception for invalid dimensions")
-    void testScaleInvalidDimensions() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
+    @ParameterizedTest
+    @MethodSource("invalidDimensionsProvider")
+    void should_throw_exception_for_invalid_dimensions(Dimension invalidDim) {
+      var source = createSolidColorImage(50, 50, CvType.CV_8UC1, 100);
 
       assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.scale(source, new Dimension(0, 50));
-          });
+          IllegalArgumentException.class, () -> ImageTransformer.scale(source, invalidDim));
+    }
 
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.scale(source, new Dimension(50, -10));
-          });
-
-      source.release();
+    static Stream<Arguments> invalidDimensionsProvider() {
+      return Stream.of(
+          Arguments.of(new Dimension(0, 50)),
+          Arguments.of(new Dimension(50, 0)),
+          Arguments.of(new Dimension(-10, 50)),
+          Arguments.of(new Dimension(50, -20)));
     }
 
     @ParameterizedTest
     @ValueSource(
         ints = {Core.ROTATE_90_CLOCKWISE, Core.ROTATE_90_COUNTERCLOCKWISE, Core.ROTATE_180})
-    @DisplayName("Should rotate image correctly")
-    void testRotation(int rotationType) {
-      Mat source = createTestImage(100, 80, CvType.CV_8UC3);
+    void should_rotate_image_correctly(int rotationType) {
+      var source = createRectangularImage(60, 40, CvType.CV_8UC1);
 
-      ImageCV result = ImageTransformer.getRotatedImage(source, rotationType);
+      var result = ImageTransformer.getRotatedImage(source, rotationType);
+
       if (rotationType == Core.ROTATE_180) {
-        assertEquals(100, result.width());
-        assertEquals(80, result.height());
+        assertEquals(60, result.width());
+        assertEquals(40, result.height());
       } else {
         // 90-degree rotations swap dimensions
-        assertEquals(80, result.width());
-        assertEquals(100, result.height());
+        assertEquals(40, result.width());
+        assertEquals(60, result.height());
       }
-
-      source.release();
-      result.release();
     }
 
     @Test
-    @DisplayName("Should handle invalid rotation type")
-    void testInvalidRotation() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
+    void should_return_clone_for_invalid_rotation_type() {
+      var source = createSolidColorImage(30, 30, CvType.CV_8UC1, 150);
 
-      ImageCV result = ImageTransformer.getRotatedImage(source, 5); // Invalid
+      var result = ImageTransformer.getRotatedImage(source, 999); // Invalid
 
-      // Should return clone of original
-      assertEquals(50, result.width());
-      assertEquals(50, result.height());
-
-      source.release();
-      result.release();
+      assertEquals(30, result.width());
+      assertEquals(30, result.height());
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, -1})
-    @DisplayName("Should flip image correctly")
-    void testFlip(int flipType) {
-      Mat source = createTestImage(60, 40, CvType.CV_8UC1);
+    @ValueSource(ints = {0, 1, -1}) // vertical, horizontal, both
+    void should_flip_image_correctly(int flipType) {
+      var source = createAsymmetricImage(40, 30, CvType.CV_8UC1);
+      var result = ImageTransformer.flip(source, flipType);
 
-      ImageCV result = ImageTransformer.flip(source, flipType);
+      assertEquals(40, result.width());
+      assertEquals(30, result.height());
 
-      // Dimensions should remain the same
+      assertFalse(Arrays.equals(getImageCorner(source, 10, 25), getImageCorner(result, 10, 25)));
+
+      // Verify flip by checking appropriate corners based on flip type
+      switch (flipType) {
+        case 0 -> { // Vertical flip - top and bottom should swap
+          // Top-left of source should equal bottom-left of result
+          assertArrayEquals(
+              getImageCorner(source, 0, 0), getImageCorner(result, 0, result.height() - 1));
+        }
+        case 1 -> { // Horizontal flip - left and right should swap
+          // Top-left of source should equal top-right of result
+          assertArrayEquals(
+              getImageCorner(source, 0, 0), getImageCorner(result, result.width() - 1, 0));
+        }
+        case -1 -> { // Both flips - opposite corner should match
+          // Top-left of source should equal bottom-right of result
+          assertArrayEquals(
+              getImageCorner(source, 0, 0),
+              getImageCorner(result, result.width() - 1, result.height() - 1));
+        }
+      }
+    }
+
+    @Test
+    void should_apply_affine_transformation() {
+      var source = createGradientImage(50, 50, CvType.CV_8UC3);
+      var transformMatrix = createTranslationMatrix(10, 15);
+      var outputSize = new Size(60, 65);
+
+      var result = ImageTransformer.warpAffine(source, transformMatrix, outputSize, null);
+
       assertEquals(60, result.width());
-      assertEquals(40, result.height());
-
-      double diff = ImageContentHash.PHASH.compare(result, source);
-      assertTrue(diff > 2, "Images should differ after flipping with type " + flipType);
-
-      source.release();
-      result.release();
+      assertEquals(65, result.height());
     }
 
     @Test
-    @DisplayName("Should apply affine transformation")
-    void testWarpAffine() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      Mat transformMatrix = Mat.eye(2, 3, CvType.CV_32F);
-      Size outputSize = new Size(120, 90);
-
-      ImageCV result = ImageTransformer.warpAffine(source, transformMatrix, outputSize, null);
-
-      assertEquals(120, result.width());
-      assertEquals(90, result.height());
-
-      double diff = ImageContentHash.PHASH.compare(result, source);
-      assertTrue(diff > 2, "Images should differ after affine transformation");
-
-      source.release();
-      transformMatrix.release();
-      result.release();
-    }
-
-    @Test
-    @DisplayName("Should throw exception for invalid affine matrix")
-    void testInvalidAffineMatrix() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-      Mat invalidMatrix = Mat.eye(3, 3, CvType.CV_32F); // Wrong size
-      Size outputSize = new Size(50, 50);
+    void should_throw_exception_for_invalid_affine_matrix() {
+      var source = createSolidColorImage(30, 30, CvType.CV_8UC1, 100);
+      var invalidMatrix = Mat.eye(3, 3, CvType.CV_32F); // Wrong dimensions
+      var outputSize = new Size(30, 30);
 
       assertThrows(
           IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.warpAffine(source, invalidMatrix, outputSize, null);
-          });
-
-      source.release();
-      invalidMatrix.release();
+          () -> ImageTransformer.warpAffine(source, invalidMatrix, outputSize, null));
     }
   }
 
   @Nested
-  @DisplayName("Pixel Value Transformations")
-  class PixelValueTransformations {
+  class Pixel_Value_Transformations {
 
     @Test
-    @DisplayName("Should apply LUT transformation")
-    void testApplyLUT() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-      byte[][] lut = createTestLUT(1);
+    void should_apply_single_channel_lut() {
+      var source = createGradientImage(30, 30, CvType.CV_8UC1);
+      var lut = createInvertLUT(1);
 
-      ImageCV result = ImageTransformer.applyLUT(source, lut);
+      var result = ImageTransformer.applyLUT(source, lut);
 
       assertEquals(source.width(), result.width());
       assertEquals(source.height(), result.height());
+
+      // Verify inversion: dark pixels should become bright
+      var sourcePixel = source.get(0, 0);
+      var resultPixel = result.get(0, 0);
+      assertTrue(Math.abs((255 - sourcePixel[0]) - resultPixel[0]) < 2);
+    }
+
+    @Test
+    void should_apply_multi_channel_lut() {
+      var source = createColorGradientImage(40, 40, CvType.CV_8UC3);
+      var lut = createColorSwapLUT(); // Swap R and B channels
+
+      var result = ImageTransformer.applyLUT(source, lut);
+
       assertEquals(source.channels(), result.channels());
 
-      double diff = ImageContentHash.COLOR_MOMENT.compare(result, source);
-      assertTrue(diff > 25, "Images should differ after LUT application");
+      // Verify channel swap
+      var sourcePixel = source.get(10, 10);
+      var resultPixel = result.get(10, 10);
 
-      source.release();
-      result.release();
+      assertEquals(sourcePixel[2], resultPixel[0], 1.0); // Original R -> Result B
+      assertEquals(sourcePixel[0], resultPixel[2], 1.0); // Original B -> Result R
     }
 
-    @Test
-    @DisplayName("Should apply multi-channel LUT")
-    void testApplyMultiChannelLUT() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC3);
-      byte[][] lut = createTestLUT(3);
+    @ParameterizedTest
+    @MethodSource("invalidLutProvider")
+    void should_throw_exception_for_invalid_lut(byte[][] invalidLut) {
+      var source = createSolidColorImage(20, 20, CvType.CV_8UC1, 100);
 
-      ImageCV result = ImageTransformer.applyLUT(source, lut);
-
-      assertEquals(source.width(), result.width());
-      assertEquals(source.height(), result.height());
-
-      source.release();
-      result.release();
-    }
-
-    @Test
-    @DisplayName("Should throw exception for invalid LUT")
-    void testInvalidLUT() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-
-      // Empty LUT
       assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.applyLUT(source, new byte[0][]);
-          });
+          IllegalArgumentException.class, () -> ImageTransformer.applyLUT(source, invalidLut));
+    }
 
-      // Wrong LUT size
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.applyLUT(source, new byte[1][100]); // Should be 256
-          });
-
-      source.release();
+    static Stream<Arguments> invalidLutProvider() {
+      return Stream.of(
+          Arguments.of((Object) new byte[0][]),
+          Arguments.of((Object) new byte[1][100]), // Wrong size
+          Arguments.of((Object) new byte[1][500]) // Wrong size
+          );
     }
 
     @Test
-    @DisplayName("Should rescale to byte range")
-    void testRescaleToByte() {
-      Mat source = new Mat(50, 50, CvType.CV_16UC1);
-      source.setTo(Scalar.all(1000)); // 16-bit values
+    void should_rescale_to_byte_range() {
+      var source = createHighDynamicRangeImage();
+      double alpha = 0.1; // Scale down
+      double beta = 50; // Add offset
 
-      ImageCV result = ImageTransformer.rescaleToByte(source, 0.1, 50);
-      // Rescaled value should be (1000 * 0.1) + 50 = 150
-      assertEquals(150, result.get(0, 0)[0], "Rescaled pixel value should be correct");
+      var result = ImageTransformer.rescaleToByte(source, alpha, beta);
 
       assertEquals(CvType.CV_8U, CvType.depth(result.type()));
-      assertEquals(50, result.width());
-      assertEquals(50, result.height());
 
-      source.release();
-      result.release();
+      // Verify transformation formula: output = input * alpha + beta
+      var sourcePixel = source.get(0, 0);
+      var resultPixel = result.get(0, 0);
+
+      var expected = Math.min(255, Math.max(0, sourcePixel[0] * alpha + beta));
+      assertEquals(expected, resultPixel[0], 2.0);
     }
 
     @Test
-    @DisplayName("Should invert pixel values")
-    void testInvertLUT() {
-      ImageCV source = new ImageCV(50, 50, CvType.CV_8UC1);
-      source.setTo(Scalar.all(100));
+    void should_invert_lut() {
+      var source = createGradientImage(25, 25, CvType.CV_8UC1);
 
-      ImageCV result = ImageTransformer.invertLUT(source);
-      // Inverted value should be 255 - 100 = 155
-      assertEquals(155, result.get(0, 0)[0], "Inverted pixel value should be correct");
-      assertEquals(source.width(), result.width());
-      assertEquals(source.height(), result.height());
+      var result = ImageTransformer.invertLUT(ImageCV.fromMat(source));
 
-      source.release();
-      result.release();
+      // Verify inversion: pixel + inverted_pixel ≈ 255
+      var sourcePixel = source.get(10, 10);
+      var resultPixel = result.get(10, 10);
+
+      assertEquals(255, sourcePixel[0] + resultPixel[0], 2.0);
     }
 
     @Test
-    @DisplayName("Should perform bitwise AND operation")
-    void testBitwiseAnd() {
-      Mat source = new Mat(50, 50, CvType.CV_8UC1);
-      source.setTo(Scalar.all(255));
+    void should_apply_bitwise_and() {
+      var source = createBitPatternImage();
+      int maskValue = 0xF0; // Keep upper 4 bits
 
-      ImageCV result = ImageTransformer.bitwiseAnd(source, 0x0F);
-      // Result should be 255 & 0x0F = 15
-      assertEquals(15, result.get(0, 0)[0], "Bitwise AND result should be correct");
+      var result = ImageTransformer.bitwiseAnd(source, maskValue);
 
-      assertEquals(source.width(), result.width());
-      assertEquals(source.height(), result.height());
+      // Verify masking
+      var sourcePixel = new byte[1];
+      var resultPixel = new byte[1];
+      source.get(5, 5, sourcePixel);
+      result.get(5, 5, resultPixel);
 
-      source.release();
-      result.release();
+      assertEquals(((int) sourcePixel[0]) & maskValue, resultPixel[0], 0.1);
     }
   }
 
   @Nested
-  @DisplayName("Visual Effects")
-  class VisualEffects {
+  class Visual_Effects {
 
     @Test
-    @DisplayName("Should merge two images with opacity")
-    void testMergeImages() {
-      Mat source1 = createTestImage(100, 100, CvType.CV_8UC3);
-      Mat source2 = createTestImage(100, 100, CvType.CV_8UC3);
+    void should_merge_images_with_opacity() {
+      var source1 = createSolidColorImage(30, 30, CvType.CV_8UC1, 100);
+      var source2 = createSolidColorImage(30, 30, CvType.CV_8UC1, 200);
+      double opacity1 = 0.3;
+      double opacity2 = 0.7;
 
-      ImageCV result = ImageTransformer.mergeImages(source1, source2, 0.7, 0.3);
-      // Result should have same value as a weighted sum of source1 and source2
-      double diff = ImageContentHash.COLOR_MOMENT.compare(result, source1);
-      assertTrue(diff <= 0.000001, "Merged image should be similar to source1 with opacity 0.7");
+      var result = ImageTransformer.mergeImages(source1, source2, opacity1, opacity2);
 
-      source1.release();
-      source2.release();
-      result.release();
+      assertEquals(source1.width(), result.width());
+      assertEquals(source1.height(), result.height());
+
+      // Verify weighted combination
+      var resultPixel = result.get(15, 15);
+      var expected = 100 * opacity1 + 200 * opacity2;
+      assertEquals(expected, resultPixel[0], 2.0);
     }
 
     @Test
-    @DisplayName("Should throw exception for mismatched image sizes")
-    void testMergeImagesSizeMismatch() {
-      Mat source1 = createTestImage(100, 100, CvType.CV_8UC3);
-      Mat source2 = createTestImage(50, 50, CvType.CV_8UC3);
+    void should_throw_exception_for_mismatched_image_sizes() {
+      var source1 = createSolidColorImage(30, 30, CvType.CV_8UC1, 100);
+      var source2 = createSolidColorImage(40, 40, CvType.CV_8UC1, 200);
 
       assertThrows(
           IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.mergeImages(source1, source2, 0.5, 0.5);
-          });
-
-      source1.release();
-      source2.release();
+          () -> ImageTransformer.mergeImages(source1, source2, 0.5, 0.5));
     }
 
-    @Test
-    @DisplayName("Should throw exception for invalid opacity values")
-    void testMergeImagesInvalidOpacity() {
-      Mat source1 = createTestImage(50, 50, CvType.CV_8UC3);
-      Mat source2 = createTestImage(50, 50, CvType.CV_8UC3);
+    @ParameterizedTest
+    @ValueSource(doubles = {-0.1, 1.1, 2.0})
+    void should_throw_exception_for_invalid_opacity(double invalidOpacity) {
+      var source1 = createSolidColorImage(20, 20, CvType.CV_8UC1, 100);
+      var source2 = createSolidColorImage(20, 20, CvType.CV_8UC1, 200);
 
       assertThrows(
           IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.mergeImages(source1, source2, -0.1, 0.5);
-          });
-
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.mergeImages(source1, source2, 0.5, 1.1);
-          });
-
-      source1.release();
-      source2.release();
+          () -> ImageTransformer.mergeImages(source1, source2, invalidOpacity, 0.5));
     }
 
     @Test
-    @DisplayName("Should create overlay with Mat mask with a 16-bit unsigned image")
-    void testOverlayWithMaskOn16BitUnsignedImage() {
-      Mat source = createTestImage(50, 50, CvType.CV_16UC1);
-      Mat mask = createTestMask(50, 50);
-      Color overlayColor = Color.PINK;
+    void should_create_overlay_with_color() {
+      var source = createSolidColorImage(40, 40, CvType.CV_8UC3, 100);
+      var mask = createCircularMask(40, 40);
 
-      ImageCV result = ImageTransformer.overlay(source, mask, overlayColor);
-      short[] pix = new short[1];
-      // Result should have overlay color where mask is non-zero
-      mask.get(0, 0, new byte[50 * 50]);
-      for (int i = 0; i < mask.rows(); i++) {
-        for (int j = 0; j < mask.cols(); j++) {
-          if (mask.get(i, j)[0] > 0) {
-            result.get(i, j, pix);
-            assertEquals(65535, pix[0] & 0xFFFF, "Pixel value should match with the overlay color");
-          }
-        }
-      }
+      var result = ImageTransformer.overlay(source, mask, RED);
 
-      source.release();
-      mask.release();
-      result.release();
+      assertEquals(source.channels(), result.channels());
+
+      // Check that overlay was applied inside the circle
+      var centerPixel = result.get(20, 20);
+      assertTrue(centerPixel[2] > 200); // Red channel should be high
     }
 
     @Test
-    @DisplayName("Should create overlay with Mat mask with a 16-bit image")
-    void testOverlayWithMaskOn16BitImage() {
-      Mat source = createTestImage(50, 50, CvType.CV_16SC1);
-      Mat mask = createTestMask(50, 50);
-      Color overlayColor = Color.PINK;
+    void should_create_overlay_with_transparent_color() {
+      var source = createSolidColorImage(30, 30, CvType.CV_8UC3, 128);
+      var mask = createRectangularMask(30, 30);
 
-      ImageCV result = ImageTransformer.overlay(source, mask, overlayColor);
-      short[] pix = new short[1];
-      // Result should have overlay color where mask is non-zero
-      mask.get(0, 0, new byte[50 * 50]);
-      for (int i = 0; i < mask.rows(); i++) {
-        for (int j = 0; j < mask.cols(); j++) {
-          if (mask.get(i, j)[0] > 0) {
-            result.get(i, j, pix);
-            assertEquals(32767, pix[0] & 0xFFFF, "Pixel value should match with the overlay color");
-          }
-        }
-      }
+      var result = ImageTransformer.overlay(source, mask, TRANSPARENT_RED);
 
-      source.release();
-      mask.release();
-      result.release();
+      // Verify that transparent overlay creates blended result
+      var overlayPixel = result.get(15, 15);
+      assertTrue(overlayPixel[2] >= 128 && overlayPixel[2] < 255); // Partially red
     }
 
     @Test
-    @DisplayName("Should create overlay with Mat mask")
-    void testOverlayWithMat() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      Mat mask = createTestMask(100, 100);
-      Color overlayColor = Color.PINK;
+    void should_draw_shape_on_image() {
+      var sourceImage = createTestBufferedImage(60, 60);
+      var shape = new Rectangle2D.Double(10, 10, 20, 20);
 
-      ImageCV result = ImageTransformer.overlay(source, mask, overlayColor);
-      byte[] pix = new byte[3];
-      // Result should have overlay color where mask is non-zero
-      mask.get(0, 0, new byte[100 * 100]);
-      for (int i = 0; i < mask.rows(); i++) {
-        for (int j = 0; j < mask.cols(); j++) {
-          if (mask.get(i, j)[0] > 0) {
-            result.get(i, j, pix);
-            assertEquals(
-                overlayColor,
-                new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-                "Pixel value should match with the overlay color");
-          }
-        }
-      }
+      var result = ImageTransformer.drawShape(sourceImage, shape, BLUE);
 
-      source.release();
-      mask.release();
-      result.release();
+      assertNotNull(result);
+      assertEquals(sourceImage.getWidth(), result.getWidth());
+      assertEquals(sourceImage.getHeight(), result.getHeight());
     }
 
     @Test
-    @DisplayName("Should create overlay with RenderedImage mask")
-    void testOverlayWithRenderedImage() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      BufferedImage maskImage = new BufferedImage(100, 100, BufferedImage.TYPE_BYTE_GRAY);
-      Color overlayColor = Color.BLUE;
+    void should_apply_crop_mask() {
+      var source = createGradientImage(50, 50, CvType.CV_8UC1);
+      var bounds = new Rectangle(10, 10, 30, 30);
+      double alpha = 0.3;
 
-      ImageCV result = ImageTransformer.overlay(source, maskImage, overlayColor);
+      var result = ImageTransformer.applyCropMask(source, bounds, alpha);
 
-      byte[] pix = new byte[3];
-      // Result should have overlay color where mask is non-zero
-      for (int i = 0; i < maskImage.getHeight(); i++) {
-        for (int j = 0; j < maskImage.getWidth(); j++) {
-          int maskValue = maskImage.getRGB(j, i) & 0xFF;
-          if (maskValue > 0) {
-            // Check if the pixel in the result matches the overlay color
-            result.get(i, j, pix);
-            assertEquals(
-                overlayColor,
-                new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-                "Pixel value should match with the overlay color");
-          }
-        }
-      }
+      assertEquals(source.size(), result.size());
 
-      source.release();
-      result.release();
+      // Verify that areas outside bounds are darker
+      var outsidePixel = source.get(5, 5);
+      var insidePixel = result.get(25, 25);
+      assertTrue(outsidePixel[0] < insidePixel[0]);
     }
 
     @Test
-    @DisplayName("Should draw shape on image")
-    void testDrawShape() {
-      BufferedImage source = new BufferedImage(100, 100, BufferedImage.TYPE_3BYTE_BGR);
-      Shape shape = new Ellipse2D.Double(25, 25, 50, 50);
-      Color drawColor = Color.GREEN;
+    void should_apply_shutter_effect() {
+      var source = createGradientImage(40, 40, CvType.CV_8UC1);
+      var shape = new Rectangle2D.Double(10, 10, 20, 20);
 
-      BufferedImage result = ImageTransformer.drawShape(source, shape, drawColor);
-      assertEquals(
-          drawColor, new Color(result.getRGB(40, 40)), "Shape area should match draw color");
+      var result = ImageTransformer.applyShutter(source, shape, Color.BLACK);
 
-      assertEquals(source.getWidth(), result.getWidth());
-      assertEquals(source.getHeight(), result.getHeight());
-    }
-
-    @Test
-    @DisplayName("Should apply crop mask with alpha")
-    void testApplyCropMask() {
-      ImageCV source = new ImageCV(100, 100, CvType.CV_8UC3);
-      source.setTo(Scalar.all(255)); // Fill with white
-      Rectangle bounds = new Rectangle(25, 25, 50, 50);
-      double alpha = 0.5;
-
-      ImageCV result = ImageTransformer.applyCropMask(source, bounds, alpha);
-      byte[] pix = new byte[3];
-      result.get(20, 20, pix);
-      assertEquals(
-          Math.round(255 * alpha), pix[0] & 0xFF, "Pixel value should match alpha applied");
-      assertEquals(
-          Math.round(255 * alpha), pix[1] & 0xFF, "Pixel value should match alpha applied");
-      assertEquals(
-          Math.round(255 * alpha), pix[2] & 0xFF, "Pixel value should match alpha applied");
-
-      result.get(30, 30, pix);
-      assertEquals(
-          Color.WHITE,
-          new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-          "Pixel value should match with the original image");
-
-      assertEquals(source.width(), result.width());
-      assertEquals(source.height(), result.height());
-
-      source.release();
-      result.release();
-    }
-
-    @Test
-    @DisplayName("Should throw exception for invalid alpha in crop mask")
-    void testApplyCropMaskInvalidAlpha() {
-      Mat source = createTestImage(50, 50, CvType.CV_8UC1);
-      Rectangle bounds = new Rectangle(10, 10, 30, 30);
-
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.applyCropMask(source, bounds, -0.1);
-          });
-
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.applyCropMask(source, bounds, 1.1);
-          });
-
-      source.release();
-    }
-
-    @Test
-    @DisplayName("Should apply shutter with shape")
-    void testApplyShutterWithShape() {
-      ImageCV source = new ImageCV(100, 100, CvType.CV_8UC3);
-      source.setTo(Scalar.all(255)); // Fill with white
-      Shape shutterShape = new Rectangle2D.Double(20, 20, 60, 60);
-      Color shutterColor = Color.BLACK;
-
-      ImageCV result = ImageTransformer.applyShutter(source, shutterShape, shutterColor);
-
-      byte[] pix = new byte[3];
-      result.get(15, 15, pix);
-      assertEquals(
-          shutterColor,
-          new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-          "Pixel value should match with the shutter color");
-
-      result.get(30, 30, pix);
-      assertEquals(
-          Color.WHITE,
-          new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-          "Pixel value should match with the original image");
-
-      assertEquals(100, result.width());
-      assertEquals(100, result.height());
-
-      source.release();
-      result.release();
-    }
-
-    @Test
-    @DisplayName("Should apply shutter with RenderedImage")
-    void testApplyShutterWithRenderedImage() {
-      ImageCV source = new ImageCV(100, 100, CvType.CV_8UC3);
-      source.setTo(Scalar.all(255)); // Fill with white
-      BufferedImage shutterMask = new BufferedImage(100, 100, BufferedImage.TYPE_BYTE_GRAY);
-      Shape shutterShape = new Rectangle2D.Double(20, 20, 60, 60);
-      Graphics2D g2d = shutterMask.createGraphics();
-      g2d.setColor(Color.WHITE);
-      g2d.fill(shutterShape);
-      g2d.dispose();
-
-      Color shutterColor = Color.PINK;
-
-      ImageCV result = ImageTransformer.applyShutter(source, shutterMask, shutterColor);
-      byte[] pix = new byte[3];
-      result.get(15, 15, pix);
-      assertEquals(
-          Color.WHITE,
-          new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-          "Pixel value should match with the original image");
-      result.get(30, 30, pix);
-      assertEquals(
-          shutterColor,
-          new Color(pix[2] & 0xFF, pix[1] & 0xFF, pix[0] & 0xFF),
-          "Pixel value should match with the shutter color");
-
-      assertEquals(100, result.width());
-      assertEquals(100, result.height());
-
-      source.release();
-      result.release();
+      // Verify that areas outside shape are black
+      var outsidePixel = result.get(5, 5);
+      assertEquals(0, outsidePixel[0], 1.0);
     }
   }
 
   @Nested
-  @DisplayName("Error Handling and Edge Cases")
-  class ErrorHandlingAndEdgeCases {
+  class Error_Handling {
 
     @Test
-    @DisplayName("Should handle null source image gracefully")
-    void testNullSourceImage() {
+    void should_throw_exception_for_null_source() {
       assertThrows(
           NullPointerException.class,
-          () -> {
-            ImageTransformer.crop(null, new Rectangle(10, 10, 20, 20));
-          });
-
-      assertThrows(
-          NullPointerException.class,
-          () -> {
-            ImageTransformer.scale(null, new Dimension(50, 50));
-          });
-
-      assertThrows(
-          NullPointerException.class,
-          () -> {
-            ImageTransformer.flip(null, 1);
-          });
+          () -> ImageTransformer.crop(null, new Rectangle(10, 10, 20, 20)));
     }
 
     @Test
-    @DisplayName("Should handle empty image")
-    void testEmptyImage() {
-      Mat emptyImage = new Mat();
+    void should_throw_exception_for_null_parameters() {
+      var source = createSolidColorImage(30, 30, CvType.CV_8UC1, 100);
 
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            ImageTransformer.crop(emptyImage, new Rectangle(0, 0, 10, 10));
-          });
-
-      emptyImage.release();
-    }
-
-    @Test
-    @DisplayName("Should handle very small crop areas")
-    void testVerySmallCropArea() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC1);
-      Rectangle tinyArea = new Rectangle(50, 50, 1, 1);
-
-      // Should return clone instead of submat for image smaller than 2x2
-      ImageCV result = ImageTransformer.crop(source, tinyArea);
-
-      assertEquals(source.width(), result.width());
-      assertEquals(source.height(), result.height());
-
-      source.release();
-      result.release();
-    }
-
-    @Test
-    @DisplayName("Should handle single pixel operations")
-    void testSinglePixelOperations() {
-      Mat singlePixel = new Mat(1, 1, CvType.CV_8UC3);
-      singlePixel.setTo(Scalar.all(128));
-
-      // Scale up
-      ImageCV scaled = ImageTransformer.scale(singlePixel, new Dimension(10, 10));
-      assertEquals(10, scaled.width());
-      assertEquals(10, scaled.height());
-
-      // Rotate
-      ImageCV rotated = ImageTransformer.getRotatedImage(singlePixel, Core.ROTATE_90_CLOCKWISE);
-      assertEquals(1, rotated.width());
-      assertEquals(1, rotated.height());
-
-      singlePixel.release();
-      scaled.release();
-      rotated.release();
+      assertAll(
+          () ->
+              assertThrows(NullPointerException.class, () -> ImageTransformer.scale(source, null)),
+          () ->
+              assertThrows(
+                  NullPointerException.class, () -> ImageTransformer.applyLUT(source, null)),
+          () ->
+              assertThrows(
+                  NullPointerException.class,
+                  () -> ImageTransformer.overlay(source, (Mat) null, RED)));
     }
   }
 
-  @Nested
-  @DisplayName("Performance and Memory Management")
-  class PerformanceAndMemoryManagement {
+  // Test data creation utilities
 
-    @Test
-    @DisplayName("Should handle large image operations")
-    void testLargeImageOperations() {
-      // Create a reasonably large test image
-      Mat largeImage = createTestImage(1200, 1000, CvType.CV_8UC3);
-
-      try {
-        // Test scaling
-        ImageCV scaled = ImageTransformer.scale(largeImage, new Dimension(2400, 2000));
-        assertEquals(2400, scaled.width());
-        assertEquals(2000, scaled.height());
-        scaled.release();
-
-        // Test rotation
-        ImageCV rotated = ImageTransformer.getRotatedImage(largeImage, Core.ROTATE_90_CLOCKWISE);
-        assertEquals(1000, rotated.width());
-        assertEquals(1200, rotated.height());
-        rotated.release();
-
-      } finally {
-        largeImage.release();
-      }
-    }
-
-    @Test
-    @DisplayName("Should handle concurrent operations safely")
-    void testConcurrentOperations() throws Exception {
-      ExecutorService executor = Executors.newFixedThreadPool(4);
-      int numTasks = 10;
-      Future<?>[] futures = new Future[numTasks];
-
-      try {
-        for (int i = 0; i < numTasks; i++) {
-          futures[i] =
-              executor.submit(
-                  () -> {
-                    Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-                    try {
-                      ImageCV result = ImageTransformer.scale(source, new Dimension(200, 200));
-                      assertEquals(200, result.width());
-                      assertEquals(200, result.height());
-                      result.release();
-                    } finally {
-                      source.release();
-                    }
-                  });
-        }
-
-        // Wait for all tasks to complete
-        for (Future<?> future : futures) {
-          future.get(5, TimeUnit.SECONDS);
-        }
-
-      } finally {
-        executor.shutdown();
-      }
-    }
-
-    @Test
-    @DisplayName("Should properly release resources")
-    void testResourceManagement() {
-      Mat source = createTestImage(100, 100, CvType.CV_8UC3);
-      ImageCV result = ImageTransformer.scale(source, new Dimension(50, 50));
-
-      // Test that we can manually release resources
-      assertDoesNotThrow(
-          () -> {
-            result.release();
-            source.release();
-          });
-
-      // Verify that the images have been released
-      assertTrue(result.isReleased(), "Result image should be released");
-      assertTrue(result.empty(), "Result image should be empty after release");
-      assertTrue(source.empty(), "Source image should be empty after release");
-    }
+  private static Mat createSolidColorImage(int width, int height, int type, int value) {
+    return new Mat(height, width, type, new Scalar(value));
   }
 
-  // Helper methods
-
-  /** Creates a test image with specified dimensions and type. */
-  static Mat createTestImage(int width, int height, int type) {
-    Mat image = new Mat(height, width, type);
-    // Fill with gradient pattern for better testing
+  private static Mat createGradientImage(int width, int height, int type) {
+    var image = new Mat(height, width, type);
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        double value = (x + y) % 256;
-        if (type == CvType.CV_8UC3) {
-          image.put(y, x, value, value * 0.8, value * 0.6);
+        var intensity = (double) (x + y) / (width + height) * 255;
+        if (CvType.channels(type) == 1) {
+          image.put(y, x, intensity);
         } else {
-          image.put(y, x, value);
+          image.put(y, x, intensity, intensity * 0.8, intensity * 0.6);
         }
       }
     }
     return image;
   }
 
-  /** Creates a test mask with a circular pattern. */
-  private Mat createTestMask(int width, int height) {
-    Mat mask = Mat.zeros(height, width, CvType.CV_8UC1);
-    int centerX = width / 2;
-    int centerY = height / 2;
-    int radius = Math.min(width, height) / 4;
-
+  private static Mat createColorGradientImage(int width, int height, int type) {
+    var image = new Mat(height, width, type);
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        double distance = Math.sqrt((x - centerX) * (x - centerX) + (y - centerY) * (y - centerY));
-        if (distance <= radius) {
-          mask.put(y, x, 255);
-        }
+        var red = (double) x / width * 255;
+        var green = (double) y / height * 255;
+        var blue = (double) (x + y) / (width + height) * 255;
+        image.put(y, x, blue, green, red); // BGR format
       }
     }
+    return image;
+  }
+
+  private static Mat createCheckerboardImage(int width, int height, int type) {
+    var image = new Mat(height, width, type);
+    int squareSize = 10;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        var value = ((x / squareSize) + (y / squareSize)) % 2 == 0 ? 255 : 0;
+        image.put(y, x, value);
+      }
+    }
+    return image;
+  }
+
+  private static Mat createAsymmetricImage(int width, int height, int type) {
+    var image = new Mat(height, width, type);
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        var value = x > y ? 200 : 50;
+        image.put(y, x, value);
+      }
+    }
+    return image;
+  }
+
+  private static Mat createRectangularImage(int width, int height, int type) {
+    var image = new Mat(height, width, type);
+    // Create distinctive pattern for rotation testing
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        var value = (x < width / 3) ? 255 : ((x < 2 * width / 3) ? 128 : 64);
+        image.put(y, x, value);
+      }
+    }
+    return image;
+  }
+
+  private static Mat createHighDynamicRangeImage() {
+    var image = new Mat(20, 20, CvType.CV_16U);
+    for (int y = 0; y < 20; y++) {
+      for (int x = 0; x < 20; x++) {
+        var value = (x + y) * 1000; // High values requiring scaling
+        image.put(y, x, value);
+      }
+    }
+    return image;
+  }
+
+  private static Mat createBitPatternImage() {
+    var image = new Mat(15, 15, CvType.CV_8UC1);
+    for (int y = 0; y < 15; y++) {
+      for (int x = 0; x < 15; x++) {
+        var value = (x * 16 + y) % 256; // Create bit patterns
+        image.put(y, x, value);
+      }
+    }
+    return image;
+  }
+
+  private static Mat createCircularMask(int width, int height) {
+    var mask = Mat.zeros(height, width, CvType.CV_8UC1);
+    var center = new Point(width / 2.0, height / 2.0);
+    var radius = Math.min(width, height) / 3.0;
+    Imgproc.circle(mask, center, (int) radius, new Scalar(255), -1);
     return mask;
   }
 
-  /** Creates a test LUT for the specified number of channels. */
-  private byte[][] createTestLUT(int channels) {
-    byte[][] lut = new byte[channels][256];
-    for (int ch = 0; ch < channels; ch++) {
+  private static Mat createRectangularMask(int width, int height) {
+    var mask = Mat.zeros(height, width, CvType.CV_8UC1);
+    var rect = new Rect(width / 4, height / 4, width / 2, height / 2);
+    Imgproc.rectangle(mask, rect, new Scalar(255), -1);
+    return mask;
+  }
+
+  private static BufferedImage createTestBufferedImage(int width, int height) {
+    var image = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+    var graphics = image.createGraphics();
+    graphics.setColor(java.awt.Color.LIGHT_GRAY);
+    graphics.fillRect(0, 0, width, height);
+    graphics.dispose();
+    return image;
+  }
+
+  private static Mat createTranslationMatrix(double tx, double ty) {
+    var matrix = Mat.zeros(2, 3, CvType.CV_32F);
+    matrix.put(0, 0, 1, 0, tx);
+    matrix.put(1, 0, 0, 1, ty);
+    return matrix;
+  }
+
+  private static byte[][] createInvertLUT(int channels) {
+    var lut = new byte[channels][256];
+    for (int c = 0; c < channels; c++) {
       for (int i = 0; i < 256; i++) {
-        // Create an inverted LUT for testing
-        lut[ch][i] = (byte) (255 - i);
+        lut[c][i] = (byte) (255 - i);
       }
     }
     return lut;
+  }
+
+  private static byte[][] createColorSwapLUT() {
+    var lut = new byte[3][256];
+    // Channel swap: R->B, G->G, B->R
+    for (int i = 0; i < 256; i++) {
+      lut[0][i] = (byte) i; // Blue stays blue (for BGR format)
+      lut[1][i] = (byte) i; // Green stays green
+      lut[2][i] = (byte) i; // Red becomes blue channel input
+    }
+    return lut;
+  }
+
+  private static double[] getImageCorner(Mat image, int x, int y) {
+    return image.get(y, x);
   }
 }

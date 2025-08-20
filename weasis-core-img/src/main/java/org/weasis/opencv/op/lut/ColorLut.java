@@ -10,29 +10,32 @@
 package org.weasis.opencv.op.lut;
 
 import java.awt.Color;
+import java.nio.channels.Channel;
 
 /**
- * An enumeration representing various color lookup tables (LUTs). Each LUT is designed for specific
- * color transformations or visual effects and is defined by a name and mapping data for red, green,
- * and blue channels.
+ * Color lookup tables (LUTs) for image processing and visualization. Each LUT defines color
+ * transformations with 256-value mappings for red, green, and blue channels.
  */
 public enum ColorLut {
+  /** Default image LUT using grayscale mapping */
   IMAGE("Default (image)", null),
+  /** Cyclic flag pattern with 4 colors */
   FLAG("Flag", createFlagLut()),
+  /** 36-color palette for diverse visualization */
   MULTICOLOR("Multi-Color", createMultiColorLut()),
+  /** Full hue spectrum from HSB color space */
   HUE("Hue", createHueLut()),
-  RED("Red", createSingleChannelLut(2)), // Red channel
-  GREEN("Green", createSingleChannelLut(1)), // Green channel
-  BLUE("Blue", createSingleChannelLut(0)), // Blue channel
+  /** Pure red gradient */
+  RED("Red", createSingleChannelLut(Channel.RED)),
+  /** Pure green gradient */
+  GREEN("Green", createSingleChannelLut(Channel.GREEN)),
+  /** Pure blue gradient */
+  BLUE("Blue", createSingleChannelLut(Channel.BLUE)),
+  /** Grayscale gradient */
   GRAY("Gray", createGrayLut());
 
   private static final int LUT_SIZE = 256;
   private static final int CHANNEL_COUNT = 3;
-
-  // Channel indices for BGR format
-  private static final int BLUE_CHANNEL = 0;
-  private static final int GREEN_CHANNEL = 1;
-  private static final int RED_CHANNEL = 2;
 
   private final ByteLut byteLut;
 
@@ -53,87 +56,123 @@ public enum ColorLut {
     return byteLut.name();
   }
 
+  /** Channel indices for BGR format */
+  private enum Channel {
+    BLUE(0),
+    GREEN(1),
+    RED(2);
+
+    private final int index;
+
+    Channel(int index) {
+      this.index = index;
+    }
+
+    int getIndex() {
+      return index;
+    }
+  }
+
   // Static factory methods for LUT creation
 
   private static byte[][] createFlagLut() {
-    byte[][] flag = new byte[CHANNEL_COUNT][LUT_SIZE];
-
-    // Flag pattern: Blue, Yellow, Magenta, Black (cycling every 4 values)
-    int[] red = {255, 255, 0, 0};
-    int[] green = {0, 255, 0, 0};
-    int[] blue = {0, 255, 255, 0};
-
-    return fillChannels(flag, red, green, blue);
-  }
-
-  private static byte[][] fillChannels(byte[][] flag, int[] red, int[] green, int[] blue) {
-    for (int i = 0; i < LUT_SIZE; i++) {
-      int patternIndex = i % red.length;
-      flag[BLUE_CHANNEL][i] = (byte) blue[patternIndex];
-      flag[GREEN_CHANNEL][i] = (byte) green[patternIndex];
-      flag[RED_CHANNEL][i] = (byte) red[patternIndex];
-    }
-    return flag;
+    // Flag pattern: Blue, White, Magenta, Black (cycling every 4 values)
+    var colors =
+        new int[][] {
+          {0, 0, 255}, // Blue
+          {255, 255, 255}, // White
+          {255, 0, 255}, // Magenta
+          {0, 0, 0} // Black
+        };
+    return createPatternLut(colors);
   }
 
   private static byte[][] createMultiColorLut() {
-    byte[][] multiColor = new byte[CHANNEL_COUNT][LUT_SIZE];
-
-    // 36-color palette for diverse visualization
-    int[] red = {
-      255, 0, 255, 0, 255, 128, 64, 255, 0, 128, 236, 189, 250, 154, 221, 255, 128, 255, 0, 128,
-      228, 131, 189, 0, 36, 66, 40, 132, 156, 135, 98, 194, 217, 251, 255, 0
-    };
-    int[] green = {
-      3, 255, 245, 0, 0, 0, 128, 128, 0, 0, 83, 228, 202, 172, 160, 128, 128, 200, 187, 88, 93, 209,
-      89, 255, 137, 114, 202, 106, 235, 85, 216, 226, 182, 247, 195, 173
-    };
-    int[] blue = {
-      0, 0, 55, 255, 255, 0, 64, 0, 128, 128, 153, 170, 87, 216, 246, 128, 64, 188, 236, 189, 39,
-      96, 212, 255, 176, 215, 204, 221, 255, 70, 182, 84, 172, 176, 142, 95
-    };
-    return fillChannels(multiColor, red, green, blue);
+    // 36-color palette optimized for diverse visualization
+    var colors =
+        new int[][] {
+          {255, 3, 0},
+          {0, 255, 0},
+          {255, 245, 55},
+          {0, 0, 255},
+          {255, 0, 255},
+          {128, 0, 0},
+          {64, 128, 64},
+          {255, 128, 0},
+          {0, 0, 128},
+          {128, 0, 128},
+          {236, 83, 153},
+          {189, 228, 170},
+          {250, 202, 87},
+          {154, 172, 216},
+          {221, 160, 246},
+          {255, 128, 128},
+          {128, 128, 64},
+          {255, 200, 188},
+          {0, 187, 236},
+          {128, 88, 189},
+          {228, 93, 39},
+          {131, 209, 96},
+          {189, 89, 212},
+          {0, 255, 255},
+          {36, 137, 176},
+          {66, 114, 215},
+          {40, 202, 204},
+          {132, 106, 221},
+          {156, 235, 255},
+          {135, 85, 70},
+          {98, 216, 182},
+          {194, 226, 84},
+          {217, 182, 172},
+          {251, 247, 176},
+          {255, 195, 142},
+          {0, 173, 95}
+        };
+    return createPatternLut(colors);
   }
 
   private static byte[][] createHueLut() {
-    byte[][] hue = new byte[CHANNEL_COUNT][LUT_SIZE];
+    var lut = new byte[CHANNEL_COUNT][LUT_SIZE];
 
     for (int i = 0; i < LUT_SIZE; i++) {
-      Color color = Color.getHSBColor(i / 255f, 1f, 1f);
-      hue[BLUE_CHANNEL][i] = (byte) color.getBlue();
-      hue[GREEN_CHANNEL][i] = (byte) color.getGreen();
-      hue[RED_CHANNEL][i] = (byte) color.getRed();
+      var color = Color.getHSBColor(i / 255f, 1f, 1f);
+      lut[Channel.BLUE.getIndex()][i] = (byte) color.getBlue();
+      lut[Channel.GREEN.getIndex()][i] = (byte) color.getGreen();
+      lut[Channel.RED.getIndex()][i] = (byte) color.getRed();
     }
-    return hue;
+    return lut;
   }
 
-  /**
-   * Creates a single-channel LUT where only one color channel varies from 0-255 while others remain
-   * at 0.
-   *
-   * @param activeChannel the channel to activate (0=Blue, 1=Green, 2=Red)
-   * @return the single-channel LUT
-   */
-  private static byte[][] createSingleChannelLut(int activeChannel) {
-    byte[][] singleChannel = new byte[CHANNEL_COUNT][LUT_SIZE];
+  private static byte[][] createSingleChannelLut(Channel activeChannel) {
+    var lut = new byte[CHANNEL_COUNT][LUT_SIZE];
 
     for (int i = 0; i < LUT_SIZE; i++) {
-      singleChannel[activeChannel][i] = (byte) i;
-      // Other channels remain 0 (initialized by default)
+      lut[activeChannel.getIndex()][i] = (byte) i;
     }
-    return singleChannel;
+    return lut;
   }
 
   private static byte[][] createGrayLut() {
-    byte[][] gray = new byte[CHANNEL_COUNT][LUT_SIZE];
+    var lut = new byte[CHANNEL_COUNT][LUT_SIZE];
 
     for (int i = 0; i < LUT_SIZE; i++) {
       byte grayValue = (byte) i;
-      gray[BLUE_CHANNEL][i] = grayValue;
-      gray[GREEN_CHANNEL][i] = grayValue;
-      gray[RED_CHANNEL][i] = grayValue;
+      lut[Channel.BLUE.getIndex()][i] = grayValue;
+      lut[Channel.GREEN.getIndex()][i] = grayValue;
+      lut[Channel.RED.getIndex()][i] = grayValue;
     }
+    return lut;
+  }
 
-    return gray;
+  private static byte[][] createPatternLut(int[][] colors) {
+    var lut = new byte[CHANNEL_COUNT][LUT_SIZE];
+
+    for (int i = 0; i < LUT_SIZE; i++) {
+      int[] color = colors[i % colors.length];
+      lut[Channel.BLUE.getIndex()][i] = (byte) color[2];
+      lut[Channel.GREEN.getIndex()][i] = (byte) color[1];
+      lut[Channel.RED.getIndex()][i] = (byte) color[0];
+    }
+    return lut;
   }
 }

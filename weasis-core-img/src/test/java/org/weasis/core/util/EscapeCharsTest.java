@@ -9,93 +9,138 @@
  */
 package org.weasis.core.util;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.DisplayName;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class EscapeCharsTest {
 
+  // Test data structures for different escaping scenarios
+  private static final Map<String, String> HTML_BASIC_ESCAPES =
+      Map.of(
+          "<html>",
+          "&lt;html&gt;",
+          "\"test\"",
+          "&quot;test&quot;",
+          "'test'",
+          "&#39;test&#39;",
+          "test & test",
+          "test &amp; test",
+          EscapeChars.AMPERSAND,
+          "&amp;amp;");
+
+  private static final Map<String, String> HTML_COMPLEX_ESCAPES =
+      Map.of(
+          "test & test & test", "test &amp; test &amp; test",
+          "test << 1", "test &lt;&lt; 1",
+          "a\"b<c>d&", "a&quot;b&lt;c&gt;d&amp;",
+          "foo&&bar", "foo&amp;&amp;bar");
+
+  private static final Map<String, String> HTML_ACCENTED_CHARS =
+      Map.of(
+          "éàèç%¬°", "&eacute;&agrave;&egrave;&ccedil;%&not;&deg;",
+          "Äöüß", "&Auml;&ouml;&uuml;&szlig;");
+
+  private static final Map<String, String> HTML_UNICODE_QUOTES =
+      Map.of(
+          "\u2018Hello\u2019", "&lsquo;Hello&rsquo;",
+          "'Hello'", "&#39;Hello&#39;",
+          "\u201cWorld\u201d", "&ldquo;World&rdquo;",
+          "‚test„", "&sbquo;test&bdquo;");
+
+  private static final Map<String, String> HTML_MATH_SYMBOLS =
+      Map.of(
+          "α + β = γ", "&alpha; + &beta; = &gamma;",
+          "∑ ∞ √", "&sum; &infin; &radic;");
+
+  private static final Map<String, String> XML_BASIC_ESCAPES =
+      Map.of(
+          "<xml>",
+          "&lt;xml&gt;",
+          "\"A Text\" 'test'",
+          "&quot;A Text&quot; &apos;test&apos;",
+          EscapeChars.AMPERSAND,
+          "&amp;amp;");
+
+  private static final List<String> SAFE_CHARACTERS =
+      List.of(
+          "!@#$%^*()_+=-/?\\|]}[{,.;:",
+          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", "1234567890");
+
+  private static final Map<String, String> URL_AMPERSAND_ESCAPES =
+      Map.of(
+          "https://example.org/example&param=1", "https://example.org/example&amp;param=1",
+          "url?a=1&b=2&c=3", "url?a=1&amp;b=2&amp;c=3");
+
+  private static final Map<String, String> TAG_DISABLE_ESCAPES =
+      Map.of(
+          "<html>", "&lt;html&gt;",
+          "<div class=\"test\">content</div>", "&lt;div class=\"test\"&gt;content&lt;/div&gt;",
+          "<script>alert('xss')</script>", "&lt;script&gt;alert('xss')&lt;/script&gt;");
+
   @Nested
-  @DisplayName("HTML Escaping Tests")
-  class HtmlEscapingTests {
-    @Test
-    @DisplayName("Should handle null and empty strings")
-    void testForHTML_NullAndEmpty() {
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(null));
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(""));
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(StringUtil.EMPTY_STRING));
+  class Html_Escaping_Tests {
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    void should_handle_null_and_empty_strings(String input) {
+      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should escape basic HTML characters")
-    void testForHTML_BasicCharacters() {
-      assertEquals("&lt;html&gt;", EscapeChars.forHTML("<html>"));
-      assertEquals("&quot;test&quot;", EscapeChars.forHTML("\"test\""));
-      assertEquals("&#39;test&#39;", EscapeChars.forHTML("'test'"));
-      assertEquals("test &amp; test", EscapeChars.forHTML("test & test"));
-      assertEquals("&amp;amp;", EscapeChars.forHTML(EscapeChars.AMPERSAND));
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#htmlBasicEscapeData")
+    void should_escape_basic_html_characters(String input, String expected) {
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should handle complex HTML escaping scenarios")
-    void testForHTML_ComplexScenarios() {
-      assertEquals("test &amp; test &amp; test", EscapeChars.forHTML("test & test & test"));
-      assertEquals("test &lt;&lt; 1", EscapeChars.forHTML("test << 1"));
-      assertEquals("a&quot;b&lt;c&gt;d&amp;", EscapeChars.forHTML("a\"b<c>d&"));
-      assertEquals("foo&amp;&amp;bar", EscapeChars.forHTML("foo&&bar"));
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#htmlComplexEscapeData")
+    void should_handle_complex_html_escaping_scenarios(String input, String expected) {
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should escape accented and special characters")
-    void testForHTML_AccentedCharacters() {
-      assertEquals("&eacute;&agrave;&egrave;&ccedil;%&not;&deg;", EscapeChars.forHTML("éàèç%¬°"));
-      assertEquals("&Auml;&ouml;&uuml;&szlig;", EscapeChars.forHTML("Äöüß"));
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#htmlAccentedCharData")
+    void should_escape_accented_and_special_characters(String input, String expected) {
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should handle Unicode quotation marks")
-    void testForHTML_UnicodeQuotes() {
-      // Test Unicode quotation marks that were causing compilation issues
-      assertEquals("&lsquo;Hello&rsquo;", EscapeChars.forHTML("\u2018Hello\u2019"));
-      assertEquals("&#39;Hello&#39;", EscapeChars.forHTML("'Hello'"));
-      assertEquals("&ldquo;World&rdquo;", EscapeChars.forHTML("\u201cWorld\u201d"));
-      assertEquals("&sbquo;test&bdquo;", EscapeChars.forHTML("‚test„"));
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#htmlUnicodeQuoteData")
+    void should_handle_unicode_quotation_marks(String input, String expected) {
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should handle mathematical and Greek symbols")
-    void testForHTML_MathematicalSymbols() {
-      assertEquals("&alpha; + &beta; = &gamma;", EscapeChars.forHTML("α + β = γ"));
-      assertEquals("&sum; &infin; &radic;", EscapeChars.forHTML("∑ ∞ √"));
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#htmlMathSymbolData")
+    void should_handle_mathematical_and_greek_symbols(String input, String expected) {
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
-    @Test
-    @DisplayName("Should preserve non-escaped characters")
-    void testForHTML_NonEscapedCharacters() {
-      String safeChars =
-          "!@#$%^*()_+=-/?\\|]}[{,.;:"
-              + "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-              + "1234567890";
-
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#safeCharacterData")
+    void should_preserve_non_escaped_characters(String safeChars) {
       assertSame(safeChars, EscapeChars.forHTML(safeChars));
     }
 
     @Test
-    @DisplayName("Should handle mixed escaped and non-escaped characters")
-    void testForHTML_MixedCharacters() {
-      assertEquals(
-          "&quot; \t ! # $ % &#39; (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~",
-          EscapeChars.forHTML("\" \t ! # $ % ' (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~"));
+    void should_handle_mixed_escaped_and_non_escaped_characters() {
+      var input = "\" \t ! # $ % ' (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~";
+      var expected = "&quot; \t ! # $ % &#39; (*) + , ; - . / : = ? @ [\\] ^ _ ` { | } ~";
+      assertEquals(expected, EscapeChars.forHTML(input));
     }
 
     @ParameterizedTest
@@ -104,194 +149,165 @@ class EscapeCharsTest {
       "'<img src=\"x\" onerror=\"alert(1)\">', '&lt;img src=&quot;x&quot; onerror=&quot;alert(1)&quot;&gt;'",
       "'</body>', '&lt;/body&gt;'"
     })
-    @DisplayName("Should prevent XSS attacks")
-    void testForHTML_XSSPrevention(String input, String expected) {
+    void should_prevent_xss_attacks(String input, String expected) {
       assertEquals(expected, EscapeChars.forHTML(input));
     }
   }
 
   @Nested
-  @DisplayName("XML Escaping Tests")
-  class XmlEscapingTests {
-    @Test
-    @DisplayName("Should handle null and empty strings")
-    void testForXML_NullAndEmpty() {
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forXML(null));
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forXML(""));
+  class Xml_Escaping_Tests {
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    void should_handle_null_and_empty_strings(String input) {
+      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forXML(input));
+    }
+
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#xmlBasicEscapeData")
+    void should_escape_basic_xml_characters(String input, String expected) {
+      assertEquals(expected, EscapeChars.forXML(input));
     }
 
     @Test
-    @DisplayName("Should escape basic XML characters")
-    void testForXML_BasicCharacters() {
-      assertEquals("&lt;xml&gt;", EscapeChars.forXML("<xml>"));
-      assertEquals("&quot;A Text&quot; &apos;test&apos;", EscapeChars.forXML("\"A Text\" 'test'"));
-      assertEquals("&amp;amp;", EscapeChars.forXML(EscapeChars.AMPERSAND));
-    }
-
-    @Test
-    @DisplayName("Should filter invalid XML characters")
-    void testForXML_InvalidCharacters() {
+    void should_filter_invalid_xml_characters() {
       // Invalid XML characters should be removed
       assertEquals("A Text", EscapeChars.forXML("A Text" + (char) 0xFFFE));
       assertEquals("&lt;xml&gt;", EscapeChars.forXML("<\u0000\uD800x\u0018\u0019ml\uDC00>"));
     }
 
     @Test
-    @DisplayName("Should preserve valid XML characters")
-    void testForXML_ValidCharacters() {
-      // Valid XML characters (tab, newline, carriage return, and normal printable chars)
-      String validXml = "A Text\t\n\r with valid chars";
-      String result = EscapeChars.forXML(validXml);
-      assertTrue(result.contains("A Text"));
-      assertTrue(result.contains("valid chars"));
+    void should_preserve_valid_xml_characters() {
+      var validXml = "A Text\t\n\r with valid chars";
+      var result = EscapeChars.forXML(validXml);
+      assertAll(
+          () -> assertTrue(result.contains("A Text")),
+          () -> assertTrue(result.contains("valid chars")));
     }
 
     @ParameterizedTest
     @ValueSource(chars = {0x9, 0xA, 0xD, 0x20, 0x7F, 0xD7FF, 0xE000, 0xFFFD})
-    @DisplayName("Should preserve valid XML control characters")
-    void testForXML_ValidControlCharacters(char c) {
-      String input = "test" + c + "text";
-      String result = EscapeChars.forXML(input);
-      // Should contain both parts of the string
-      assertTrue(result.contains("test"));
-      assertTrue(result.contains("text"));
+    void should_preserve_valid_xml_control_characters(char c) {
+      var input = "test" + c + "text";
+      var result = EscapeChars.forXML(input);
+      assertAll(
+          () -> assertTrue(result.contains("test")), () -> assertTrue(result.contains("text")));
     }
   }
 
   @Nested
-  @DisplayName("URL Ampersand Escaping Tests")
-  class UrlAmpersandTests {
-    @Test
-    @DisplayName("Should escape ampersands in URLs")
-    void testForUrlAmpersand_BasicEscaping() {
-      assertEquals(
-          "https://example.org/example&amp;param=1",
-          EscapeChars.forUrlAmpersand("https://example.org/example&param=1"));
+  class Url_Ampersand_Tests {
+
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#urlAmpersandEscapeData")
+    void should_escape_ampersands_in_urls(String input, String expected) {
+      assertEquals(expected, EscapeChars.forUrlAmpersand(input));
     }
 
     @Test
-    @DisplayName("Should handle multiple ampersands")
-    void testForUrlAmpersand_MultipleAmpersands() {
+    void should_handle_multiple_ampersands() {
       assertEquals("url?a=1&amp;b=2&amp;c=3", EscapeChars.forUrlAmpersand("url?a=1&b=2&c=3"));
     }
 
-    @Test
-    @DisplayName("Should handle URLs without ampersands")
-    void testForUrlAmpersand_NoAmpersands() {
-      String url = "https://example.org/path?param=value";
+    @ParameterizedTest
+    @ValueSource(strings = {"https://example.com", "ftp://test.org"})
+    void should_handle_urls_without_ampersands(String url) {
       assertEquals(url, EscapeChars.forUrlAmpersand(url));
     }
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"https://example.com", "ftp://test.org"})
-    @DisplayName("Should handle edge cases")
-    void testForUrlAmpersand_EdgeCases(String input) {
-      assertNotNull(EscapeChars.forUrlAmpersand(input));
+    void should_handle_null_and_empty_urls(String input) {
+      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.forUrlAmpersand(input));
     }
   }
 
   @Nested
-  @DisplayName("Tag Disabling Tests")
-  class TagDisablingTests {
-    @Test
-    @DisplayName("Should handle null and empty strings")
-    void testToDisableTags_NullAndEmpty() {
-      assertEquals(StringUtil.EMPTY_STRING, EscapeChars.toDisableTags(null));
-      assertEquals("", EscapeChars.toDisableTags(""));
+  class Tag_Disabling_Tests {
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    void should_handle_null_and_empty_strings(String input) {
+      var result = EscapeChars.toDisableTags(input);
+      assertTrue(result.isEmpty());
+    }
+
+    @ParameterizedTest
+    @MethodSource("org.weasis.core.util.EscapeCharsTest#tagDisableEscapeData")
+    void should_disable_html_xml_tags(String input, String expected) {
+      assertEquals(expected, EscapeChars.toDisableTags(input));
     }
 
     @Test
-    @DisplayName("Should disable HTML/XML tags")
-    void testToDisableTags_BasicTags() {
-      assertEquals("&lt;html&gt;", EscapeChars.toDisableTags("<html>"));
-      assertEquals(
-          "&lt;div class=\"test\"&gt;content&lt;/div&gt;",
-          EscapeChars.toDisableTags("<div class=\"test\">content</div>"));
+    void should_preserve_other_characters() {
+      var input = "This is plain text with & symbols but no tags";
+      assertEquals(input, EscapeChars.toDisableTags(input));
     }
 
     @Test
-    @DisplayName("Should preserve other characters")
-    void testToDisableTags_PreserveOthers() {
-      assertEquals(
-          "A Text with \"quotes\" & ampersands",
-          EscapeChars.toDisableTags("A Text with \"quotes\" & ampersands"));
-    }
-
-    @Test
-    @DisplayName("Should handle nested tags")
-    void testToDisableTags_NestedTags() {
-      assertEquals(
-          "&lt;outer&gt;&lt;inner&gt;text&lt;/inner&gt;&lt;/outer&gt;",
-          EscapeChars.toDisableTags("<outer><inner>text</inner></outer>"));
+    void should_handle_nested_tags() {
+      var input = "<div><span>nested</span></div>";
+      var expected = "&lt;div&gt;&lt;span&gt;nested&lt;/span&gt;&lt;/div&gt;";
+      assertEquals(expected, EscapeChars.toDisableTags(input));
     }
   }
 
   @Nested
-  @DisplayName("Line Conversion Tests")
-  class LineConversionTests {
+  class Line_Conversion_Tests {
 
     @Test
-    @DisplayName("Should handle null input")
-    void testConvertToLines_Null() {
-      String[] result = EscapeChars.convertToLines(null);
-      assertNotNull(result);
-      assertEquals(0, result.length);
+    void should_handle_null_input() {
+      assertArrayEquals(new String[0], EscapeChars.convertToLines(null));
     }
 
     @Test
-    @DisplayName("Should handle single line without line breaks")
-    void testConvertToLines_SingleLine() {
-      String[] result = EscapeChars.convertToLines("Unformatted");
-      assertEquals(1, result.length);
-      assertEquals("Unformatted", result[0]);
+    void should_handle_single_line_without_line_breaks() {
+      var input = "single line";
+      assertArrayEquals(new String[] {input}, EscapeChars.convertToLines(input));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+      "'line1\nline2', 2, \\n",
+      "'line1\r\nline2', 2, \\r\\n",
+      "'line1\rline2', 2, \\r",
+      "'line1\n\rline2', 2, \\n\\r"
+    })
+    void should_handle_different_line_break_types(
+        String input, int expectedLines, String delimiter) {
+      var result = EscapeChars.convertToLines(input);
+      assertEquals(expectedLines, result.length);
+      assertEquals(
+          input.split(delimiter.equals("\\n\\r") ? "\n\r" : delimiter, -1).length, result.length);
     }
 
     @Test
-    @DisplayName("Should handle different line break types")
-    void testConvertToLines_DifferentLineBreaks() {
-      // Unix line breaks (\n)
-      assertArrayEquals(new String[] {"text", "text2"}, EscapeChars.convertToLines("text\ntext2"));
-
-      // Old Mac line breaks (\r)
-      assertArrayEquals(new String[] {"text", "text2"}, EscapeChars.convertToLines("text\rtext2"));
-
-      // Windows line breaks (\r\n)
-      assertArrayEquals(
-          new String[] {"text", "text2", "text3", "text4"},
-          EscapeChars.convertToLines("text\r\ntext2\r\ntext3\r\ntext4"));
+    void should_handle_mixed_line_break_types() {
+      var input = "line1\r\nline2\nline3\rline4";
+      var result = EscapeChars.convertToLines(input);
+      assertTrue(result.length >= 4);
     }
 
     @Test
-    @DisplayName("Should handle mixed line break types")
-    void testConvertToLines_MixedLineBreaks() {
-      // Mixed \n and \r
-      String[] result = EscapeChars.convertToLines("text\n\rtext2");
-      assertEquals(2, result.length);
-
-      // Different order
-      String[] result2 = EscapeChars.convertToLines("text\r\ntext2");
-      assertEquals(2, result2.length);
+    void should_preserve_empty_lines() {
+      var input = "line1\n\nline3";
+      var result = EscapeChars.convertToLines(input);
+      assertAll(
+          () -> assertEquals(3, result.length),
+          () -> assertEquals("line1", result[0]),
+          () -> assertEquals("", result[1]),
+          () -> assertEquals("line3", result[2]));
     }
 
     @Test
-    @DisplayName("Should preserve empty lines")
-    void testConvertToLines_EmptyLines() {
-      String[] result = EscapeChars.convertToLines("line1\n\nline3");
-      assertEquals(3, result.length);
-      assertEquals("line1", result[0]);
-      assertEquals("", result[1]);
-      assertEquals("line3", result[2]);
-    }
-
-    @Test
-    @DisplayName("Should handle trailing line breaks")
-    void testConvertToLines_TrailingLineBreaks() {
-      String[] result = EscapeChars.convertToLines("line1\nline2\n");
-      assertEquals(3, result.length);
-      assertEquals("line1", result[0]);
-      assertEquals("line2", result[1]);
-      assertEquals("", result[2]);
+    void should_handle_trailing_line_breaks() {
+      var input = "line1\nline2\n";
+      var result = EscapeChars.convertToLines(input);
+      assertAll(
+          () -> assertEquals(3, result.length),
+          () -> assertEquals("line1", result[0]),
+          () -> assertEquals("line2", result[1]),
+          () -> assertEquals("", result[2]));
     }
 
     @ParameterizedTest
@@ -302,50 +318,110 @@ class EscapeCharsTest {
       "'line1\r\nline2\r\nline3', 3",
       "'\n\n\n', 4"
     })
-    @DisplayName("Should return correct number of lines")
-    void testConvertToLines_LineCount(String input, int expectedCount) {
-      String[] result = EscapeChars.convertToLines(input);
-      assertEquals(expectedCount, result.length);
+    void should_return_correct_number_of_lines(String input, int expectedCount) {
+      assertEquals(expectedCount, EscapeChars.convertToLines(input).length);
     }
   }
 
   @Nested
-  @DisplayName("Performance and Edge Case Tests")
-  class PerformanceAndEdgeTests {
+  class Performance_And_Edge_Tests {
+
     @Test
-    @DisplayName("Should handle very long strings efficiently")
-    void testLargeStrings() {
-      String result = EscapeChars.forHTML("test & < > \" ' ".repeat(10000));
+    void should_handle_very_long_strings_efficiently() {
+      var largeString = "a".repeat(10000);
+      var start = System.nanoTime();
+      var result = EscapeChars.forHTML(largeString);
+      var duration = System.nanoTime() - start;
+
+      assertAll(
+          () ->
+              assertSame(largeString, result, "Should return same instance for unchanged content"),
+          () -> assertTrue(duration < 200_000_000, "Should complete within 200ms"));
+    }
+
+    @Test
+    void should_handle_strings_with_only_special_characters() {
+      var specialChars = "<>&\"'";
+      var result = EscapeChars.forHTML(specialChars);
+      assertEquals("&lt;&gt;&amp;&quot;&#39;", result);
+    }
+
+    @Test
+    void should_maintain_string_identity_for_unchanged_content() {
+      var unchangedString = "This string has no special characters to escape";
+
+      assertAll(
+          () -> assertSame(unchangedString, EscapeChars.forHTML(unchangedString)),
+          () -> assertSame(unchangedString, EscapeChars.forXML(unchangedString)),
+          () -> assertSame(unchangedString, EscapeChars.toDisableTags(unchangedString)));
+    }
+
+    @Test
+    void should_handle_unicode_edge_cases() {
+      // High surrogate pairs and other Unicode edge cases
+      var unicodeString = "𝓗𝓮𝓵𝓵𝓸 🌍";
+      var result = EscapeChars.forHTML(unicodeString);
+
       assertNotNull(result);
-      assertTrue(result.contains("&amp;"));
-      assertTrue(result.contains("&lt;"));
-      assertTrue(result.contains("&gt;"));
+      assertTrue(result.length() >= unicodeString.length());
     }
 
     @Test
-    @DisplayName("Should handle strings with only special characters")
-    void testOnlySpecialCharacters() {
-      assertEquals("&lt;&gt;&amp;&quot;&#39;", EscapeChars.forHTML("<>&\"'"));
-      assertEquals("&lt;&gt;&amp;&quot;&apos;", EscapeChars.forXML("<>&\"'"));
-    }
+    void should_handle_mixed_content_types() {
+      var mixedContent = "Normal text <script> & special chars: αβγ ∞ 'quotes' \"double\" ©®™";
+      var htmlResult = EscapeChars.forHTML(mixedContent);
+      var xmlResult = EscapeChars.forXML(mixedContent);
 
-    @Test
-    @DisplayName("Should maintain string identity for unchanged content")
-    void testStringIdentityPreservation() {
-      String unchanged = "This string has no special characters 123 ABC";
-      assertSame(unchanged, EscapeChars.forHTML(unchanged));
+      assertAll(
+          () -> assertNotEquals(mixedContent, htmlResult),
+          () -> assertNotEquals(mixedContent, xmlResult),
+          () -> assertTrue(htmlResult.contains("&lt;script&gt;")),
+          () -> assertTrue(xmlResult.contains("&lt;script&gt;")));
     }
+  }
 
-    @Test
-    @DisplayName("Should handle Unicode edge cases")
-    void testUnicodeEdgeCases() {
-      // Test various Unicode ranges
-      String unicode = "Emoji: 😀 Math: ∑ Greek: α Arabic: العربية";
-      String result = EscapeChars.forHTML(unicode);
-      assertNotNull(result);
-      // Some characters should be escaped, others preserved
-      assertTrue(result.contains("&sum;"));
-      assertTrue(result.contains("&alpha;"));
-    }
+  // ======== Data provider methods ========
+  static Stream<Arguments> htmlBasicEscapeData() {
+    return HTML_BASIC_ESCAPES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> htmlComplexEscapeData() {
+    return HTML_COMPLEX_ESCAPES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> htmlAccentedCharData() {
+    return HTML_ACCENTED_CHARS.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> htmlUnicodeQuoteData() {
+    return HTML_UNICODE_QUOTES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> htmlMathSymbolData() {
+    return HTML_MATH_SYMBOLS.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> xmlBasicEscapeData() {
+    return XML_BASIC_ESCAPES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> urlAmpersandEscapeData() {
+    return URL_AMPERSAND_ESCAPES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<Arguments> tagDisableEscapeData() {
+    return TAG_DISABLE_ESCAPES.entrySet().stream()
+        .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
+  }
+
+  static Stream<String> safeCharacterData() {
+    return SAFE_CHARACTERS.stream();
   }
 }

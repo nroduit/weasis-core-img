@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 import org.opencv.core.CvException;
+import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.op.ImageIOHandler;
 
 /**
@@ -31,7 +32,7 @@ public record FileRawImage(Path path) {
    * Creates a new FileRawImage instance.
    *
    * @param path the path to the file containing raw image data, must not be null
-   * @throws IllegalArgumentException if path is null
+   * @throws NullPointerException if path is null
    */
   public FileRawImage {
     Objects.requireNonNull(path, "Path cannot be null");
@@ -42,7 +43,7 @@ public record FileRawImage(Path path) {
    *
    * @param file the file containing image data
    * @return a new FileRawImage instance
-   * @throws IllegalArgumentException if file is null
+   * @throws NullPointerException if file is null
    */
   public static FileRawImage of(File file) {
     Objects.requireNonNull(file, "File cannot be null");
@@ -57,7 +58,7 @@ public record FileRawImage(Path path) {
    * @throws IllegalArgumentException if filePath is null or empty
    */
   public static FileRawImage of(String filePath) {
-    if (filePath == null || filePath.trim().isEmpty()) {
+    if (!StringUtil.hasText(filePath)) {
       throw new IllegalArgumentException("File path cannot be null or empty");
     }
     return new FileRawImage(Path.of(filePath));
@@ -101,10 +102,15 @@ public record FileRawImage(Path path) {
    *
    * @param image the image data to write, must not be null
    * @return true if the image was successfully written, false otherwise
-   * @throws IllegalArgumentException if image is null
-   * @throws IllegalStateException if the file is not writable
+   * @throws NullPointerException if image is null
    */
   public boolean write(PlanarImage image) {
+    Objects.requireNonNull(image, "Image cannot be null");
     return ImageIOHandler.writeImage(image.toMat(), path);
+  }
+
+  @Override
+  public String toString() {
+    return "FileRawImage[path=" + path + "]";
   }
 }

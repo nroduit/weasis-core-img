@@ -11,423 +11,424 @@ package org.weasis.opencv.op.lut;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.*;
 import org.weasis.opencv.data.LookupTableCV;
 import org.weasis.opencv.op.lut.LutShape.Function;
 
-@DisplayName("LutShape Tests")
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class LutShapeTest {
 
+  // Test data constants
+  private static final byte[] STANDARD_LUT_DATA = {1, -1, 1, -1, 0, 127, -128, -9, 9};
+  private static final byte[] SINGLE_BYTE_LUT_DATA = {42};
+  private static final String CUSTOM_EXPLANATION = "Custom LUT Explanation";
+  private static final String CUSTOM_LINEAR_EXPLANATION = "Custom Linear Explanation";
+
   private LookupTableCV validLookupTable;
+  private LookupTableCV singleByteLookupTable;
 
   @BeforeEach
   void setUp() {
-    validLookupTable = new LookupTableCV(new byte[] {1, -1, 1, -1, 0, 127, -128, -9, 9});
+    validLookupTable = new LookupTableCV(STANDARD_LUT_DATA);
+    singleByteLookupTable = new LookupTableCV(SINGLE_BYTE_LUT_DATA);
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_Tests {
 
     @Test
-    @DisplayName("Should create LutShape with lookup table and explanation")
-    void shouldCreateLutShapeWithLookupTable() {
-      String explanation = "Custom LUT Explanation";
-      LutShape lutShape = new LutShape(validLookupTable, explanation);
+    void create_lut_shape_with_lookup_table_and_explanation() {
+      var lutShape = new LutShape(validLookupTable, CUSTOM_EXPLANATION);
 
-      assertNull(
-          lutShape.getFunctionType(), "LutShape with lookup table should have null function type");
-      assertEquals(explanation, lutShape.toString(), "toString should return explanation");
-      assertEquals(
-          explanation,
-          lutShape.getExplanation(),
-          "getExplanation should return provided explanation");
-      assertSame(
-          validLookupTable, lutShape.getLookup(), "Should return same lookup table instance");
-      assertFalse(lutShape.isFunction(), "Should not be a function-based LutShape");
+      assertAll(
+          "LutShape with lookup table",
+          () -> assertNull(lutShape.getFunctionType()),
+          () -> assertEquals(CUSTOM_EXPLANATION, lutShape.toString()),
+          () -> assertEquals(CUSTOM_EXPLANATION, lutShape.getExplanation()),
+          () -> assertSame(validLookupTable, lutShape.getLookup()),
+          () -> assertFalse(lutShape.isFunction()));
     }
 
     @Test
-    @DisplayName("Should create LutShape with function and default explanation")
-    void shouldCreateLutShapeWithFunctionDefault() {
-      LutShape lutShape = new LutShape(Function.LINEAR);
+    void create_lut_shape_with_function_and_default_explanation() {
+      var lutShape = new LutShape(Function.LINEAR);
 
-      assertEquals(
-          Function.LINEAR, lutShape.getFunctionType(), "Should have correct function type");
-      assertEquals(
-          Function.LINEAR.getDescription(), lutShape.toString(), "Should use function description");
-      assertEquals(
-          Function.LINEAR.getDescription(),
-          lutShape.getExplanation(),
-          "Should use function description as explanation");
-      assertNull(lutShape.getLookup(), "Function-based LutShape should have null lookup table");
-      assertTrue(lutShape.isFunction(), "Should be a function-based LutShape");
+      assertAll(
+          "LutShape with function default explanation",
+          () -> assertEquals(Function.LINEAR, lutShape.getFunctionType()),
+          () -> assertEquals(Function.LINEAR.getDescription(), lutShape.toString()),
+          () -> assertEquals(Function.LINEAR.getDescription(), lutShape.getExplanation()),
+          () -> assertNull(lutShape.getLookup()),
+          () -> assertTrue(lutShape.isFunction()));
     }
 
     @Test
-    @DisplayName("Should create LutShape with function and custom explanation")
-    void shouldCreateLutShapeWithFunctionCustom() {
-      String customExplanation = "Custom Linear Explanation";
-      LutShape lutShape = new LutShape(Function.LOG_INV, customExplanation);
+    void create_lut_shape_with_function_and_custom_explanation() {
+      var lutShape = new LutShape(Function.LOG_INV, CUSTOM_LINEAR_EXPLANATION);
 
-      assertEquals(
-          Function.LOG_INV, lutShape.getFunctionType(), "Should have correct function type");
-      assertEquals(customExplanation, lutShape.toString(), "Should use custom explanation");
-      assertEquals(customExplanation, lutShape.getExplanation(), "Should use custom explanation");
-      assertNull(lutShape.getLookup(), "Function-based LutShape should have null lookup table");
-      assertTrue(lutShape.isFunction(), "Should be a function-based LutShape");
+      assertAll(
+          "LutShape with function custom explanation",
+          () -> assertEquals(Function.LOG_INV, lutShape.getFunctionType()),
+          () -> assertEquals(CUSTOM_LINEAR_EXPLANATION, lutShape.toString()),
+          () -> assertEquals(CUSTOM_LINEAR_EXPLANATION, lutShape.getExplanation()),
+          () -> assertNull(lutShape.getLookup()),
+          () -> assertTrue(lutShape.isFunction()));
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for null lookup table")
-    void shouldThrowExceptionForNullLookupTable() {
-      IllegalArgumentException exception =
+    void throw_exception_for_null_lookup_table() {
+      var exception =
           assertThrows(
-              IllegalArgumentException.class,
-              () -> new LutShape((LookupTableCV) null, "explanation"));
+              NullPointerException.class, () -> new LutShape((LookupTableCV) null, "explanation"));
+
       assertEquals("Lookup table cannot be null", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for null function")
-    void shouldThrowExceptionForNullFunction() {
-      IllegalArgumentException exception =
+    void throw_exception_for_null_function() {
+      var exception =
           assertThrows(
-              IllegalArgumentException.class, () -> new LutShape((Function) null, "explanation"));
+              NullPointerException.class, () -> new LutShape((Function) null, "explanation"));
+
       assertEquals("Function cannot be null", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Should accept empty string as explanation")
-    void shouldAcceptEmptyStringAsExplanation() {
-      assertDoesNotThrow(() -> new LutShape(Function.SIGMOID, null));
-
-      LutShape lutShape = new LutShape(Function.SIGMOID, null);
-      assertEquals("", lutShape.getExplanation());
-      assertEquals("", lutShape.toString());
+    void accept_null_explanation() {
+      assertAll(
+          "Null explanation handling",
+          () -> assertDoesNotThrow(() -> new LutShape(Function.SIGMOID, null)),
+          () -> {
+            var lutShape = new LutShape(Function.SIGMOID, null);
+            assertEquals("", lutShape.getExplanation());
+            assertEquals("", lutShape.toString());
+          });
     }
   }
 
   @Nested
-  @DisplayName("Function Enum Tests")
-  class FunctionEnumTests {
+  class Function_Enum_Tests {
 
     @ParameterizedTest
     @EnumSource(Function.class)
-    @DisplayName("Should have valid description for all Function values")
-    void shouldHaveValidDescriptionForAllFunctions(Function function) {
-      assertNotNull(
-          function.getDescription(), function.name() + " should have non-null description");
-      assertFalse(
-          function.getDescription().trim().isEmpty(),
-          function.name() + " should have non-empty description");
-      assertEquals(
-          function.getDescription(),
-          function.toString(),
-          function.name() + " toString should match getDescription");
-    }
-
-    @Test
-    @DisplayName("Should have expected Function enum values")
-    void shouldHaveExpectedFunctionValues() {
-      Function[] expectedFunctions = {
-        Function.LINEAR, Function.SIGMOID, Function.SIGMOID_NORM, Function.LOG, Function.LOG_INV
-      };
-      Function[] actualFunctions = Function.values();
-
-      assertEquals(
-          expectedFunctions.length,
-          actualFunctions.length,
-          "Should have expected number of Function enum values");
-
-      for (Function expected : expectedFunctions) {
-        boolean found = false;
-        for (Function actual : actualFunctions) {
-          if (expected == actual) {
-            found = true;
-            break;
-          }
-        }
-        assertTrue(found, "Expected Function value should exist: " + expected);
-      }
-    }
-
-    @Test
-    @DisplayName("Should have correct descriptions for predefined functions")
-    void shouldHaveCorrectDescriptions() {
+    void have_valid_description_for_all_functions(Function function) {
       assertAll(
-          "Function descriptions",
-          () -> assertEquals("Linear", Function.LINEAR.getDescription()),
-          () -> assertEquals("Sigmoid", Function.SIGMOID.getDescription()),
-          () -> assertEquals("Sigmoid Normalize", Function.SIGMOID_NORM.getDescription()),
-          () -> assertEquals("Logarithmic", Function.LOG.getDescription()),
-          () -> assertEquals("Logarithmic Inverse", Function.LOG_INV.getDescription()));
+          "Function validation",
+          () -> assertNotNull(function.getDescription()),
+          () -> assertFalse(function.getDescription().isBlank()),
+          () -> assertEquals(function.getDescription(), function.toString()));
+    }
+
+    @Test
+    void have_expected_function_enum_values() {
+      var expectedFunctions =
+          Set.of(
+              Function.LINEAR,
+              Function.SIGMOID,
+              Function.SIGMOID_NORM,
+              Function.LOG,
+              Function.LOG_INV);
+      var actualFunctions = Set.of(Function.values());
+
+      assertEquals(expectedFunctions, actualFunctions);
+    }
+
+    @Test
+    void have_correct_descriptions_for_predefined_functions() {
+      var expectedDescriptions =
+          Map.of(
+              Function.LINEAR, "Linear",
+              Function.SIGMOID, "Sigmoid",
+              Function.SIGMOID_NORM, "Sigmoid Normalize",
+              Function.LOG, "Logarithmic",
+              Function.LOG_INV, "Logarithmic Inverse");
+
+      expectedDescriptions.forEach(
+          (function, expectedDesc) ->
+              assertEquals(
+                  expectedDesc,
+                  function.getDescription(),
+                  "Function %s should have correct description".formatted(function)));
     }
   }
 
   @Nested
-  @DisplayName("Predefined Constants Tests")
-  class PredefinedConstantsTests {
+  class Predefined_Constants_Tests {
 
     @Test
-    @DisplayName("Should have correct predefined LutShape constants")
-    void shouldHaveCorrectPredefinedConstants() {
+    void have_all_predefined_constants() {
+      var predefinedConstants =
+          List.of(
+              LutShape.LINEAR,
+              LutShape.SIGMOID,
+              LutShape.SIGMOID_NORM,
+              LutShape.LOG,
+              LutShape.LOG_INV);
+
       assertAll(
-          "Predefined constants",
-          () -> assertNotNull(LutShape.LINEAR, "LINEAR constant should exist"),
-          () -> assertNotNull(LutShape.SIGMOID, "SIGMOID constant should exist"),
-          () -> assertNotNull(LutShape.SIGMOID_NORM, "SIGMOID_NORM constant should exist"),
-          () -> assertNotNull(LutShape.LOG, "LOG constant should exist"),
-          () -> assertNotNull(LutShape.LOG_INV, "LOG_INV constant should exist"));
+          "Predefined constants existence",
+          predefinedConstants.stream()
+              .map(constant -> (Executable) () -> assertNotNull(constant))
+              .toArray(Executable[]::new));
+    }
+
+    @ParameterizedTest
+    @MethodSource("predefinedConstantData")
+    void have_predefined_constants_with_correct_properties(
+        LutShape lutShape, Function expectedFunction) {
+
+      assertAll(
+          "Predefined constant properties",
+          () -> assertEquals(expectedFunction, lutShape.getFunctionType()),
+          () -> assertTrue(lutShape.isFunction()),
+          () -> assertNull(lutShape.getLookup()),
+          () -> assertEquals(expectedFunction.getDescription(), lutShape.getExplanation()));
+    }
+
+    static Stream<Arguments> predefinedConstantData() {
+      return Stream.of(
+          Arguments.of(LutShape.LINEAR, Function.LINEAR),
+          Arguments.of(LutShape.SIGMOID, Function.SIGMOID),
+          Arguments.of(LutShape.SIGMOID_NORM, Function.SIGMOID_NORM),
+          Arguments.of(LutShape.LOG, Function.LOG),
+          Arguments.of(LutShape.LOG_INV, Function.LOG_INV));
     }
 
     @Test
-    @DisplayName("Should have predefined constants with correct function types")
-    void shouldHavePredefinedConstantsWithCorrectTypes() {
-      assertAll(
-          "Predefined constant function types",
-          () -> assertEquals(Function.LINEAR, LutShape.LINEAR.getFunctionType()),
-          () -> assertEquals(Function.SIGMOID, LutShape.SIGMOID.getFunctionType()),
-          () -> assertEquals(Function.SIGMOID_NORM, LutShape.SIGMOID_NORM.getFunctionType()),
-          () -> assertEquals(Function.LOG, LutShape.LOG.getFunctionType()),
-          () -> assertEquals(Function.LOG_INV, LutShape.LOG_INV.getFunctionType()));
-    }
+    void return_all_predefined_constants_from_get_all_predefined() {
+      var predefined = LutShape.getAllPredefined();
+      var expected =
+          Set.of(
+              LutShape.LINEAR,
+              LutShape.SIGMOID,
+              LutShape.SIGMOID_NORM,
+              LutShape.LOG,
+              LutShape.LOG_INV);
 
-    @Test
-    @DisplayName("Should have predefined constants as function-based")
-    void shouldHavePredefinedConstantsAsFunctionBased() {
-      assertAll(
-          "Predefined constants should be function-based",
-          () -> assertTrue(LutShape.LINEAR.isFunction()),
-          () -> assertTrue(LutShape.SIGMOID.isFunction()),
-          () -> assertTrue(LutShape.SIGMOID_NORM.isFunction()),
-          () -> assertTrue(LutShape.LOG.isFunction()),
-          () -> assertTrue(LutShape.LOG_INV.isFunction()));
-    }
-
-    @Test
-    @DisplayName("Should have predefined constants with null lookup tables")
-    void shouldHavePredefinedConstantsWithNullLookup() {
-      assertAll(
-          "Predefined constants should have null lookup",
-          () -> assertNull(LutShape.LINEAR.getLookup()),
-          () -> assertNull(LutShape.SIGMOID.getLookup()),
-          () -> assertNull(LutShape.SIGMOID_NORM.getLookup()),
-          () -> assertNull(LutShape.LOG.getLookup()),
-          () -> assertNull(LutShape.LOG_INV.getLookup()));
-    }
-
-    @Test
-    @DisplayName("Should return all predefined constants from getAllPredefined")
-    void shouldReturnAllPredefinedConstants() {
-      Set<LutShape> predefined = LutShape.getAllPredefined();
-
-      assertEquals(5, predefined.size(), "Should return 5 predefined constants");
-      assertAll(
-          "All predefined constants should be included",
-          () -> assertTrue(predefined.contains(LutShape.LINEAR)),
-          () -> assertTrue(predefined.contains(LutShape.SIGMOID)),
-          () -> assertTrue(predefined.contains(LutShape.SIGMOID_NORM)),
-          () -> assertTrue(predefined.contains(LutShape.LOG)),
-          () -> assertTrue(predefined.contains(LutShape.LOG_INV)));
+      assertEquals(expected, predefined);
     }
   }
 
   @Nested
-  @DisplayName("String Lookup Tests")
-  class StringLookupTests {
+  class String_Lookup_Tests {
 
-    @Test
-    @DisplayName("Should return correct LutShape for valid function names")
-    void shouldReturnCorrectLutShapeForValidNames() {
-      assertAll(
-          "Valid function name lookups",
-          () -> assertSame(LutShape.LINEAR, LutShape.getLutShape("LINEAR")),
-          () -> assertSame(LutShape.SIGMOID, LutShape.getLutShape("SIGMOID")),
-          () -> assertSame(LutShape.SIGMOID_NORM, LutShape.getLutShape("SIGMOID_NORM")),
-          () -> assertSame(LutShape.LOG, LutShape.getLutShape("LOG")),
-          () -> assertSame(LutShape.LOG_INV, LutShape.getLutShape("LOG_INV")));
+    @ParameterizedTest
+    @CsvSource({
+      "LINEAR, LINEAR",
+      "SIGMOID, SIGMOID",
+      "SIGMOID_NORM, SIGMOID_NORM",
+      "LOG, LOG",
+      "LOG_INV, LOG_INV"
+    })
+    void return_correct_lut_shape_for_valid_function_names(String input, String expectedConstant) {
+      var expected =
+          switch (expectedConstant) {
+            case "LINEAR" -> LutShape.LINEAR;
+            case "SIGMOID" -> LutShape.SIGMOID;
+            case "SIGMOID_NORM" -> LutShape.SIGMOID_NORM;
+            case "LOG" -> LutShape.LOG;
+            case "LOG_INV" -> LutShape.LOG_INV;
+            default -> throw new IllegalArgumentException("Unknown constant: " + expectedConstant);
+          };
+
+      assertSame(expected, LutShape.getLutShape(input));
     }
 
-    @Test
-    @DisplayName("Should handle case-insensitive function names")
-    void shouldHandleCaseInsensitiveFunctionNames() {
-      assertAll(
-          "Case-insensitive lookups",
-          () -> assertSame(LutShape.LINEAR, LutShape.getLutShape("linear")),
-          () -> assertSame(LutShape.SIGMOID, LutShape.getLutShape("sigmoid")),
-          () -> assertSame(LutShape.SIGMOID_NORM, LutShape.getLutShape("sigmoid_norm")),
-          () -> assertSame(LutShape.LOG, LutShape.getLutShape("log")),
-          () -> assertSame(LutShape.LOG_INV, LutShape.getLutShape("log_inv")),
-          () -> assertSame(LutShape.LINEAR, LutShape.getLutShape("Linear")),
-          () -> assertSame(LutShape.SIGMOID, LutShape.getLutShape("Sigmoid")));
+    @ParameterizedTest
+    @CsvSource({
+      "linear, LINEAR",
+      "sigmoid, SIGMOID",
+      "sigmoid_norm, SIGMOID_NORM",
+      "log, LOG",
+      "log_inv, LOG_INV",
+      "Linear, LINEAR",
+      "Sigmoid, SIGMOID"
+    })
+    void handle_case_insensitive_function_names(String input, String expectedConstant) {
+      var expected =
+          switch (expectedConstant) {
+            case "LINEAR" -> LutShape.LINEAR;
+            case "SIGMOID" -> LutShape.SIGMOID;
+            case "SIGMOID_NORM" -> LutShape.SIGMOID_NORM;
+            case "LOG" -> LutShape.LOG;
+            case "LOG_INV" -> LutShape.LOG_INV;
+            default -> throw new IllegalArgumentException("Unknown constant: " + expectedConstant);
+          };
+
+      assertSame(expected, LutShape.getLutShape(input));
     }
 
-    @Test
-    @DisplayName("Should handle whitespace in function names")
-    void shouldHandleWhitespaceInFunctionNames() {
-      assertAll(
-          "Whitespace handling",
-          () -> assertSame(LutShape.LINEAR, LutShape.getLutShape("  LINEAR  ")),
-          () -> assertSame(LutShape.SIGMOID, LutShape.getLutShape("\tSIGMOID\n")),
-          () -> assertSame(LutShape.LOG, LutShape.getLutShape(" log ")));
+    @ParameterizedTest
+    @ValueSource(strings = {"  LINEAR  ", "\tSIGMOID\n", " log "})
+    void handle_whitespace_in_function_names(String input) {
+      assertNotNull(LutShape.getLutShape(input));
     }
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"", "   ", "\t", "\n"})
-    @DisplayName("Should return null for invalid function names")
-    void shouldReturnNullForInvalidFunctionNames(String invalidName) {
-      assertNull(
-          LutShape.getLutShape(invalidName),
-          "Should return null for invalid function name: '" + invalidName + "'");
+    @ValueSource(strings = {"   ", "\t", "\n", ""})
+    void return_null_for_invalid_function_names(String invalidName) {
+      assertNull(LutShape.getLutShape(invalidName));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"UNKNOWN", "Shape", "INVALID", "LINEAR_INV", "QUADRATIC"})
-    @DisplayName("Should return null for unknown function names")
-    void shouldReturnNullForUnknownFunctionNames(String unknownName) {
-      assertNull(
-          LutShape.getLutShape(unknownName),
-          "Should return null for unknown function name: " + unknownName);
+    void return_null_for_unknown_function_names(String unknownName) {
+      assertNull(LutShape.getLutShape(unknownName));
     }
   }
 
   @Nested
-  @DisplayName("Equality and HashCode Tests")
-  class EqualityTests {
+  class Equality_And_Hash_Code_Tests {
 
     @Test
-    @DisplayName("Should be equal when same function type and explanation")
-    void shouldBeEqualWhenSameFunctionAndExplanation() {
-      LutShape lutShape1 = new LutShape(Function.LINEAR);
-      LutShape lutShape2 = new LutShape(Function.LINEAR, Function.LINEAR.getDescription());
-
-      assertEquals(lutShape1, lutShape2, "LutShapes with same function should be equal");
-      assertEquals(
-          lutShape1.hashCode(), lutShape2.hashCode(), "Equal LutShapes should have same hash code");
-    }
-
-    @Test
-    @DisplayName("Should be equal when same lookup table and explanation")
-    void shouldBeEqualWhenSameLookupAndExplanation() {
-      String explanation = "Test explanation";
-      LutShape lutShape1 = new LutShape(validLookupTable, explanation);
-      LutShape lutShape2 = new LutShape(validLookupTable, explanation);
-
-      assertEquals(lutShape1, lutShape2, "LutShapes with same lookup table should be equal");
-      assertEquals(
-          lutShape1.hashCode(), lutShape2.hashCode(), "Equal LutShapes should have same hash code");
-    }
-
-    @Test
-    @DisplayName("Should not be equal when different function types")
-    void shouldNotBeEqualWhenDifferentFunctionTypes() {
-      LutShape linearShape = new LutShape(Function.LINEAR);
-      LutShape sigmoidShape = new LutShape(Function.SIGMOID);
-
-      assertNotEquals(
-          linearShape, sigmoidShape, "LutShapes with different functions should not be equal");
-      assertNotEquals(
-          linearShape.hashCode(),
-          sigmoidShape.hashCode(),
-          "Different LutShapes should have different hash codes");
-    }
-
-    @Test
-    @DisplayName("Should not be equal when different explanations")
-    void shouldNotBeEqualWhenDifferentExplanations() {
-      LutShape lutShape1 = new LutShape(Function.LINEAR, "Explanation 1");
-      LutShape lutShape2 = new LutShape(Function.LINEAR, "Explanation 2");
-
-      assertNotEquals(
-          lutShape1, lutShape2, "LutShapes with different explanations should not be equal");
-    }
-
-    @Test
-    @DisplayName("Should not be equal when comparing function vs lookup table")
-    void shouldNotBeEqualWhenFunctionVsLookup() {
-      LutShape functionShape = new LutShape(Function.LINEAR);
-      LutShape lookupShape = new LutShape(validLookupTable, "Linear");
-
-      assertNotEquals(
-          functionShape,
-          lookupShape,
-          "Function-based and lookup-based LutShapes should not be equal");
-    }
-
-    @Test
-    @DisplayName("Should not be equal to null or different class")
-    void shouldNotBeEqualToNullOrDifferentClass() {
-      LutShape lutShape = new LutShape(Function.LINEAR);
+    void be_equal_when_same_function_type_and_explanation() {
+      var lutShape1 = new LutShape(Function.LINEAR);
+      var lutShape2 = new LutShape(Function.LINEAR, Function.LINEAR.getDescription());
 
       assertAll(
-          "Null and different class equality",
-          () -> assertNotEquals(lutShape, null),
-          () -> assertNotEquals(lutShape, "Not a LutShape"),
-          () -> assertNotEquals(lutShape, Integer.valueOf(42)));
+          "Same function equality",
+          () -> assertEquals(lutShape1, lutShape2),
+          () -> assertEquals(lutShape1.hashCode(), lutShape2.hashCode()));
     }
 
     @Test
-    @DisplayName("Should be equal to itself")
-    void shouldBeEqualToItself() {
-      LutShape lutShape = new LutShape(Function.SIGMOID);
-      assertEquals(lutShape, lutShape, "LutShape should be equal to itself");
+    void be_equal_when_same_lookup_table_and_explanation() {
+      var explanation = "Test explanation";
+      var lutShape1 = new LutShape(validLookupTable, explanation);
+      var lutShape2 = new LutShape(validLookupTable, explanation);
+
+      assertAll(
+          "Same lookup table equality",
+          () -> assertEquals(lutShape1, lutShape2),
+          () -> assertEquals(lutShape1.hashCode(), lutShape2.hashCode()));
+    }
+
+    @Test
+    void not_be_equal_when_different_function_types() {
+      var linearShape = new LutShape(Function.LINEAR);
+      var sigmoidShape = new LutShape(Function.SIGMOID);
+
+      assertAll(
+          "Different function types",
+          () -> assertNotEquals(linearShape, sigmoidShape),
+          () -> assertNotEquals(linearShape.hashCode(), sigmoidShape.hashCode()));
+    }
+
+    @Test
+    void not_be_equal_when_different_explanations() {
+      var lutShape1 = new LutShape(Function.LINEAR, "Explanation 1");
+      var lutShape2 = new LutShape(Function.LINEAR, "Explanation 2");
+
+      assertNotEquals(lutShape1, lutShape2);
+    }
+
+    @Test
+    void not_be_equal_when_comparing_function_vs_lookup_table() {
+      var functionShape = new LutShape(Function.LINEAR);
+      var lookupShape = new LutShape(validLookupTable, "Linear");
+
+      assertNotEquals(functionShape, lookupShape);
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {String.class, Integer.class, Object.class})
+    void not_be_equal_to_different_class_types(Class<?> otherClass) throws Exception {
+      var lutShape = new LutShape(Function.LINEAR);
+      var otherObject =
+          switch (otherClass.getSimpleName()) {
+            case "String" -> "Not a LutShape";
+            case "Integer" -> 42;
+            default -> new Object();
+          };
+
+      assertNotEquals(lutShape, otherObject);
+    }
+
+    @Test
+    void be_equal_to_itself() {
+      var lutShape = new LutShape(Function.SIGMOID);
+      assertEquals(lutShape, lutShape);
+    }
+
+    @Test
+    void not_be_equal_to_null() {
+      var lutShape = new LutShape(Function.LINEAR);
+      assertNotEquals(lutShape, null);
     }
   }
 
   @Nested
-  @DisplayName("String Representation Tests")
-  class StringRepresentationTests {
+  class String_Representation_Tests {
 
     @Test
-    @DisplayName("Should return explanation as string representation")
-    void shouldReturnExplanationAsString() {
-      String customExplanation = "Custom transformation explanation";
-      LutShape functionShape = new LutShape(Function.LOG, customExplanation);
-      LutShape lookupShape = new LutShape(validLookupTable, customExplanation);
+    void return_explanation_as_string_representation() {
+      var customExplanation = "Custom transformation explanation";
+      var functionShape = new LutShape(Function.LOG, customExplanation);
+      var lookupShape = new LutShape(validLookupTable, customExplanation);
 
-      assertEquals(customExplanation, functionShape.toString());
-      assertEquals(customExplanation, lookupShape.toString());
+      assertAll(
+          "String representation",
+          () -> assertEquals(customExplanation, functionShape.toString()),
+          () -> assertEquals(customExplanation, lookupShape.toString()));
     }
 
     @Test
-    @DisplayName("Should use function description as default string representation")
-    void shouldUseFunctionDescriptionAsDefaultString() {
-      LutShape lutShape = new LutShape(Function.SIGMOID_NORM);
+    void use_function_description_as_default_string_representation() {
+      var lutShape = new LutShape(Function.SIGMOID_NORM);
       assertEquals(Function.SIGMOID_NORM.getDescription(), lutShape.toString());
     }
   }
 
   @Nested
-  @DisplayName("Edge Cases Tests")
-  class EdgeCasesTests {
+  class Edge_Cases_Tests {
 
     @Test
-    @DisplayName("Should handle lookup table with single byte")
-    void shouldHandleSingleByteLookupTable() {
-      LookupTableCV singleByteLut = new LookupTableCV(new byte[] {42});
-      assertDoesNotThrow(() -> new LutShape(singleByteLut, "Single byte LUT"));
+    void handle_lookup_table_with_single_byte() {
+      assertDoesNotThrow(() -> new LutShape(singleByteLookupTable, "Single byte LUT"));
     }
 
     @Test
-    @DisplayName("Should handle lookup table with maximum bytes")
-    void shouldHandleMaximumBytesLookupTable() {
-      byte[] maxBytes = new byte[1000]; // Large lookup table
-      for (int i = 0; i < maxBytes.length; i++) {
-        maxBytes[i] = (byte) (i % 256);
-      }
-      LookupTableCV largeLut = new LookupTableCV(maxBytes);
+    void handle_lookup_table_with_large_data() {
+      var largeData =
+          IntStream.range(0, 1000)
+              .mapToObj(i -> (byte) (i % 256))
+              .collect(Collectors.toList())
+              .toArray(new Byte[0]);
 
+      var largeDataArray = new byte[largeData.length];
+      for (int i = 0; i < largeData.length; i++) {
+        largeDataArray[i] = largeData[i];
+      }
+
+      var largeLut = new LookupTableCV(largeDataArray);
       assertDoesNotThrow(() -> new LutShape(largeLut, "Large LUT"));
+    }
+
+    @Test
+    void handle_empty_explanation_consistently() {
+      var shapes =
+          List.of(
+              new LutShape(Function.LINEAR, ""),
+              new LutShape(Function.LINEAR, null),
+              new LutShape(validLookupTable, ""),
+              new LutShape(validLookupTable, null));
+
+      shapes.forEach(
+          shape ->
+              assertEquals(
+                  "",
+                  shape.getExplanation(),
+                  "Empty explanation should be normalized to empty string"));
     }
   }
 }

@@ -159,11 +159,10 @@ public record Triple<K, V, T>(K first, V second, T third) implements Serializabl
       Function<? super K, ? extends U> firstMapper,
       Function<? super V, ? extends W> secondMapper,
       Function<? super T, ? extends X> thirdMapper) {
-    Objects.requireNonNull(firstMapper, "First mapper function cannot be null");
-    Objects.requireNonNull(secondMapper, "Second mapper function cannot be null");
-    Objects.requireNonNull(thirdMapper, "Third mapper function cannot be null");
     return new Triple<>(
-        firstMapper.apply(first), secondMapper.apply(second), thirdMapper.apply(third));
+        Objects.requireNonNull(firstMapper).apply(first),
+        Objects.requireNonNull(secondMapper).apply(second),
+        Objects.requireNonNull(thirdMapper).apply(third));
   }
 
   /**
@@ -230,13 +229,8 @@ public record Triple<K, V, T>(K first, V second, T third) implements Serializabl
     return new Object[] {first, second, third};
   }
 
-  /**
-   * Returns a string representation of this Triple in the format "(first, second, third)".
-   *
-   * @return a string representation of this Triple
-   */
   @Override
   public String toString() {
-    return String.format("(%s, %s, %s)", first, second, third);
+    return "(%s, %s, %s)".formatted(first, second, third);
   }
 }

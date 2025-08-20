@@ -9,12 +9,10 @@
  */
 package org.weasis.core.util;
 
-import java.util.Collections;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.OptionalDouble;
-import java.util.OptionalInt;
+import java.util.*;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.weasis.core.util.annotations.Generated;
 
 /**
@@ -23,18 +21,19 @@ import org.weasis.core.util.annotations.Generated;
  * @author Nicolas Roduit
  */
 public final class LangUtil {
+  private static final Logger LOGGER = LoggerFactory.getLogger(LangUtil.class);
 
   private LangUtil() {}
 
   /**
-   * Returns an empty iterable if the input is null, otherwise returns the input unchanged.
+   * Returns an empty collection if the input is null, otherwise returns the input unchanged.
    *
-   * @param <T> the type of elements in the iterable
-   * @param iterable the input iterable
+   * @param <T> the type of elements in the collection
+   * @param collection the input collection
    * @return an empty list if the input is null, otherwise the input
    */
-  public static <T> Iterable<T> emptyIfNull(Iterable<T> iterable) {
-    return iterable != null ? iterable : Collections.emptyList();
+  public static <T> Collection<T> emptyIfNull(Collection<T> collection) {
+    return collection == null ? Collections.emptyList() : collection;
   }
 
   /**
@@ -49,23 +48,33 @@ public final class LangUtil {
    */
   public static <T> Supplier<T> memoize(Supplier<T> original) {
     Objects.requireNonNull(original, "Supplier cannot be null");
-    return new Supplier<T>() {
-      private T cachedValue;
-      private volatile boolean computed = false;
+    return new MemoizedSupplier<>(original);
+  }
 
-      @Override
-      public T get() {
-        if (!computed) {
-          synchronized (this) {
-            if (!computed) {
+  private static final class MemoizedSupplier<T> implements Supplier<T> {
+    private final Supplier<T> original;
+    private volatile boolean computed = false;
+    private T cachedValue;
+
+    MemoizedSupplier(Supplier<T> original) {
+      this.original = original;
+    }
+
+    @Override
+    public T get() {
+      if (!computed) {
+        synchronized (this) {
+          if (!computed) {
+            try {
               cachedValue = original.get();
+            } finally {
               computed = true;
             }
           }
         }
-        return cachedValue;
       }
-    };
+      return cachedValue;
+    }
   }
 
   /**
@@ -115,7 +124,7 @@ public final class LangUtil {
    * @return an OptionalDouble containing the value if not null, otherwise empty
    */
   public static OptionalDouble toOptional(Double value) {
-    return value != null ? OptionalDouble.of(value) : OptionalDouble.empty();
+    return value == null ? OptionalDouble.empty() : OptionalDouble.of(value);
   }
 
   /**
@@ -125,7 +134,7 @@ public final class LangUtil {
    * @return an OptionalInt containing the value if not null, otherwise empty
    */
   public static OptionalInt toOptional(Integer value) {
-    return value != null ? OptionalInt.of(value) : OptionalInt.empty();
+    return value == null ? OptionalInt.empty() : OptionalInt.of(value);
   }
 
   /**
@@ -148,11 +157,10 @@ public final class LangUtil {
    */
   @SafeVarargs
   public static <T> T firstNonNull(T... values) {
-    if (values != null) {
-      for (T value : values) {
-        if (value != null) {
-          return value;
-        }
+    if (values == null) return null;
+    for (T value : values) {
+      if (value != null) {
+        return value;
       }
     }
     return null;
@@ -167,17 +175,14 @@ public final class LangUtil {
    * @return the value if not null, otherwise the default value
    */
   public static <T> T defaultIfNull(T value, T defaultValue) {
-    return value != null ? value : defaultValue;
+    return value == null ? defaultValue : value;
   }
 
-  // ============================== DEPRECATED FILE-BASED METHODS ==============================
+  // ============================== DEPRECATED METHODS ==============================
 
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #nullToFalse(Boolean)}
    *     instead.
-   * @param val the {@link Boolean} object to be converted, which may be {@code null}
-   * @return {@code false} if {@code val} is {@code null}, otherwise the value of the {@code
-   *     Boolean}
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -188,8 +193,6 @@ public final class LangUtil {
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #nullToTrue(Boolean)}
    *     instead.
-   * @param val the {@link Boolean} object to be converted, which may be {@code null}
-   * @return {@code true} if {@code val} is {@code null}, otherwise the value of the {@code Boolean}
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -200,8 +203,6 @@ public final class LangUtil {
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #emptyToFalse(String)}
    *     instead.
-   * @param val the input string, which may be null or blank
-   * @return true if the input string has text and can be converted to a boolean, otherwise false
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -212,9 +213,6 @@ public final class LangUtil {
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #emptyToTrue(String)}
    *     instead.
-   * @param val the input string, which may be null or empty
-   * @return true if the input string is null or empty, otherwise the boolean representation of the
-   *     input string
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -225,9 +223,6 @@ public final class LangUtil {
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #toOptional(Double)}
    *     instead.
-   * @param val the {@link Double} object to be converted, which may be {@code null}
-   * @return an {@link OptionalDouble} containing the value if the input is not {@code null},
-   *     otherwise an empty {@link OptionalDouble}
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated
@@ -238,9 +233,6 @@ public final class LangUtil {
   /**
    * @deprecated since 4.12, for removal in a future version. Use {@link #toOptional(Integer)}
    *     instead.
-   * @param val the {@link Integer} object to be converted, which may be {@code null}
-   * @return an {@link OptionalInt} containing the value if the input is not {@code null}, otherwise
-   *     an empty {@link OptionalInt}
    */
   @Deprecated(since = "4.12", forRemoval = true)
   @Generated

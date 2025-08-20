@@ -10,7 +10,6 @@
 package org.weasis.core.util;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Utility class for determining native library specifications based on the current operating system
@@ -51,39 +50,31 @@ public final class NativeLibrary {
           "os/2", OS_OS2,
           "procnto", OS_QNX);
 
-  // Architecture Mappings
-  private static final Map<String, String> ARCH_MAPPINGS = new ConcurrentHashMap<>();
+  // Architecture Mappings - Using Map.of for immutability
+  private static final Map<String, String> ARCH_MAPPINGS =
+      Map.ofEntries(
+          // x86-64 variants
+          Map.entry(ARCH_X86_64, ARCH_X86_64),
+          Map.entry("amd64", ARCH_X86_64),
+          Map.entry("em64t", ARCH_X86_64),
+          Map.entry("x86_64", ARCH_X86_64),
+          // ARM64 variants
+          Map.entry(ARCH_AARCH64, ARCH_AARCH64),
+          Map.entry("arm64", ARCH_AARCH64),
+          // ARM variants
+          Map.entry("arm", ARCH_ARMV7A),
+          // x86 variants
+          Map.entry("pentium", ARCH_X86),
+          Map.entry("i386", ARCH_X86),
+          Map.entry("i486", ARCH_X86),
+          Map.entry("i586", ARCH_X86),
+          Map.entry("i686", ARCH_X86),
+          // Other architectures
+          Map.entry("power ppc", ARCH_POWERPC),
+          Map.entry("psc1k", ARCH_IGNITE));
 
-  static {
-    // x86-64 variants
-    ARCH_MAPPINGS.put(ARCH_X86_64, ARCH_X86_64);
-    ARCH_MAPPINGS.put("amd64", ARCH_X86_64);
-    ARCH_MAPPINGS.put("em64t", ARCH_X86_64);
-    ARCH_MAPPINGS.put("x86_64", ARCH_X86_64);
-
-    // ARM64 variants
-    ARCH_MAPPINGS.put(ARCH_AARCH64, ARCH_AARCH64);
-    ARCH_MAPPINGS.put("arm64", ARCH_AARCH64);
-
-    // ARM variants
-    ARCH_MAPPINGS.put("arm", ARCH_ARMV7A);
-
-    // x86 variants
-    ARCH_MAPPINGS.put("pentium", ARCH_X86);
-    ARCH_MAPPINGS.put("i386", ARCH_X86);
-    ARCH_MAPPINGS.put("i486", ARCH_X86);
-    ARCH_MAPPINGS.put("i586", ARCH_X86);
-    ARCH_MAPPINGS.put("i686", ARCH_X86);
-
-    // Other architectures
-    ARCH_MAPPINGS.put("power ppc", ARCH_POWERPC);
-    ARCH_MAPPINGS.put("psc1k", ARCH_IGNITE);
-  }
-
-  // Cache for the native library specification
   private static volatile String cachedSpecification;
 
-  /** Private constructor to prevent instantiation of this utility class. */
   private NativeLibrary() {}
 
   /**
@@ -94,44 +85,35 @@ public final class NativeLibrary {
    * @throws IllegalStateException if system properties cannot be determined
    */
   public static String getNativeLibSpecification() {
-    if (cachedSpecification == null) {
+    // Double-checked locking pattern with volatile field
+    var result = cachedSpecification;
+    if (result == null) {
       synchronized (NativeLibrary.class) {
-        if (cachedSpecification == null) {
-          cachedSpecification = buildNativeLibSpecification();
+        result = cachedSpecification;
+        if (result == null) {
+          cachedSpecification = result = buildNativeLibSpecification();
         }
       }
     }
-    return cachedSpecification;
+    return result;
   }
 
-  /**
-   * Builds the native library specification by normalizing the OS name and architecture.
-   *
-   * @return the native library specification string
-   * @throws IllegalStateException if system properties cannot be determined
-   */
   private static String buildNativeLibSpecification() {
-    String rawOsName = System.getProperty(PROP_OS_NAME);
-    String rawOsArch = System.getProperty(PROP_OS_ARCH);
+    var rawOsName = System.getProperty(PROP_OS_NAME);
+    var rawOsArch = System.getProperty(PROP_OS_ARCH);
 
-    String normalizedOsName = normalizeOsName(rawOsName);
-    String normalizedOsArch = normalizeArchitecture(rawOsArch);
+    var normalizedOsName = normalizeOsName(rawOsName);
+    var normalizedOsArch = normalizeArchitecture(rawOsArch);
 
     return normalizedOsName + "-" + normalizedOsArch;
   }
 
-  /**
-   * Normalizes the operating system name according to OSGi conventions.
-   *
-   * @param rawOsName the raw OS name from system properties
-   * @return the normalized OS name
-   */
   private static String normalizeOsName(String rawOsName) {
-    if (rawOsName == null || rawOsName.isEmpty()) {
+    if (!StringUtil.hasText(rawOsName)) {
       throw new IllegalStateException("OS name system property is null or empty");
     }
 
-    String osName = rawOsName.toLowerCase();
+    var osName = rawOsName.toLowerCase();
 
     // Handle common OS prefixes
     if (osName.startsWith("win")) {
@@ -146,25 +128,15 @@ public final class NativeLibrary {
     return OS_NAME_MAPPINGS.getOrDefault(osName, osName);
   }
 
-  /**
-   * Normalizes the processor architecture according to OSGi conventions.
-   *
-   * @param rawOsArch the raw architecture from system properties
-   * @return the normalized architecture
-   */
   private static String normalizeArchitecture(String rawOsArch) {
-    if (rawOsArch == null || rawOsArch.isEmpty()) {
+    if (!StringUtil.hasText(rawOsArch)) {
       throw new IllegalStateException("OS architecture system property is null or empty");
     }
 
-    String osArch = rawOsArch.toLowerCase();
-    return ARCH_MAPPINGS.getOrDefault(osArch, osArch);
+    return ARCH_MAPPINGS.getOrDefault(rawOsArch.toLowerCase(), rawOsArch.toLowerCase());
   }
 
-  /**
-   * Clears the cached native library specification. This method is primarily intended for testing
-   * purposes.
-   */
+  /** Clears the cached native library specification for testing purposes. */
   static void clearCache() {
     synchronized (NativeLibrary.class) {
       cachedSpecification = null;

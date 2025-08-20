@@ -14,13 +14,13 @@ import org.opencv.core.Size;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Interface for planar image objects that wrap OpenCV Mat functionality. Extends ImageSize and
- * AutoCloseable for proper resource management.
+ * Represents a planar image with OpenCV Mat functionality. Provides resource management through
+ * AutoCloseable and memory size calculation through ImageSize.
  */
 @Generated
 public interface PlanarImage extends ImageSize, AutoCloseable {
 
-  // Core Mat properties
+  // Core properties
   int channels();
 
   int dims();
@@ -39,7 +39,7 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   int width();
 
-  // Data access methods
+  // Data access
   double[] get(int row, int column);
 
   int get(int i, int j, byte[] pixelData);
@@ -52,12 +52,12 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
 
   int get(int i, int j, double[] data);
 
-  // Image operations
+  // Operations
   void assignTo(Mat dstImg);
 
   void release();
 
-  // Resource management state
+  // Resource management
   boolean isReleased();
 
   boolean isReleasedAfterProcessing();
@@ -67,12 +67,7 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
   @Override
   void close();
 
-  /**
-   * Converts this PlanarImage to a Mat instance.
-   *
-   * @return Mat instance
-   * @throws UnsupportedOperationException if conversion is not supported
-   */
+  /** Converts this PlanarImage to a Mat instance. */
   default Mat toMat() {
     if (this instanceof Mat mat) {
       return mat;
@@ -81,12 +76,7 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
         "Conversion to Mat not supported for this implementation");
   }
 
-  /**
-   * Converts this PlanarImage to an ImageCV instance.
-   *
-   * @return ImageCV instance
-   * @throws UnsupportedOperationException if conversion is not supported
-   */
+  /** Converts this PlanarImage to an ImageCV instance. */
   default ImageCV toImageCV() {
     if (this instanceof ImageCV imageCV) {
       return imageCV;
@@ -101,8 +91,7 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
   // ============================== DEPRECATED FILE-BASED METHODS ==============================
 
   /**
-   * @deprecated Use {@link #isReleased()} instead. This method name was inconsistent with naming
-   *     conventions.
+   * @deprecated Use {@link #isReleased()} instead.
    */
   @Deprecated(since = "4.12", forRemoval = true)
   boolean isHasBeenReleased();

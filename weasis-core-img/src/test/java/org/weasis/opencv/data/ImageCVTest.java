@@ -11,10 +11,15 @@ package org.weasis.opencv.data;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Range;
@@ -23,261 +28,388 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.osgi.OpenCVNativeLoader;
 
-@DisplayName("ImageCV Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ImageCVTest {
+
   @BeforeAll
-  @DisplayName("Load OpenCV Native Library")
-  static void loadNativeLib() {
-    // Load the native OpenCV library
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_opencv_native_library() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @Nested
-  @DisplayName("Physical Bytes Calculation Tests")
-  class PhysicalBytesTests {
+  class Physical_Bytes_Calculation {
+
+    @ParameterizedTest
+    @MethodSource("image_type_test_data")
+    void should_calculate_physical_bytes_correctly(ImageTestData testData) {
+      try (var img =
+          new ImageCV(testData.width, testData.height, testData.type, testData.fillValue)) {
+        var expectedBytes = testData.width * testData.height * testData.expectedElemSize;
+
+        assertAll(
+            () -> assertEquals(expectedBytes, img.physicalBytes()),
+            () -> assertEquals(testData.expectedChannels, img.channels()),
+            () -> assertEquals(testData.width * testData.height, img.total()),
+            () -> assertEquals(testData.expectedElemSize, img.elemSize()));
+      }
+    }
+
+    static Stream<Arguments> image_type_test_data() {
+      return Stream.of(
+          Arguments.of(new ImageTestData(3, 3, CvType.CV_8UC1, new Scalar(128), 1, 1)),
+          Arguments.of(new ImageTestData(4, 4, CvType.CV_8UC3, new Scalar(50, 100, 150), 3, 3)),
+          Arguments.of(new ImageTestData(7, 7, CvType.CV_16UC1, new Scalar(65535), 1, 2)),
+          Arguments.of(new ImageTestData(2, 3, CvType.CV_16SC2, new Scalar(-1000, 1000), 2, 4)),
+          Arguments.of(new ImageTestData(5, 2, CvType.CV_32FC1, new Scalar(3.14159), 1, 4)),
+          Arguments.of(new ImageTestData(3, 4, CvType.CV_64FC3, new Scalar(1.0, 2.0, 3.0), 3, 24)));
+    }
+
     @Test
-    @DisplayName("Should calculate correct physical bytes for 3-channel 8-bit image")
-    void shouldCalculatePhysicalBytesFor3Channel8BitImage() {
-      try (ImageCV img = new ImageCV(3, 3, CvType.CV_8UC3, new Scalar(7))) {
-        assertEquals(27, img.physicalBytes(), "3x3 CV_8UC3 should be 27 bytes");
-        assertEquals(3, img.channels());
-        assertEquals(9, img.total());
-        assertEquals(3, img.elemSize());
+    void should_return_zero_bytes_for_default_constructor() {
+      try (var img = new ImageCV()) {
+        assertAll(
+            () -> assertEquals(0, img.physicalBytes()),
+            () -> assertEquals(0, img.total()),
+            () -> assertEquals(0, img.width()),
+            () -> assertEquals(0, img.height()));
       }
     }
 
     @Test
-    @DisplayName("Should calculate correct physical bytes for single-channel 8-bit image")
-    void shouldCalculatePhysicalBytesForSingleChannel8BitImage() {
-      try (ImageCV img = new ImageCV(new Size(4, 4), CvType.CV_8UC1, new Scalar(255))) {
-        assertEquals(16, img.physicalBytes(), "4x4 CV_8UC1 should be 16 bytes");
-        assertEquals(1, img.channels());
-        assertEquals(16, img.total());
-        assertEquals(1, img.elemSize());
+    void should_handle_empty_dimensions() {
+      try (var img = new ImageCV(new Size(0, 0), CvType.CV_8UC1)) {
+        assertEquals(0, img.physicalBytes());
       }
     }
 
     @Test
-    @DisplayName("Should calculate correct physical bytes for 16-bit signed image")
-    void shouldCalculatePhysicalBytesFor16BitSignedImage() {
-      try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_16SC1, new Scalar(-1024))) {
-        assertEquals(98, img.physicalBytes(), "7x7 CV_16SC1 should be 98 bytes");
-        assertEquals(1, img.channels());
-        assertEquals(49, img.total());
-        assertEquals(2, img.elemSize());
-      }
-    }
-
-    @Test
-    @DisplayName("Should return zero bytes for default constructor")
-    void shouldReturnZeroBytesForDefaultConstructor() {
-      try (ImageCV img = new ImageCV()) {
-        assertEquals(0, img.physicalBytes(), "Empty image should have 0 bytes");
-        assertEquals(0, img.total());
-      }
-    }
-
-    @Test
-    @DisplayName("Should return zero bytes for empty image dimensions")
-    void shouldReturnZeroBytesForEmptyImageDimensions() {
-      try (ImageCV img = new ImageCV(new Size(0, 0), CvType.CV_8UC1)) {
-        assertEquals(0, img.physicalBytes(), "0x0 image should have 0 bytes");
-        assertEquals(0, img.total());
-      }
-    }
-
-    @Test
-    @DisplayName("Should calculate correct bytes for subregion image")
-    void shouldCalculateCorrectBytesForSubregionImage() {
-      try (ImageCV baseImage = new ImageCV(5, 5, CvType.CV_8UC1, new Scalar(4))) {
-        try (ImageCV rangedImage = new ImageCV(baseImage, new Rect(1, 1, 2, 2))) {
-          assertEquals(4, rangedImage.physicalBytes(), "2x2 subregion should be 4 bytes");
-          assertEquals(2, rangedImage.width());
-          assertEquals(2, rangedImage.height());
+    void should_calculate_bytes_for_subregion_correctly() {
+      try (var baseImage = new ImageCV(10, 10, CvType.CV_8UC1, new Scalar(255))) {
+        try (var subImage = new ImageCV(baseImage, new Rect(2, 2, 4, 3))) {
+          assertAll(
+              () -> assertEquals(12, subImage.physicalBytes()), // 4x3x1
+              () -> assertEquals(4, subImage.width()),
+              () -> assertEquals(3, subImage.height()),
+              () -> assertEquals(1, subImage.channels()));
         }
       }
     }
   }
 
   @Nested
-  @DisplayName("Resource Management Tests")
-  class ResourceManagementTests {
+  class Resource_Management {
 
     @Test
-    @DisplayName("Should manage release state correctly")
-    void shouldManageReleaseStateCorrectly() {
-      ImageCV img = new ImageCV(new Size(3, 3), CvType.CV_8UC1, new Scalar(100));
+    void should_manage_release_lifecycle_correctly() {
+      var img = new ImageCV(new Size(5, 5), CvType.CV_8UC1, new Scalar(100));
 
-      assertFalse(img.isReleased(), "Image should not be released initially");
-      assertFalse(
-          img.isReleasedAfterProcessing(),
-          "Image should not be marked for release after processing initially");
+      // Initial state
+      assertAll(
+          () -> assertFalse(img.isReleased()), () -> assertFalse(img.isReleasedAfterProcessing()));
 
+      // Mark for release after processing
       img.setReleasedAfterProcessing(true);
-      assertTrue(
-          img.isReleasedAfterProcessing(), "Image should be marked for release after processing");
-      assertFalse(img.isReleased(), "Image should not be released yet");
+      assertAll(
+          () -> assertTrue(img.isReleasedAfterProcessing()), () -> assertFalse(img.isReleased()));
 
+      // Release and verify idempotency
       img.release();
-      assertTrue(img.isReleased(), "Image should be released");
+      assertTrue(img.isReleased());
 
-      // Test double release safety
-      img.release();
-      assertTrue(img.isReleased(), "Image should remain released after double release");
+      img.release(); // Second call should be safe
+      assertTrue(img.isReleased());
     }
 
     @Test
-    @DisplayName("Should handle close() properly")
-    void shouldHandleCloseCorrectly() {
-      ImageCV img = new ImageCV(new Size(2, 2), CvType.CV_8UC1);
+    void should_handle_close_correctly() {
+      var img = new ImageCV(new Size(3, 3), CvType.CV_16UC1);
 
-      assertFalse(img.isReleased(), "Image should not be released before close");
-
+      assertFalse(img.isReleased());
       img.close();
-      assertTrue(img.isReleased(), "Image should be released after close");
+      assertTrue(img.isReleased());
     }
 
     @Test
-    @DisplayName("Should work correctly with try-with-resources")
-    void shouldWorkCorrectlyWithTryWithResources() {
-      ImageCV img;
-      try (ImageCV autoCloseImg = new ImageCV(new Size(2, 2), CvType.CV_8UC1)) {
-        img = autoCloseImg;
-        assertFalse(img.isReleased(), "Image should not be released inside try block");
+    void should_auto_close_in_try_with_resources() {
+      ImageCV capturedImg;
+
+      try (var img = new ImageCV(new Size(2, 2), CvType.CV_32FC1)) {
+        capturedImg = img;
+        assertFalse(img.isReleased());
       }
-      assertTrue(img.isReleased(), "Image should be released after try block");
+
+      assertTrue(capturedImg.isReleased());
     }
   }
 
   @Nested
-  @DisplayName("Conversion Tests")
-  class ConversionTests {
+  class Type_Conversions {
 
     @Test
-    @DisplayName("Should convert to Mat correctly")
-    void shouldConvertToMatCorrectly() {
-      try (ImageCV img = new ImageCV(3, 3, CvType.CV_8UC1, new Scalar(42))) {
-        Mat mat = img.toMat();
-        assertSame(img, mat, "toMat should return the same instance for ImageCV");
-        assertEquals(img.width(), mat.width());
-        assertEquals(img.height(), mat.height());
-        assertEquals(img.type(), mat.type());
+    void should_convert_to_mat_returning_same_instance() {
+      try (var imageCV = new ImageCV(4, 3, CvType.CV_8UC3, new Scalar(1, 2, 3))) {
+        var mat = imageCV.toMat();
+
+        assertAll(
+            () -> assertSame(imageCV, mat),
+            () -> assertEquals(imageCV.width(), mat.width()),
+            () -> assertEquals(imageCV.height(), mat.height()),
+            () -> assertEquals(imageCV.type(), mat.type()));
       }
     }
 
     @Test
-    @DisplayName("Should convert to ImageCV correctly")
-    void shouldConvertToImageCVCorrectly() {
-      try (ImageCV original = new ImageCV(3, 3, CvType.CV_8UC1, new Scalar(42))) {
-        ImageCV converted = original.toImageCV();
-        assertSame(original, converted, "toImageCV should return the same instance for ImageCV");
+    void should_convert_to_imageCV_returning_same_instance() {
+      try (var original = new ImageCV(2, 3, CvType.CV_16UC1, new Scalar(1000))) {
+        var converted = original.toImageCV();
+
+        assertSame(original, converted);
       }
     }
 
     @Test
-    @DisplayName("Should convert static toMat correctly")
-    void shouldConvertStaticToMatCorrectly() {
-      try (ImageCV img = new ImageCV(new Size(4, 4), CvType.CV_8UC1, new Scalar(255))) {
-        Mat mat = ImageCV.toMat(img);
-        assertSame(img, mat, "Static toMat should return the same instance for ImageCV");
+    void should_create_imageCV_from_regular_mat() {
+      var originalMat = new Mat(3, 4, CvType.CV_8UC1, new Scalar(200));
+
+      try (var converted = ImageCV.fromMat(originalMat)) {
+        assertAll(
+            () -> assertNotSame(originalMat, converted),
+            () -> assertEquals(originalMat.width(), converted.width()),
+            () -> assertEquals(originalMat.height(), converted.height()),
+            () -> assertEquals(originalMat.type(), converted.type()),
+            () -> assertInstanceOf(ImageCV.class, converted));
+
+        // Verify data was copied correctly
+        var originalData = new byte[1];
+        var convertedData = new byte[1];
+        originalMat.get(1, 1, originalData);
+        converted.get(1, 1, convertedData);
+        assertArrayEquals(originalData, convertedData);
+      }
+
+      originalMat.release();
+    }
+
+    @Test
+    void should_return_same_instance_when_converting_imageCV_to_imageCV() {
+      try (var original = new ImageCV(2, 2, CvType.CV_32FC1, new Scalar(3.14))) {
+        var converted = ImageCV.fromMat(original);
+
+        assertSame(original, converted);
       }
     }
 
     @Test
-    @DisplayName("Should convert static fromMat correctly for ImageCV")
-    void shouldConvertStaticFromMatCorrectlyForImageCV() {
-      try (ImageCV original = new ImageCV(3, 3, CvType.CV_8UC3, new Scalar(7))) {
-        ImageCV converted = ImageCV.fromMat(original);
-        assertSame(
-            original,
-            converted,
-            "fromMat should return the same instance when input is already ImageCV");
+    void should_convert_via_static_toMat_method() {
+      try (var imageCV = new ImageCV(new Size(5, 3), CvType.CV_8UC1, new Scalar(42))) {
+        var mat = ImageCV.toMat(imageCV);
+
+        assertSame(imageCV, mat);
       }
     }
 
     @Test
-    @DisplayName("Should convert static fromMat correctly for regular Mat")
-    void shouldConvertStaticFromMatCorrectlyForRegularMat() {
-      Mat originalMat = new Mat(2, 2, CvType.CV_8UC1, new Scalar(128));
-      try (ImageCV converted = ImageCV.fromMat(originalMat)) {
-        assertEquals(originalMat.width(), converted.width());
-        assertEquals(originalMat.height(), converted.height());
-        assertEquals(originalMat.type(), converted.type());
-        assertNotSame(originalMat, converted, "fromMat should create new instance for regular Mat");
-      }
+    void should_handle_null_input_in_static_methods() {
+      assertAll(
+          () -> assertThrows(NullPointerException.class, () -> ImageCV.fromMat(null)),
+          () -> assertThrows(NullPointerException.class, () -> ImageCV.toMat(null)));
     }
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_Variants {
 
     @Test
-    @DisplayName("Should create image with rows and columns")
-    void shouldCreateImageWithRowsAndColumns() {
-      try (ImageCV img = new ImageCV(5, 3, CvType.CV_8UC1)) {
-        assertEquals(5, img.height());
-        assertEquals(3, img.width());
-        assertEquals(CvType.CV_8UC1, img.type());
+    void should_create_from_dimensions_and_type() {
+      try (var img = new ImageCV(6, 4, CvType.CV_16UC2)) {
+        assertAll(
+            () -> assertEquals(6, img.height()),
+            () -> assertEquals(4, img.width()),
+            () -> assertEquals(CvType.CV_16UC2, img.type()),
+            () -> assertEquals(2, img.channels()));
       }
     }
 
     @Test
-    @DisplayName("Should create image with Size")
-    void shouldCreateImageWithSize() {
-      Size size = new Size(4, 6);
-      try (ImageCV img = new ImageCV(size, CvType.CV_16UC1)) {
-        assertEquals(4, img.width());
-        assertEquals(6, img.height());
-        assertEquals(CvType.CV_16UC1, img.type());
+    void should_create_from_size_and_type() {
+      var size = new Size(8, 5);
+      try (var img = new ImageCV(size, CvType.CV_32FC3)) {
+        assertAll(
+            () -> assertEquals(8, img.width()),
+            () -> assertEquals(5, img.height()),
+            () -> assertEquals(CvType.CV_32FC3, img.type()),
+            () -> assertEquals(3, img.channels()));
       }
     }
 
     @Test
-    @DisplayName("Should create image with Range constructors")
-    void shouldCreateImageWithRangeConstructors() {
-      try (ImageCV baseImg = new ImageCV(10, 10, CvType.CV_8UC1, new Scalar(50))) {
-        try (ImageCV rowRangeImg = new ImageCV(baseImg, new Range(2, 8))) {
-          assertEquals(10, rowRangeImg.width());
-          assertEquals(6, rowRangeImg.height());
+    void should_create_with_scalar_initialization() {
+      var initValue = new Scalar(50, 100, 200);
+      try (var img = new ImageCV(2, 3, CvType.CV_8UC3, initValue)) {
+        var pixelData = new byte[3];
+        img.get(0, 0, pixelData);
+
+        assertAll(
+            () -> assertEquals(50, Byte.toUnsignedInt(pixelData[0])),
+            () -> assertEquals(100, Byte.toUnsignedInt(pixelData[1])),
+            () -> assertEquals(200, Byte.toUnsignedInt(pixelData[2])));
+      }
+    }
+
+    @Test
+    void should_create_subimage_with_ranges() {
+      try (var baseImg = createTestImage(10, 8, CvType.CV_8UC1)) {
+        // Row range only
+        try (var rowRangeImg = new ImageCV(baseImg, new Range(2, 6))) {
+          assertAll(
+              () -> assertEquals(10, rowRangeImg.width()),
+              () -> assertEquals(4, rowRangeImg.height()));
         }
 
-        try (ImageCV bothRangeImg = new ImageCV(baseImg, new Range(1, 5), new Range(2, 7))) {
-          assertEquals(5, bothRangeImg.width());
-          assertEquals(4, bothRangeImg.height());
+        // Both row and column ranges
+        try (var bothRangeImg = new ImageCV(baseImg, new Range(1, 4), new Range(2, 7))) {
+          assertAll(
+              () -> assertEquals(5, bothRangeImg.width()),
+              () -> assertEquals(3, bothRangeImg.height()));
+        }
+      }
+    }
+
+    @Test
+    void should_create_subimage_with_rect() {
+      try (var baseImg = createTestImage(12, 10, CvType.CV_8UC1)) {
+        var roi = new Rect(3, 2, 4, 5); // x, y, width, height
+
+        try (var roiImg = new ImageCV(baseImg, roi)) {
+          assertAll(() -> assertEquals(4, roiImg.width()), () -> assertEquals(5, roiImg.height()));
         }
       }
     }
   }
 
   @Nested
-  @DisplayName("Data Access Tests")
-  class DataAccessTests {
+  class Data_Access_Operations {
 
     @Test
-    @DisplayName("Should access pixel data correctly")
-    void shouldAccessPixelDataCorrectly() {
-      try (ImageCV img = new ImageCV(3, 3, CvType.CV_8UC1, new Scalar(100))) {
-        byte[] data = new byte[1];
-        int result = img.get(1, 1, data);
-        assertEquals(1, result, "Should return 1 for successful read");
-        assertEquals(100, Byte.toUnsignedInt(data[0]), "Pixel value should match");
+    void should_read_and_write_single_channel_data() {
+      try (var img = new ImageCV(3, 3, CvType.CV_8UC1)) {
+        // Write data
+        img.put(1, 1, 123);
+
+        // Read as byte array
+        var byteData = new byte[1];
+        var bytesRead = img.get(1, 1, byteData);
+
+        // Read as double array
+        var doubleData = img.get(1, 1);
+
+        assertAll(
+            () -> assertEquals(1, bytesRead),
+            () -> assertEquals(123, Byte.toUnsignedInt(byteData[0])),
+            () -> assertEquals(1, doubleData.length),
+            () -> assertEquals(123.0, doubleData[0]));
       }
     }
 
     @Test
-    @DisplayName("Should handle multi-channel data access")
-    void shouldHandleMultiChannelDataAccess() {
-      Scalar color = new Scalar(50, 100, 150);
-      try (ImageCV img = new ImageCV(2, 2, CvType.CV_8UC3, color)) {
-        byte[] data = new byte[3];
-        int result = img.get(0, 0, data);
-        assertEquals(3, result, "Should return 3 for 3-channel read");
-        assertEquals(50, Byte.toUnsignedInt(data[0]), "B channel should match");
-        assertEquals(100, Byte.toUnsignedInt(data[1]), "G channel should match");
-        assertEquals(150, Byte.toUnsignedInt(data[2]), "R channel should match");
+    void should_handle_multi_channel_data_access() {
+      var testColor = new Scalar(25, 75, 125);
+      try (var img = new ImageCV(4, 4, CvType.CV_8UC3, testColor)) {
+        var data = new byte[3];
+        var result = img.get(2, 1, data);
+
+        assertAll(
+            () -> assertEquals(3, result),
+            () -> assertEquals(25, Byte.toUnsignedInt(data[0])),
+            () -> assertEquals(75, Byte.toUnsignedInt(data[1])),
+            () -> assertEquals(125, Byte.toUnsignedInt(data[2])));
+      }
+    }
+
+    @Test
+    void should_handle_different_data_types() {
+      // 16-bit unsigned data
+      try (var img16 = new ImageCV(2, 2, CvType.CV_16UC1, new Scalar(30000))) {
+        var shortData = new short[1];
+        img16.get(0, 0, shortData);
+        assertEquals(30000, Short.toUnsignedInt(shortData[0]));
+      }
+
+      // 32-bit integer data
+      try (var img32i = new ImageCV(2, 2, CvType.CV_32SC1, new Scalar(-50000))) {
+        var intData = new int[1];
+        img32i.get(0, 0, intData);
+        assertEquals(-50000, intData[0]);
+      }
+
+      // 32-bit float data
+      try (var img32f = new ImageCV(2, 2, CvType.CV_32FC1, new Scalar(3.14159f))) {
+        var floatData = new float[1];
+        img32f.get(0, 0, floatData);
+        assertEquals(3.14159f, floatData[0], 0.00001f);
+      }
+
+      // 64-bit double data
+      try (var img64f = new ImageCV(2, 2, CvType.CV_64FC1, new Scalar(2.71828))) {
+        var doubleData = new double[1];
+        img64f.get(0, 0, doubleData);
+        assertEquals(2.71828, doubleData[0], 0.00001);
+      }
+    }
+
+    @Test
+    void should_assign_to_another_mat() {
+      try (var source = new ImageCV(3, 4, CvType.CV_8UC1, new Scalar(200))) {
+        var destination = new Mat();
+
+        source.assignTo(destination);
+
+        assertAll(
+            () -> assertEquals(source.width(), destination.width()),
+            () -> assertEquals(source.height(), destination.height()),
+            () -> assertEquals(source.type(), destination.type()));
+
+        // Verify data was copied
+        var sourceData = new byte[1];
+        var destData = new byte[1];
+        source.get(1, 1, sourceData);
+        destination.get(1, 1, destData);
+        assertArrayEquals(sourceData, destData);
       }
     }
   }
+
+  // Test utilities
+  private static ImageCV createTestImage(int width, int height, int type) {
+    var image = new ImageCV(height, width, type);
+    fillWithGradientPattern(image);
+    return image;
+  }
+
+  private static void fillWithGradientPattern(Mat image) {
+    for (int y = 0; y < image.height(); y++) {
+      for (int x = 0; x < image.width(); x++) {
+        var value = (x + y) % 256;
+        int type = image.type();
+
+        if (type == CvType.CV_8UC1) {
+          image.put(y, x, value);
+        } else if (type == CvType.CV_8UC3) {
+          image.put(y, x, value, value * 0.8, value * 0.6);
+        } else if (type == CvType.CV_16UC1) {
+          image.put(y, x, value * 256);
+        }
+      }
+    }
+  }
+
+  // Test data record
+  record ImageTestData(
+      int width,
+      int height,
+      int type,
+      Scalar fillValue,
+      int expectedChannels,
+      int expectedElemSize) {}
 }

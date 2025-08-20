@@ -13,218 +13,204 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.ClearSystemProperty;
 import org.junitpioneer.jupiter.SetSystemProperty;
 import org.opencv.osgi.OpenCVNativeLoader;
 
-@DisplayName("NativeLibrary Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class NativeLibraryTest {
 
-  private final ByteArrayOutputStream outputStreamCaptor = new ByteArrayOutputStream();
+  // Test data records for better type safety and immutability
+  record PlatformSpec(String osName, String architecture, String expectedResult) {
+    static PlatformSpec of(String osName, String architecture, String expectedResult) {
+      return new PlatformSpec(osName, architecture, expectedResult);
+    }
+  }
+
+  private final ByteArrayOutputStream outputCaptor = new ByteArrayOutputStream();
   private PrintStream originalOut;
 
   @BeforeAll
-  static void loadNativeLib() {
-    // Load the native OpenCV library
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_native_lib() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @BeforeEach
-  void setUp() {
+  void set_up() {
     originalOut = System.out;
-    System.setOut(new PrintStream(outputStreamCaptor));
-    // Clear cache to ensure fresh system property reads
+    System.setOut(new PrintStream(outputCaptor));
     NativeLibrary.clearCache();
   }
 
   @AfterEach
-  void tearDown() {
+  void tear_down() {
     System.setOut(originalOut);
     NativeLibrary.clearCache();
   }
 
   @Nested
-  @DisplayName("Operating System Detection")
-  class OperatingSystemDetectionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Operating_system_detection {
 
     @ParameterizedTest
-    @MethodSource("provideLinuxTestData")
-    @DisplayName("Should detect Linux variants correctly")
-    void shouldDetectLinuxVariants(String osName, String osArch, String expectedResult) {
-      testNativeLibSpecification(osName, osArch, expectedResult);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideWindowsTestData")
-    @DisplayName("Should detect Windows variants correctly")
-    void shouldDetectWindowsVariants(String osName, String osArch, String expectedResult) {
-      testNativeLibSpecification(osName, osArch, expectedResult);
+    @CsvSource({
+      "Linux, amd64, linux-x86-64",
+      "linux, x86_64, linux-x86-64",
+      "Linux Ubuntu, aarch64, linux-aarch64",
+      "linux-gnu, i686, linux-x86",
+      "Linux Mint, arm, linux-armv7a"
+    })
+    void should_detect_linux_variants(String osName, String architecture, String expected) {
+      test_platform_specification(osName, architecture, expected);
     }
 
     @ParameterizedTest
-    @MethodSource("provideMacTestData")
-    @DisplayName("Should detect macOS variants correctly")
-    void shouldDetectMacVariants(String osName, String osArch, String expectedResult) {
-      testNativeLibSpecification(osName, osArch, expectedResult);
+    @CsvSource({
+      "Windows 10, amd64, windows-x86-64",
+      "Windows 11, x86_64, windows-x86-64",
+      "Windows Server 2019, em64t, windows-x86-64",
+      "Windows 7, i386, windows-x86",
+      "Windows 12, ARM64, windows-aarch64",
+      "win32, pentium, windows-x86"
+    })
+    void should_detect_windows_variants(String osName, String architecture, String expected) {
+      test_platform_specification(osName, architecture, expected);
     }
 
     @ParameterizedTest
-    @MethodSource("provideSpecialOsTestData")
-    @DisplayName("Should detect special OS variants correctly")
-    void shouldDetectSpecialOsVariants(String osName, String osArch, String expectedResult) {
-      testNativeLibSpecification(osName, osArch, expectedResult);
+    @CsvSource({
+      "Mac OS X, x86_64, macosx-x86-64",
+      "macOS, aarch64, macosx-aarch64",
+      "Mac OS X, AArch64, macosx-aarch64",
+      "macOS Monterey, arm64, macosx-aarch64"
+    })
+    void should_detect_macos_variants(String osName, String architecture, String expected) {
+      test_platform_specification(osName, architecture, expected);
     }
 
-    static Stream<Arguments> provideLinuxTestData() {
+    @ParameterizedTest
+    @MethodSource("special_os_test_data")
+    void should_detect_special_os_variants(PlatformSpec spec) {
+      test_platform_specification(spec.osName(), spec.architecture(), spec.expectedResult());
+    }
+
+    static Stream<PlatformSpec> special_os_test_data() {
       return Stream.of(
-          Arguments.of("Linux", "amd64", "linux-x86-64"),
-          Arguments.of("linux", "x86_64", "linux-x86-64"),
-          Arguments.of("Linux Ubuntu", "aarch64", "linux-aarch64"),
-          Arguments.of("linux-gnu", "i686", "linux-x86"),
-          Arguments.of("Linux Mint", "arm", "linux-armv7a"));
+          PlatformSpec.of("SymbianOS", "i686", "epoc32-x86"),
+          PlatformSpec.of("HP-UX", "amd64", "hpux-x86-64"),
+          PlatformSpec.of("OS/2", "power ppc", "os2-powerpc"),
+          PlatformSpec.of("procnto", "aarch64", "qnx-aarch64"),
+          PlatformSpec.of("FreeBSD", "x86_64", "freebsd-x86-64"),
+          PlatformSpec.of("OpenBSD", "i586", "openbsd-x86"));
     }
 
-    static Stream<Arguments> provideWindowsTestData() {
-      return Stream.of(
-          Arguments.of("Windows 10", "amd64", "windows-x86-64"),
-          Arguments.of("Windows 11", "x86_64", "windows-x86-64"),
-          Arguments.of("Windows Server 2019", "em64t", "windows-x86-64"),
-          Arguments.of("Windows 7", "i386", "windows-x86"),
-          Arguments.of("Windows 12", "ARM64", "windows-aarch64"),
-          Arguments.of("win32", "pentium", "windows-x86"));
-    }
-
-    static Stream<Arguments> provideMacTestData() {
-      return Stream.of(
-          Arguments.of("Mac OS X", "x86_64", "macosx-x86-64"),
-          Arguments.of("macOS", "aarch64", "macosx-aarch64"),
-          Arguments.of("Mac OS X", "AArch64", "macosx-aarch64"),
-          Arguments.of("macOS Monterey", "arm64", "macosx-aarch64"));
-    }
-
-    static Stream<Arguments> provideSpecialOsTestData() {
-      return Stream.of(
-          Arguments.of("SymbianOS", "i686", "epoc32-x86"),
-          Arguments.of("HP-UX", "amd64", "hpux-x86-64"),
-          Arguments.of("OS/2", "power ppc", "os2-powerpc"),
-          Arguments.of("procnto", "aarch64", "qnx-aarch64"),
-          Arguments.of("FreeBSD", "x86_64", "freebsd-x86-64"),
-          Arguments.of("OpenBSD", "i586", "openbsd-x86"));
-    }
-
-    private void testNativeLibSpecification(String osName, String osArch, String expectedResult) {
+    private void test_platform_specification(String osName, String architecture, String expected) {
       System.setProperty("os.name", osName);
-      System.setProperty("os.arch", osArch);
-      NativeLibrary.clearCache(); // Clear cache after setting properties
+      System.setProperty("os.arch", architecture);
+      NativeLibrary.clearCache();
 
-      String result = NativeLibrary.getNativeLibSpecification();
-      assertEquals(expectedResult, result);
+      var result = NativeLibrary.getNativeLibSpecification();
+      assertEquals(expected, result);
     }
   }
 
   @Nested
-  @DisplayName("Architecture Detection")
-  class ArchitectureDetectionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Architecture_detection {
 
     @ParameterizedTest
     @ValueSource(strings = {"x86-64", "amd64", "em64t", "x86_64"})
-    @DisplayName("Should detect x86-64 architecture variants")
-    void shouldDetectX86_64Variants(String architecture) {
-      testArchitectureMapping(architecture, "x86-64");
+    void should_detect_x86_64_variants(String architecture) {
+      test_architecture_mapping(architecture, "x86-64");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"aarch64", "arm64"})
-    @DisplayName("Should detect ARM64 architecture variants")
-    void shouldDetectArm64Variants(String architecture) {
-      testArchitectureMapping(architecture, "aarch64");
+    void should_detect_arm64_variants(String architecture) {
+      test_architecture_mapping(architecture, "aarch64");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"pentium", "i386", "i486", "i586", "i686"})
-    @DisplayName("Should detect x86 architecture variants")
-    void shouldDetectX86Variants(String architecture) {
-      testArchitectureMapping(architecture, "x86");
+    void should_detect_x86_variants(String architecture) {
+      test_architecture_mapping(architecture, "x86");
     }
 
     @Test
-    @DisplayName("Should detect ARM architecture")
-    void shouldDetectArmArchitecture() {
-      testArchitectureMapping("arm", "armv7a");
+    void should_detect_arm_architecture() {
+      test_architecture_mapping("arm", "armv7a");
     }
 
     @Test
-    @DisplayName("Should detect PowerPC architecture")
-    void shouldDetectPowerPcArchitecture() {
-      testArchitectureMapping("power ppc", "powerpc");
+    void should_detect_powerpc_architecture() {
+      test_architecture_mapping("power ppc", "powerpc");
     }
 
     @Test
-    @DisplayName("Should detect ignite architecture")
-    void shouldDetectIgniteArchitecture() {
-      testArchitectureMapping("psc1k", "ignite");
+    void should_detect_ignite_architecture() {
+      test_architecture_mapping("psc1k", "ignite");
     }
 
     @Test
-    @DisplayName("Should handle unknown architecture")
-    void shouldHandleUnknownArchitecture() {
-      testArchitectureMapping("unknown-arch", "unknown-arch");
+    void should_handle_unknown_architecture() {
+      test_architecture_mapping("unknown-arch", "unknown-arch");
     }
 
-    private void testArchitectureMapping(String inputArch, String expectedArch) {
+    private void test_architecture_mapping(String inputArch, String expectedArch) {
       System.setProperty("os.name", "Linux");
       System.setProperty("os.arch", inputArch);
       NativeLibrary.clearCache();
 
-      String result = NativeLibrary.getNativeLibSpecification();
+      var result = NativeLibrary.getNativeLibSpecification();
       assertEquals("linux-" + expectedArch, result);
     }
   }
 
   @Nested
-  @DisplayName("Caching Behavior")
-  class CachingBehaviorTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Caching_behavior {
 
     @Test
-    @DisplayName("Should cache the result after first call")
-    void shouldCacheResult() {
+    void should_cache_result_after_first_call() {
       System.setProperty("os.name", "Linux");
       System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
-      String firstResult = NativeLibrary.getNativeLibSpecification();
+      var firstResult = NativeLibrary.getNativeLibSpecification();
 
-      // Change system properties
+      // Change system properties - should still return cached result
       System.setProperty("os.name", "Windows 10");
       System.setProperty("os.arch", "x86_64");
 
-      // Should return cached result, not the new system properties
-      String secondResult = NativeLibrary.getNativeLibSpecification();
+      var secondResult = NativeLibrary.getNativeLibSpecification();
 
-      assertEquals(firstResult, secondResult);
-      assertEquals("linux-x86-64", secondResult);
+      assertAll(
+          () -> assertEquals(firstResult, secondResult),
+          () -> assertEquals("linux-x86-64", secondResult));
     }
 
     @Test
-    @DisplayName("Should use new system properties after cache clear")
-    void shouldUseNewPropertiesAfterCacheClear() {
+    void should_use_new_properties_after_cache_clear() {
       System.setProperty("os.name", "Linux");
       System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
-      String firstResult = NativeLibrary.getNativeLibSpecification();
+      var firstResult = NativeLibrary.getNativeLibSpecification();
       assertEquals("linux-x86-64", firstResult);
 
       // Change system properties and clear cache
@@ -232,70 +218,65 @@ class NativeLibraryTest {
       System.setProperty("os.arch", "x86_64");
       NativeLibrary.clearCache();
 
-      String secondResult = NativeLibrary.getNativeLibSpecification();
+      var secondResult = NativeLibrary.getNativeLibSpecification();
       assertEquals("windows-x86-64", secondResult);
     }
 
     @Test
-    @DisplayName("Should handle concurrent access safely")
-    void shouldHandleConcurrentAccessSafely() throws InterruptedException {
+    void should_handle_concurrent_access_safely() throws Exception {
       System.setProperty("os.name", "Linux");
       System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
-      final int threadCount = 10;
-      final String[] results = new String[threadCount];
-      final Thread[] threads = new Thread[threadCount];
+      final var threadCount = 20;
+      final var latch = new CountDownLatch(threadCount);
+      ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+      var tasks =
+          Stream.generate(
+                  () ->
+                      (java.util.concurrent.Callable<Void>)
+                          () -> {
+                            latch.countDown();
+                            latch.await();
+                            var result = NativeLibrary.getNativeLibSpecification();
+                            assertEquals("linux-x86-64", result);
+                            return null;
+                          })
+              .limit(threadCount)
+              .toList();
 
-      for (int i = 0; i < threadCount; i++) {
-        final int index = i;
-        threads[i] =
-            new Thread(
-                () -> {
-                  results[index] = NativeLibrary.getNativeLibSpecification();
-                });
-      }
+      var futures = executor.invokeAll(tasks);
 
-      for (Thread thread : threads) {
-        thread.start();
-      }
-
-      for (Thread thread : threads) {
-        thread.join();
-      }
-
-      // All results should be the same
-      for (String result : results) {
-        assertEquals("linux-x86-64", result);
+      // Wait for all tasks to complete
+      for (var future : futures) {
+        assertDoesNotThrow(() -> future.get());
       }
     }
   }
 
   @Nested
-  @DisplayName("Error Handling")
-  class ErrorHandlingTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Error_handling {
 
     @Test
     @ClearSystemProperty(key = "os.name")
     @SetSystemProperty(key = "os.arch", value = "amd64")
-    @DisplayName("Should throw exception when os.name is null")
-    void shouldThrowExceptionWhenOsNameIsNull() {
+    void should_throw_exception_when_os_name_is_null() {
       NativeLibrary.clearCache();
 
-      IllegalStateException exception =
+      var exception =
           assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
 
       assertTrue(exception.getMessage().contains("OS name"));
     }
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "")
+    @SetSystemProperty(key = "os.name", value = "   ")
     @SetSystemProperty(key = "os.arch", value = "amd64")
-    @DisplayName("Should throw exception when os.name is empty")
-    void shouldThrowExceptionWhenOsNameIsEmpty() {
+    void should_throw_exception_when_os_name_is_blank() {
       NativeLibrary.clearCache();
 
-      IllegalStateException exception =
+      var exception =
           assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
 
       assertTrue(exception.getMessage().contains("OS name"));
@@ -304,11 +285,10 @@ class NativeLibraryTest {
     @Test
     @SetSystemProperty(key = "os.name", value = "Linux")
     @ClearSystemProperty(key = "os.arch")
-    @DisplayName("Should throw exception when os.arch is null")
-    void shouldThrowExceptionWhenOsArchIsNull() {
+    void should_throw_exception_when_os_arch_is_null() {
       NativeLibrary.clearCache();
 
-      IllegalStateException exception =
+      var exception =
           assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
 
       assertTrue(exception.getMessage().contains("OS architecture"));
@@ -316,12 +296,11 @@ class NativeLibraryTest {
 
     @Test
     @SetSystemProperty(key = "os.name", value = "Linux")
-    @SetSystemProperty(key = "os.arch", value = "")
-    @DisplayName("Should throw exception when os.arch is empty")
-    void shouldThrowExceptionWhenOsArchIsEmpty() {
+    @SetSystemProperty(key = "os.arch", value = "\t\n")
+    void should_throw_exception_when_os_arch_is_blank() {
       NativeLibrary.clearCache();
 
-      IllegalStateException exception =
+      var exception =
           assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
 
       assertTrue(exception.getMessage().contains("OS architecture"));
@@ -329,92 +308,96 @@ class NativeLibraryTest {
   }
 
   @Nested
-  @DisplayName("Main Method")
-  class MainMethodTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Main_method {
 
     @Test
     @SetSystemProperty(key = "os.name", value = "Linux")
     @SetSystemProperty(key = "os.arch", value = "amd64")
-    @DisplayName("Should print native library specification to stdout")
-    void shouldPrintNativeLibSpecification() {
+    void should_print_native_library_specification_to_stdout() {
       NativeLibrary.clearCache();
 
       NativeLibrary.main(new String[] {});
 
-      String capturedOutput = outputStreamCaptor.toString().trim();
+      var capturedOutput = outputCaptor.toString().trim();
       assertEquals("linux-x86-64", capturedOutput);
     }
 
     @Test
     @SetSystemProperty(key = "os.name", value = "Windows 10")
     @SetSystemProperty(key = "os.arch", value = "ARM64")
-    @DisplayName("Should handle Windows ARM64 correctly")
-    void shouldHandleWindowsArm64() {
+    void should_handle_windows_arm64_correctly() {
       NativeLibrary.clearCache();
 
       NativeLibrary.main(null);
 
-      String capturedOutput = outputStreamCaptor.toString().trim();
+      var capturedOutput = outputCaptor.toString().trim();
       assertEquals("windows-aarch64", capturedOutput);
     }
 
     @Test
     @ClearSystemProperty(key = "os.name")
     @SetSystemProperty(key = "os.arch", value = "amd64")
-    @DisplayName("Should handle errors gracefully in main method")
-    void shouldHandleErrorsInMainMethod() {
+    void should_handle_errors_gracefully_in_main_method() {
       NativeLibrary.clearCache();
 
-      // Capture stderr as well
-      ByteArrayOutputStream errorStreamCaptor = new ByteArrayOutputStream();
-      PrintStream originalErr = System.err;
-      System.setErr(new PrintStream(errorStreamCaptor));
-
-      try {
-        // This should cause System.exit(1) to be called, but we can't test that directly
-        // Instead, we'll test that the error handling code path works
-        assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
-      } finally {
-        System.setErr(originalErr);
-      }
+      // Verify the underlying method throws the expected exception
+      assertThrows(IllegalStateException.class, NativeLibrary::getNativeLibSpecification);
     }
   }
 
   @Nested
-  @DisplayName("Integration Tests")
-  class IntegrationTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Integration_tests {
 
     @Test
-    @DisplayName("Should work with actual system properties")
-    void shouldWorkWithActualSystemProperties() {
-      // This test uses the actual system properties without mocking
+    void should_work_with_actual_system_properties() {
       NativeLibrary.clearCache();
 
-      String result = NativeLibrary.getNativeLibSpecification();
+      var result = NativeLibrary.getNativeLibSpecification();
 
-      assertNotNull(result);
-      assertFalse(result.isEmpty());
-      assertTrue(result.contains("-"));
+      assertAll(
+          () -> assertNotNull(result),
+          () -> assertFalse(result.isBlank()),
+          () -> assertTrue(result.contains("-")));
 
-      String[] parts = result.split("-", 2); // Architecture can contain hyphens
-      assertEquals(2, parts.length);
-
-      // Verify format: osname-architecture
-      assertTrue(!parts[0].isEmpty());
-      assertTrue(!parts[1].isEmpty());
+      var parts = result.split("-", 2);
+      assertAll(
+          () -> assertEquals(2, parts.length),
+          () -> assertFalse(parts[0].isBlank()),
+          () -> assertFalse(parts[1].isBlank()));
     }
 
     @Test
-    @DisplayName("Should be consistent across multiple calls")
-    void shouldBeConsistentAcrossMultipleCalls() {
+    void should_be_consistent_across_multiple_calls() {
       NativeLibrary.clearCache();
 
-      String firstCall = NativeLibrary.getNativeLibSpecification();
-      String secondCall = NativeLibrary.getNativeLibSpecification();
-      String thirdCall = NativeLibrary.getNativeLibSpecification();
+      var results = Stream.generate(NativeLibrary::getNativeLibSpecification).limit(5).toList();
 
-      assertEquals(firstCall, secondCall);
-      assertEquals(secondCall, thirdCall);
+      // All results should be identical
+      assertEquals(1, results.stream().distinct().count());
+    }
+
+    @Test
+    void should_handle_case_sensitivity_correctly() {
+      var testCases =
+          List.of(
+              PlatformSpec.of("LINUX", "AMD64", "linux-x86-64"),
+              PlatformSpec.of("Windows", "X86_64", "windows-x86-64"),
+              PlatformSpec.of("MacOS", "AARCH64", "macosx-aarch64"));
+
+      testCases.forEach(
+          spec -> {
+            System.setProperty("os.name", spec.osName());
+            System.setProperty("os.arch", spec.architecture());
+            NativeLibrary.clearCache();
+
+            var result = NativeLibrary.getNativeLibSpecification();
+            assertEquals(
+                spec.expectedResult(),
+                result,
+                () -> "Failed for OS: " + spec.osName() + ", Arch: " + spec.architecture());
+          });
     }
   }
 }

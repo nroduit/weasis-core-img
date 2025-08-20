@@ -12,13 +12,14 @@ package org.weasis.opencv.seg;
 import java.awt.Dimension;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
+/**
+ * Represents a geometric segment containing a series of 2D points. Extends ArrayList to provide
+ * direct point manipulation while supporting hierarchical structures through child segments.
+ */
 public class Segment extends ArrayList<Point2D> {
-  private final List<Segment> children = new ArrayList<>();
+  protected final List<Segment> children = new ArrayList<>();
 
   public Segment() {
     super();
@@ -49,14 +50,22 @@ public class Segment extends ArrayList<Point2D> {
     setPoints(pts, inverse, forceClose, dim);
   }
 
+  /**
+   * Sets points from a collection, optionally closing the segment by adding the first point at the
+   * end.
+   *
+   * @param point2DList the collection of points to set
+   * @param forceClose whether to close the segment by duplicating the first point
+   */
   public void setPoints(Collection<? extends Point2D> point2DList, boolean forceClose) {
     clear();
-    if (point2DList != null && !point2DList.isEmpty()) {
-      addAll(point2DList);
-      if (forceClose && shouldCloseSegment(point2DList)) {
-        Point2D firstPoint = point2DList.iterator().next();
-        add(new Point2D.Double(firstPoint.getX(), firstPoint.getY()));
-      }
+    if (point2DList == null || point2DList.isEmpty()) {
+      return;
+    }
+    addAll(point2DList);
+    if (forceClose && isOpenSegment()) {
+      Point2D firstPoint = get(0);
+      add(new Point2D.Double(firstPoint.getX(), firstPoint.getY()));
     }
   }
 
@@ -64,27 +73,32 @@ public class Segment extends ArrayList<Point2D> {
     setPoints(points, null, forceClose, dim);
   }
 
+  /** Sets points from a float array with optional transform and dimension scaling. */
   public void setPoints(
       float[] points, AffineTransform inverse, boolean forceClose, Dimension dim) {
     Objects.requireNonNull(points, "Points array cannot be null");
-    double[] transformedPoints = transformPoints(convertFloatToDouble(points), inverse);
-    clear();
-    addPoints(transformedPoints, forceClose, dim);
+    setPoints(convertFloatToDouble(points), inverse, forceClose, dim);
   }
 
   public void setPoints(double[] points, boolean forceClose, Dimension dim) {
     setPoints(points, null, forceClose, dim);
   }
 
+  /** Sets points from a double array with optional transform and dimension scaling. */
   public void setPoints(
       double[] points, AffineTransform inverse, boolean forceClose, Dimension dim) {
     Objects.requireNonNull(points, "Points array cannot be null");
-    double[] transformedPoints = transformPoints(points, inverse);
+    if (points.length < 4) { // Need at least 2 points (4 coordinates)
+      clear();
+      return;
+    }
+
+    double[] transformedPoints = applyTransform(points, inverse);
     clear();
-    addPoints(transformedPoints, forceClose, dim);
+    addPointsFromArray(transformedPoints, forceClose, dim);
   }
 
-  private double[] transformPoints(double[] points, AffineTransform transform) {
+  private double[] applyTransform(double[] points, AffineTransform transform) {
     if (transform == null) {
       return points;
     }
@@ -93,45 +107,40 @@ public class Segment extends ArrayList<Point2D> {
     return transformedPoints;
   }
 
-  protected void addPoints(double[] pts, boolean forceClose, Dimension dim) {
-    if (pts == null || pts.length < 4) { // Need at least 2 points (4 coordinates)
-      return;
-    }
+  private void addPointsFromArray(double[] pts, boolean forceClose, Dimension dim) {
     int pointCount = pts.length / 2;
-    ensureCapacity(pointCount + (forceClose ? 1 : 0)); // Pre-allocate capacity
+    ensureCapacity(pointCount + (forceClose ? 1 : 0));
 
-    boolean shouldResize = dim != null && dim.width > 0 && dim.height > 0;
+    boolean shouldScale = isValidDimension(dim);
 
     for (int i = 0; i < pointCount; i++) {
-      double x = shouldResize ? pts[i * 2] * dim.width : pts[i * 2];
-      double y = shouldResize ? pts[i * 2 + 1] * dim.height : pts[i * 2 + 1];
+      double x = shouldScale ? pts[i * 2] * dim.width : pts[i * 2];
+      double y = shouldScale ? pts[i * 2 + 1] * dim.height : pts[i * 2 + 1];
       add(new Point2D.Double(x, y));
     }
 
-    var first = get(0);
-    if (forceClose && !first.equals(get(pointCount - 1))) {
+    if (forceClose && isOpenSegment()) {
+      Point2D first = get(0);
       add(new Point2D.Double(first.getX(), first.getY()));
     }
   }
 
-  private boolean shouldCloseSegment(Collection<? extends Point2D> points) {
-    if (points.size() < 2) {
-      return false;
-    }
-    Point2D first = points.iterator().next();
-    Point2D last = null;
-    for (Point2D point : points) {
-      last = point;
-    }
-    return !first.equals(last);
+  private boolean isValidDimension(Dimension dim) {
+    return dim != null && dim.width > 0 && dim.height > 0;
   }
 
+  private boolean isOpenSegment() {
+    return size() >= 2 && !get(0).equals(get(size() - 1));
+  }
+
+  /** Returns an unmodifiable view of the child segments. */
   public List<Segment> getChildren() {
-    return children;
+    return List.copyOf(children);
   }
 
+  /** Adds a child segment, preventing null references and self-references. */
   public void addChild(Segment child) {
-    if (child != null && child != this) { // Prevent null and self-reference
+    if (child != null && child != this) {
       children.add(child);
     }
   }
@@ -149,6 +158,7 @@ public class Segment extends ArrayList<Point2D> {
     return Objects.hash(super.hashCode(), children);
   }
 
+  /** Converts a float array to a double array. */
   public static double[] convertFloatToDouble(float[] floatArray) {
     if (floatArray == null) {
       return null;

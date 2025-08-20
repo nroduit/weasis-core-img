@@ -50,55 +50,27 @@ public record Pair<K, V>(K first, V second) {
     return new Pair<>(first, second);
   }
 
-  /**
-   * Creates a new Pair with both values set to null.
-   *
-   * @param <K> the type of the first element
-   * @param <V> the type of the second element
-   * @return a new Pair with both values null
-   */
+  /** Creates a new Pair with both values set to null. */
   public static <K, V> Pair<K, V> empty() {
     return new Pair<>(null, null);
   }
 
-  /**
-   * Creates a new Pair with the same value for both first and second elements.
-   *
-   * @param <T> the type of both elements
-   * @param value the value to use for both elements
-   * @return a new Pair with the same value in both positions
-   */
+  /** Creates a new Pair with the same value for both first and second elements. */
   public static <T> Pair<T, T> same(T value) {
     return new Pair<>(value, value);
   }
 
-  /**
-   * Creates a new Pair with the first and second values swapped.
-   *
-   * @return a new Pair with swapped values
-   */
+  /** Creates a new Pair with the first and second values swapped. */
   public Pair<V, K> swap() {
     return new Pair<>(second, first);
   }
 
-  /**
-   * Creates a new Pair with the first value replaced by the specified value.
-   *
-   * @param <T> the type of the new first value
-   * @param newFirst the new first value
-   * @return a new Pair with the updated first value
-   */
+  /** Creates a new Pair with the first value replaced by the specified value. */
   public <T> Pair<T, V> withFirst(T newFirst) {
     return new Pair<>(newFirst, second);
   }
 
-  /**
-   * Creates a new Pair with the second value replaced by the specified value.
-   *
-   * @param <T> the type of the new second value
-   * @param newSecond the new second value
-   * @return a new Pair with the updated second value
-   */
+  /** Creates a new Pair with the second value replaced by the specified value. */
   public <T> Pair<K, T> withSecond(T newSecond) {
     return new Pair<>(first, newSecond);
   }
@@ -112,8 +84,7 @@ public record Pair<K, V>(K first, V second) {
    * @throws NullPointerException if mapper is null
    */
   public <T> Pair<T, V> mapFirst(Function<? super K, ? extends T> mapper) {
-    Objects.requireNonNull(mapper, "Mapper function cannot be null");
-    return new Pair<>(mapper.apply(first), second);
+    return new Pair<>(Objects.requireNonNull(mapper).apply(first), second);
   }
 
   /**
@@ -125,8 +96,7 @@ public record Pair<K, V>(K first, V second) {
    * @throws NullPointerException if mapper is null
    */
   public <T> Pair<K, T> mapSecond(Function<? super V, ? extends T> mapper) {
-    Objects.requireNonNull(mapper, "Mapper function cannot be null");
-    return new Pair<>(first, mapper.apply(second));
+    return new Pair<>(first, Objects.requireNonNull(mapper).apply(second));
   }
 
   /**
@@ -141,52 +111,31 @@ public record Pair<K, V>(K first, V second) {
    */
   public <T, U> Pair<T, U> mapBoth(
       Function<? super K, ? extends T> firstMapper, Function<? super V, ? extends U> secondMapper) {
-    Objects.requireNonNull(firstMapper, "First mapper function cannot be null");
-    Objects.requireNonNull(secondMapper, "Second mapper function cannot be null");
-    return new Pair<>(firstMapper.apply(first), secondMapper.apply(second));
+    return new Pair<>(
+        Objects.requireNonNull(firstMapper).apply(first),
+        Objects.requireNonNull(secondMapper).apply(second));
   }
 
-  /**
-   * Checks if either the first or second value is null.
-   *
-   * @return true if either value is null, false otherwise
-   */
+  /** Checks if either the first or second value is null. */
   public boolean hasNull() {
     return first == null || second == null;
   }
 
-  /**
-   * Checks if both the first and second values are null.
-   *
-   * @return true if both values are null, false otherwise
-   */
+  /** Checks if both the first and second values are null. */
   public boolean isAllNull() {
     return first == null && second == null;
   }
 
-  /**
-   * Checks if both the first and second values are non-null.
-   *
-   * @return true if both values are non-null, false otherwise
-   */
+  /** Checks if both the first and second values are non-null. */
   public boolean isAllNonNull() {
     return first != null && second != null;
   }
 
-  /**
-   * Converts this Pair to an array containing both values.
-   *
-   * @return an array containing the first and second values
-   */
+  /** Converts this Pair to an array containing both values. */
   public Object[] toArray() {
     return new Object[] {first, second};
   }
 
-  /**
-   * Returns a string representation of this Pair in the format "(first, second)".
-   *
-   * @return a string representation of this Pair
-   */
   @Override
   public String toString() {
     return "(" + first + ", " + second + ")";

@@ -54,7 +54,7 @@ public final class MathUtil {
    * @return true if the value is considered equal to zero, false otherwise
    */
   public static boolean isEqualToZero(float val) {
-    return Math.abs(val) < FLOAT_EPSILON;
+    return isEqualToZero(val, FLOAT_EPSILON);
   }
 
   /**
@@ -75,7 +75,7 @@ public final class MathUtil {
    * @return true if the value is considered equal to zero, false otherwise
    */
   public static boolean isEqualToZero(double val) {
-    return Math.abs(val) < DOUBLE_EPSILON;
+    return isEqualToZero(val, DOUBLE_EPSILON);
   }
 
   /**
@@ -96,10 +96,7 @@ public final class MathUtil {
    * @return true if the value is considered different from zero, false otherwise
    */
   public static boolean isDifferentFromZero(float val) {
-    if (Float.isNaN(val)) {
-      return false;
-    }
-    return !isEqualToZero(val);
+    return isDifferentFromZero(val, FLOAT_EPSILON);
   }
 
   /**
@@ -113,7 +110,6 @@ public final class MathUtil {
     if (Float.isNaN(val)) {
       return false;
     }
-
     return !isEqualToZero(val, epsilon);
   }
 
@@ -124,11 +120,7 @@ public final class MathUtil {
    * @return true if the value is considered different from zero, false otherwise
    */
   public static boolean isDifferentFromZero(double val) {
-    if (Double.isNaN(val)) {
-      return false;
-    }
-
-    return !isEqualToZero(val);
+    return isDifferentFromZero(val, DOUBLE_EPSILON);
   }
 
   /**
@@ -166,31 +158,12 @@ public final class MathUtil {
    * @return true if the numbers are approximately equal, false otherwise
    */
   public static boolean isEqual(float a, float b, float epsilon) {
-    // Handle exact equality (including infinities)
-    if (a == b) {
-      return true;
-    }
+    if (a == b) return true; // Handle exact equality and infinities
+    if (Float.isNaN(a) && Float.isNaN(b)) return true;
+    if (Float.isNaN(a) || Float.isNaN(b)) return false;
+    if (!Float.isFinite(a) || !Float.isFinite(b)) return false;
 
-    // Handle NaN values
-    if (Float.isNaN(a) || Float.isNaN(b)) {
-      return Float.isNaN(a) && Float.isNaN(b);
-    }
-
-    // Handle infinite values
-    if (Float.isInfinite(a) || Float.isInfinite(b)) {
-      return false; // Already handled exact equality above
-    }
-
-    // Use absolute comparison for values close to zero
-    float diff = Math.abs(a - b);
-    float v1 = Math.abs(a);
-    float v2 = Math.abs(b);
-    if (v1 < MIN_FLOAT_EPSILON || v2 < MIN_FLOAT_EPSILON) {
-      return diff < Math.abs(epsilon);
-    }
-
-    // Use relative comparison for larger values
-    return diff < Math.abs(epsilon) * Math.max(v1, v2);
+    return performEpsilonComparison(a, b, epsilon, MIN_FLOAT_EPSILON);
   }
 
   /**
@@ -214,31 +187,28 @@ public final class MathUtil {
    * @return true if the numbers are approximately equal, false otherwise
    */
   public static boolean isEqual(double a, double b, double epsilon) {
-    // Handle exact equality (including infinities)
-    if (a == b) {
-      return true;
-    }
+    if (a == b) return true; // Handle exact equality and infinities
+    if (Double.isNaN(a) && Double.isNaN(b)) return true;
+    if (Double.isNaN(a) || Double.isNaN(b)) return false;
+    if (!Double.isFinite(a) || !Double.isFinite(b)) return false;
 
-    // Handle NaN values
-    if (Double.isNaN(a) || Double.isNaN(b)) {
-      return Double.isNaN(a) && Double.isNaN(b);
-    }
+    return performEpsilonComparison(a, b, epsilon, MIN_DOUBLE_EPSILON);
+  }
 
-    // Handle infinite values
-    if (Double.isInfinite(a) || Double.isInfinite(b)) {
-      return false; // Already handled exact equality above
-    }
+  /** Performs epsilon comparison using absolute for small values, relative for larger values */
+  private static boolean performEpsilonComparison(
+      double a, double b, double epsilon, double minEpsilon) {
+    double diff = Math.abs(a - b);
+    double absA = Math.abs(a);
+    double absB = Math.abs(b);
 
     // Use absolute comparison for values close to zero
-    double diff = Math.abs(a - b);
-    double v1 = Math.abs(a);
-    double v2 = Math.abs(b);
-    if (v1 < MIN_DOUBLE_EPSILON || v2 < MIN_DOUBLE_EPSILON) {
+    if (absA < minEpsilon || absB < minEpsilon) {
       return diff < Math.abs(epsilon);
     }
 
     // Use relative comparison for larger values
-    return diff < Math.abs(epsilon) * Math.max(v1, v2);
+    return diff < Math.abs(epsilon) * Math.max(absA, absB);
   }
 
   /**
@@ -298,9 +268,7 @@ public final class MathUtil {
    * @return the angle (in degrees) between the points, or null if inputs are invalid
    */
   public static Double getOrientation(Point2D p1, Point2D p2) {
-    if (p1 == null || p2 == null) {
-      return null;
-    }
+    if (p1 == null || p2 == null) return null;
     return getOrientation(p1.getX(), p1.getY(), p2.getX(), p2.getY());
   }
 
@@ -318,21 +286,9 @@ public final class MathUtil {
   public static double getOrientation(double x1, double y1, double x2, double y2) {
     validateFiniteValues(x1, y1, x2, y2);
 
-    // Image coordinates: Y increases downward
-    // Flip the Y component to account for inverted Y-axis
-    double teta = Math.atan2(y1 - y2, x1 - x2);
-    double angle = Math.toDegrees(teta); // convert from radians to degrees
-
-    // Return the orientation from 0 to 180 degrees
-    return normalizeOrientation(angle);
-  }
-
-  private static double normalizeOrientation(double angle) {
-    if (angle < 0) {
-      return -angle;
-    } else {
-      return 180.0 - angle;
-    }
+    // Image coordinates: Y increases downward. Flip Y to account for inverted Y-axis
+    double angle = Math.toDegrees(Math.atan2(y1 - y2, x1 - x2));
+    return angle < 0 ? -angle : 180.0 - angle;
   }
 
   /**
@@ -344,9 +300,7 @@ public final class MathUtil {
    * @return the azimuth angle (in degrees), or null if inputs are invalid
    */
   public static Double getAzimuth(Point2D p1, Point2D p2) {
-    if (p1 == null || p2 == null) {
-      return null;
-    }
+    if (p1 == null || p2 == null) return null;
     return getAzimuth(p1.getX(), p1.getY(), p2.getX(), p2.getY());
   }
 
@@ -363,8 +317,7 @@ public final class MathUtil {
   public static double getAzimuth(double x1, double y1, double x2, double y2) {
     validateFiniteValues(x1, y1, x2, y2);
 
-    // Image coordinates: Y increases downward
-    // North = -Y, East = +X
+    // Image coordinates: Y increases downward. North = -Y, East = +X
     double angle = Math.atan2(x2 - x1, -(y2 - y1)) * RADIANS_TO_DEGREES;
     return normalizeAngle(angle);
   }
@@ -377,9 +330,7 @@ public final class MathUtil {
    * @return the distance between the points, or null if inputs are invalid
    */
   public static Double getDistance(Point2D p1, Point2D p2) {
-    if (p1 == null || p2 == null) {
-      return null;
-    }
+    if (p1 == null || p2 == null) return null;
     return getDistance(p1.getX(), p1.getY(), p2.getX(), p2.getY());
   }
 
@@ -423,7 +374,6 @@ public final class MathUtil {
    * @param value the value to round
    * @param places the number of decimal places (must be non-negative)
    * @return the rounded value
-   * @throws IllegalArgumentException if places is negative
    */
   public static double round(double value, int places) {
     return round(value, places, RoundingMode.HALF_UP);
@@ -437,7 +387,6 @@ public final class MathUtil {
    * @param places the number of decimal places (must be non-negative)
    * @param roundingMode the rounding mode to use
    * @return the rounded value
-   * @throws IllegalArgumentException if places is negative
    */
   public static double round(double value, int places, RoundingMode roundingMode) {
     if (places < 0) {
@@ -446,13 +395,10 @@ public final class MathUtil {
 
     Objects.requireNonNull(roundingMode, "RoundingMode cannot be null");
 
-    if (!Double.isFinite(value)) {
-      return value; // Return NaN or infinity as-is
-    }
+    if (!Double.isFinite(value)) return value; // Return NaN or infinity as-is
 
     try {
-      BigDecimal bd = BigDecimal.valueOf(value);
-      return bd.setScale(places, roundingMode).doubleValue();
+      return BigDecimal.valueOf(value).setScale(places, roundingMode).doubleValue();
     } catch (NumberFormatException e) {
       throw new IllegalArgumentException("Invalid value for rounding: " + value, e);
     }
@@ -484,6 +430,7 @@ public final class MathUtil {
   }
 
   // ================= Range and Interpolation Utilities =================
+  // clamp available in Java 21 in Math.clamp(double, double, double)
 
   /**
    * Clamps a value to a specified range.
@@ -492,19 +439,23 @@ public final class MathUtil {
    * @param min the minimum value
    * @param max the maximum value
    * @return the clamped value
-   * @throws IllegalArgumentException if min > max
    */
   public static double clamp(double value, double min, double max) {
-    if (min > max) {
-      throw new IllegalArgumentException(
-          "Minimum value cannot be greater than maximum: " + min + " > " + max);
-    }
+    validateMinMax(min, max);
+    return Double.isNaN(value) ? value : Math.max(min, Math.min(value, max));
+  }
 
-    if (Double.isNaN(value)) {
-      return value; // Preserve NaN
-    }
-
-    return Math.max(min, Math.min(value, max));
+  /**
+   * Clamps a value to a specified range with float bounds.
+   *
+   * @param value the value to clamp
+   * @param min the minimum value
+   * @param max the maximum value
+   * @return the clamped value
+   */
+  public static float clamp(float value, float min, float max) {
+    validateMinMax(min, max);
+    return Float.isNaN(value) ? value : Math.max(min, Math.min(value, max));
   }
 
   /**
@@ -514,13 +465,9 @@ public final class MathUtil {
    * @param min the minimum value
    * @param max the maximum value
    * @return the clamped value
-   * @throws IllegalArgumentException if min > max
    */
   public static int clamp(int value, int min, int max) {
-    if (min > max) {
-      throw new IllegalArgumentException(
-          "Minimum value cannot be greater than maximum: " + min + " > " + max);
-    }
+    validateMinMax(min, max);
     return Math.max(min, Math.min(value, max));
   }
 
@@ -548,12 +495,11 @@ public final class MathUtil {
    * @param end the ending value
    * @param value the value to find the factor for
    * @return the interpolation factor
-   * @throws IllegalArgumentException if start equals end
    */
   public static double invLerp(double start, double end, double value) {
     validateFiniteValues(start, end, value);
 
-    if ((end - start) == 0.0) {
+    if (start == end) {
       throw new IllegalArgumentException(
           "Start and end values cannot be equal for inverse interpolation");
     }
@@ -570,28 +516,11 @@ public final class MathUtil {
    * @param toMin the minimum of the target range
    * @param toMax the maximum of the target range
    * @return the mapped value
-   * @throws IllegalArgumentException if fromMin equals fromMax
    */
   public static double map(
       double value, double fromMin, double fromMax, double toMin, double toMax) {
     double t = invLerp(fromMin, fromMax, value);
     return lerp(toMin, toMax, t);
-  }
-
-  // ================= Validation Helpers =================
-
-  /**
-   * Validates that values are finite (not NaN or infinite).
-   *
-   * @param values the values to validate
-   * @throws IllegalArgumentException if any value is not finite
-   */
-  private static void validateFiniteValues(double... values) {
-    for (int i = 0; i < values.length; i++) {
-      if (!Double.isFinite(values[i])) {
-        throw new IllegalArgumentException("Value " + i + " must be finite: " + values[i]);
-      }
-    }
   }
 
   // ================= Additional Utility Methods =================
@@ -615,12 +544,43 @@ public final class MathUtil {
    * @param min the minimum of the range
    * @param max the maximum of the range
    * @return the percentage (0.0 to 1.0)
-   * @throws IllegalArgumentException if min equals max
    */
   public static double percentage(double value, double min, double max) {
     if (isEqual(min, max)) {
       throw new IllegalArgumentException("Range cannot have zero width");
     }
     return clamp(invLerp(min, max, value), 0.0, 1.0);
+  }
+
+  // ================= Private Helper Methods =================
+
+  /** Validates that values are finite (not NaN or infinite) */
+  private static void validateFiniteValues(double... values) {
+    for (int i = 0; i < values.length; i++) {
+      if (!Double.isFinite(values[i])) {
+        throw new IllegalArgumentException("Value " + i + " must be finite: " + values[i]);
+      }
+    }
+  }
+
+  private static void validateMinMax(double min, double max) {
+    if (min > max) {
+      throw new IllegalArgumentException(
+          "Minimum value cannot be greater than maximum: " + min + " > " + max);
+    }
+  }
+
+  private static void validateMinMax(float min, float max) {
+    if (min > max) {
+      throw new IllegalArgumentException(
+          "Minimum value cannot be greater than maximum: " + min + " > " + max);
+    }
+  }
+
+  private static void validateMinMax(int min, int max) {
+    if (min > max) {
+      throw new IllegalArgumentException(
+          "Minimum value cannot be greater than maximum: " + min + " > " + max);
+    }
   }
 }

@@ -11,60 +11,73 @@ package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-@DisplayName("ZipUtil Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ZipUtilTest {
 
   @TempDir Path tempDir;
 
   private Path sourceFolder;
   private Path zipFile;
-  private byte[] testData;
+  private TestDataBuilder testDataBuilder;
 
   @BeforeEach
   void setUp() {
     sourceFolder = tempDir.resolve("testSource");
     zipFile = tempDir.resolve("test.zip");
-    testData = "Test file content for ZipUtil".getBytes(StandardCharsets.UTF_8);
+    testDataBuilder = new TestDataBuilder();
   }
 
   @Nested
-  @DisplayName("Zip Creation Tests")
-  class ZipCreationTests {
+  class Zip_Creation_Tests {
 
     @Test
-    @DisplayName("Should create zip from directory with files")
-    void shouldCreateZipFromDirectoryWithFiles() throws IOException {
+    void should_create_zip_from_directory_with_files() throws IOException {
       // Given
-      createTestDirectoryStructure();
+      var structure =
+          testDataBuilder
+              .directory(sourceFolder)
+              .file("readme.txt", "Welcome to the project")
+              .file(
+                  "config.json",
+                  """
+              {
+                "name": "test-project",
+                "version": "1.0.0"
+              }
+              """)
+              .subdirectory("src")
+              .file("Main.java", "public class Main { }")
+              .build();
 
       // When
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertTrue(Files.exists(zipFile));
-      assertTrue(Files.size(zipFile) > 0);
-      verifyZipContents(zipFile, "test1.txt", "test2.txt", "subfolder/test3.txt");
+      assertThat(zipFile).exists().hasPositiveSize();
+      verifyZipContains(zipFile, "readme.txt", "config.json", "src/Main.java");
     }
 
     @Test
-    @DisplayName("Should create zip from empty directory")
-    void shouldCreateZipFromEmptyDirectory() throws IOException {
+    void should_create_zip_from_empty_directory() throws IOException {
       // Given
       Files.createDirectories(sourceFolder);
 
@@ -72,342 +85,472 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertTrue(Files.exists(zipFile));
-      assertTrue(Files.size(zipFile) > 0);
+      assertThat(zipFile).exists().hasPositiveSize();
     }
 
     @Test
-    @DisplayName("Should create zip with empty subdirectories")
-    void shouldCreateZipWithEmptySubdirectories() throws IOException {
+    void should_preserve_empty_subdirectories() throws IOException {
       // Given
-      Files.createDirectories(sourceFolder.resolve("emptyFolder"));
-      createTestFile(sourceFolder.resolve("test.txt"));
+      testDataBuilder
+          .directory(sourceFolder)
+          .file("app.txt", "Application file")
+          .emptyDirectory("logs")
+          .emptyDirectory("temp")
+          .build();
 
       // When
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertTrue(Files.exists(zipFile));
-      verifyZipContains(zipFile, "emptyFolder/");
-      verifyZipContains(zipFile, "test.txt");
+      assertThat(zipFile).exists();
+      verifyZipContains(zipFile, "app.txt", "logs/", "temp/");
     }
 
     @Test
-    @DisplayName("Should create parent directories for zip file")
-    void shouldCreateParentDirectoriesForZipFile() throws IOException {
+    void should_create_parent_directories_for_zip_file() throws IOException {
       // Given
-      createTestDirectoryStructure();
-      Path nestedZipFile = tempDir.resolve("nested/deep/test.zip");
+      testDataBuilder.directory(sourceFolder).file("test.txt", "content").build();
+      var nestedZipFile = tempDir.resolve("nested/deep/archive.zip");
 
       // When
       ZipUtil.zip(sourceFolder, nestedZipFile);
 
       // Then
-      assertTrue(Files.exists(nestedZipFile));
-      assertTrue(Files.exists(nestedZipFile.getParent()));
+      assertThat(nestedZipFile).exists();
+      assertThat(nestedZipFile.getParent()).exists().isDirectory();
     }
 
     @Test
-    @DisplayName("Should handle special characters in file names")
-    void shouldHandleSpecialCharactersInFileNames() throws IOException {
+    void should_handle_special_characters_in_file_names() throws IOException {
       // Given
-      Files.createDirectories(sourceFolder);
-      createTestFile(sourceFolder.resolve("file with spaces.txt"));
-      createTestFile(sourceFolder.resolve("file-with-dashes.txt"));
-      createTestFile(sourceFolder.resolve("file_with_underscores.txt"));
+      var specialFiles =
+          List.of(
+              "file with spaces.txt",
+              "file-with-dashes.txt",
+              "file_with_underscores.txt",
+              "файл-кириллица.txt",
+              "файл中文.txt");
+
+      var builder = testDataBuilder.directory(sourceFolder);
+      for (var filename : specialFiles) {
+        builder.file(filename, "Content of " + filename);
+      }
+      builder.build();
 
       // When
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertTrue(Files.exists(zipFile));
-      verifyZipContents(
-          zipFile, "file with spaces.txt", "file-with-dashes.txt", "file_with_underscores.txt");
+      assertThat(zipFile).exists();
+      verifyZipContains(zipFile, specialFiles.toArray(String[]::new));
+    }
+
+    @Test
+    void should_handle_large_file_structure() throws IOException {
+      // Given
+      var builder = testDataBuilder.directory(sourceFolder);
+
+      // Create multiple levels and files
+      for (int i = 1; i <= 5; i++) {
+        var levelDir = "level" + i;
+        builder.subdirectory(levelDir);
+        for (int j = 1; j <= 3; j++) {
+          builder.file("file" + j + ".txt", "Content for level " + i + " file " + j);
+        }
+        builder.up(); // Go back to parent directory
+      }
+      builder.build();
+
+      // When
+      ZipUtil.zip(sourceFolder, zipFile);
+
+      // Then
+      assertThat(zipFile).exists().hasPositiveSize();
+      var expectedEntries = new String[15]; // 5 levels * 3 files each
+      int index = 0;
+      for (int i = 1; i <= 5; i++) {
+        for (int j = 1; j <= 3; j++) {
+          expectedEntries[index++] = "level" + i + "/file" + j + ".txt";
+        }
+      }
+      verifyZipContains(zipFile, expectedEntries);
     }
   }
 
   @Nested
-  @DisplayName("Zip Extraction Tests")
-  class ZipExtractionTests {
+  class Zip_Extraction_Tests {
 
     @Test
-    @DisplayName("Should extract zip to directory from Path")
-    void shouldExtractZipToDirectoryFromPath() throws IOException {
+    void should_extract_zip_to_directory_from_path() throws IOException {
       // Given
-      createTestDirectoryStructure();
+      var originalStructure =
+          testDataBuilder
+              .directory(sourceFolder)
+              .file("app.properties", "app.name=TestApp\napp.version=1.0")
+              .subdirectory("data")
+              .file(
+                  "sample.json",
+                  """
+              {"users": [{"name": "John", "age": 30}]}
+              """)
+              .build();
+
       ZipUtil.zip(sourceFolder, zipFile);
-      Path extractFolder = tempDir.resolve("extracted");
+      var extractFolder = tempDir.resolve("extracted");
 
       // When
       ZipUtil.unzip(zipFile, extractFolder);
 
       // Then
-      verifyExtractedFiles(extractFolder);
+      verifyExtractedStructure(extractFolder, originalStructure);
     }
 
     @Test
-    @DisplayName("Should extract zip to directory from InputStream")
-    void shouldExtractZipToDirectoryFromInputStream() throws IOException {
+    void should_extract_zip_from_input_stream() throws IOException {
       // Given
-      createTestDirectoryStructure();
+      var originalStructure =
+          testDataBuilder
+              .directory(sourceFolder)
+              .file("stream-test.txt", "Testing stream extraction")
+              .build();
+
       ZipUtil.zip(sourceFolder, zipFile);
-      Path extractFolder = tempDir.resolve("extracted");
+      var extractFolder = tempDir.resolve("extracted");
 
       // When
-      try (InputStream inputStream = Files.newInputStream(zipFile)) {
+      try (var inputStream = Files.newInputStream(zipFile)) {
         ZipUtil.unzip(inputStream, extractFolder);
       }
 
       // Then
-      verifyExtractedFiles(extractFolder);
+      verifyExtractedStructure(extractFolder, originalStructure);
     }
 
     @Test
-    @DisplayName("Should create target directory if it doesn't exist")
-    void shouldCreateTargetDirectoryIfNotExists() throws IOException {
+    void should_create_target_directory_if_not_exists() throws IOException {
       // Given
-      createTestDirectoryStructure();
+      testDataBuilder.directory(sourceFolder).file("test.txt", "content").build();
       ZipUtil.zip(sourceFolder, zipFile);
-      Path extractFolder = tempDir.resolve("deep/nested/extracted");
+      var deepExtractFolder = tempDir.resolve("very/deep/nested/extracted");
+
+      // When
+      ZipUtil.unzip(zipFile, deepExtractFolder);
+
+      // Then
+      assertThat(deepExtractFolder).exists().isDirectory();
+      assertThat(deepExtractFolder.resolve("test.txt")).exists();
+    }
+
+    @Test
+    void should_preserve_complex_directory_structure() throws IOException {
+      // Given
+      var structure =
+          testDataBuilder
+              .directory(sourceFolder)
+              .file("root.txt", "Root level file")
+              .subdirectory("level1")
+              .file("file1.txt", "Level 1 content")
+              .subdirectory("level2")
+              .file("deep.txt", "Deep content")
+              .file("another.txt", "Another deep file")
+              .up()
+              .up() // Back to root
+              .subdirectory("parallel")
+              .file("parallel.txt", "Parallel branch")
+              .build();
+
+      ZipUtil.zip(sourceFolder, zipFile);
+      var extractFolder = tempDir.resolve("extracted");
 
       // When
       ZipUtil.unzip(zipFile, extractFolder);
 
       // Then
-      assertTrue(Files.exists(extractFolder));
-      verifyExtractedFiles(extractFolder);
+      assertThat(extractFolder.resolve("root.txt")).exists();
+      assertThat(extractFolder.resolve("level1/file1.txt")).exists();
+      assertThat(extractFolder.resolve("level1/level2/deep.txt")).exists();
+      assertThat(extractFolder.resolve("level1/level2/another.txt")).exists();
+      assertThat(extractFolder.resolve("parallel/parallel.txt")).exists();
+
+      verifyExtractedStructure(extractFolder, structure);
     }
 
     @Test
-    @DisplayName("Should preserve directory structure during extraction")
-    void shouldPreserveDirectoryStructureDuringExtraction() throws IOException {
+    void should_handle_empty_directories() throws IOException {
       // Given
-      createComplexDirectoryStructure();
+      testDataBuilder
+          .directory(sourceFolder)
+          .file("file.txt", "content")
+          .emptyDirectory("empty1")
+          .emptyDirectory("empty2")
+          .build();
+
       ZipUtil.zip(sourceFolder, zipFile);
-      Path extractFolder = tempDir.resolve("extracted");
+      var extractFolder = tempDir.resolve("extracted");
 
       // When
       ZipUtil.unzip(zipFile, extractFolder);
 
       // Then
-      assertTrue(Files.exists(extractFolder.resolve("level1/level2/deep.txt")));
-      assertTrue(Files.exists(extractFolder.resolve("level1/file1.txt")));
-      assertTrue(Files.exists(extractFolder.resolve("root.txt")));
-      assertTrue(Files.isDirectory(extractFolder.resolve("level1/level2")));
-    }
-
-    @Test
-    @DisplayName("Should handle empty directories in zip")
-    void shouldHandleEmptyDirectoriesInZip() throws IOException {
-      // Given
-      Files.createDirectories(sourceFolder.resolve("emptyDir"));
-      createTestFile(sourceFolder.resolve("test.txt"));
-      ZipUtil.zip(sourceFolder, zipFile);
-      Path extractFolder = tempDir.resolve("extracted");
-
-      // When
-      ZipUtil.unzip(zipFile, extractFolder);
-
-      // Then
-      assertTrue(Files.exists(extractFolder.resolve("test.txt")));
-      assertTrue(Files.exists(extractFolder.resolve("emptyDir")));
-      assertTrue(Files.isDirectory(extractFolder.resolve("emptyDir")));
+      assertThat(extractFolder.resolve("file.txt")).exists();
+      assertThat(extractFolder.resolve("empty1")).exists().isDirectory();
+      assertThat(extractFolder.resolve("empty2")).exists().isDirectory();
     }
   }
 
   @Nested
-  @DisplayName("Security Tests")
-  class SecurityTests {
+  class Security_Tests {
 
     @Test
-    @DisplayName("Should prevent zip slip attack with relative paths")
-    void shouldPreventZipSlipAttackWithRelativePaths() throws IOException {
+    void should_prevent_zip_slip_with_relative_paths() throws IOException {
       // Given
-      Path maliciousZip = createMaliciousZip("../../../malicious.txt");
-      Path extractFolder = tempDir.resolve("extracted");
+      var maliciousZip = createMaliciousZip("../../../malicious.txt");
+      var extractFolder = tempDir.resolve("safe-zone");
 
       // When & Then
-      IOException exception =
+      var exception =
           assertThrows(IOException.class, () -> ZipUtil.unzip(maliciousZip, extractFolder));
-      assertThat(exception.getMessage()).contains("Entry is outside the target directory");
+
+      assertTrue(exception.getMessage().contains("Entry is outside the target directory"));
+      assertFalse(Files.exists(tempDir.resolve("malicious.txt")));
     }
 
     @Test
-    @DisplayName("Should prevent zip slip attack with absolute paths")
-    void shouldPreventZipSlipAttackWithAbsolutePaths() throws IOException {
+    void should_prevent_zip_slip_with_absolute_paths() throws IOException {
       // Given
-      Path maliciousZip = createMaliciousZip("/tmp/malicious.txt");
-      Path extractFolder = tempDir.resolve("extracted");
+      var maliciousZip = createMaliciousZip("/tmp/malicious.txt");
+      var extractFolder = tempDir.resolve("safe-zone");
 
       // When & Then
-      IOException exception =
+      var exception =
           assertThrows(IOException.class, () -> ZipUtil.unzip(maliciousZip, extractFolder));
-      assertThat(exception.getMessage()).contains("Entry is outside the target directory");
+
+      assertTrue(exception.getMessage().contains("Entry is outside the target directory"));
+    }
+
+    @Test
+    void should_handle_multiple_directory_traversal_attempts() throws IOException {
+      // Given
+      var maliciousZip = tempDir.resolve("multi-attack.zip");
+      var maliciousPaths =
+          List.of("../../attack1.txt", "../../../attack2.txt", "../../../../attack3.txt");
+
+      try (var zos = new ZipOutputStream(Files.newOutputStream(maliciousZip))) {
+        for (var path : maliciousPaths) {
+          zos.putNextEntry(new ZipEntry(path));
+          zos.write(("Attack content: " + path).getBytes(StandardCharsets.UTF_8));
+          zos.closeEntry();
+        }
+      }
+
+      var extractFolder = tempDir.resolve("safe-zone");
+
+      // When & Then
+      assertThrows(IOException.class, () -> ZipUtil.unzip(maliciousZip, extractFolder));
     }
   }
 
   @Nested
-  @DisplayName("Error Handling Tests")
-  class ErrorHandlingTests {
+  class Error_Handling_Tests {
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for null zip parameters")
-    void shouldThrowIllegalArgumentExceptionForNullZipParameters() {
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.zip(null, null));
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.zip(null, zipFile));
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.zip(sourceFolder, null));
+    void should_throw_null_pointer_exception_for_null_zip_parameters() {
+      assertThrows(NullPointerException.class, () -> ZipUtil.zip(null, null));
+      assertThrows(NullPointerException.class, () -> ZipUtil.zip(null, zipFile));
+      assertThrows(NullPointerException.class, () -> ZipUtil.zip(sourceFolder, null));
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for null unzip parameters")
-    void shouldThrowIllegalArgumentExceptionForNullUnzipParameters() {
-      Path extractFolder = tempDir.resolve("extracted");
+    void should_throw_null_pointer_exception_for_null_unzip_parameters() {
+      var extractFolder = tempDir.resolve("extracted");
 
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.unzip((Path) null, null));
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.unzip(zipFile, null));
-      assertThrows(IllegalArgumentException.class, () -> ZipUtil.unzip((Path) null, extractFolder));
+      assertThrows(NullPointerException.class, () -> ZipUtil.unzip((Path) null, null));
+      assertThrows(NullPointerException.class, () -> ZipUtil.unzip(zipFile, null));
+      assertThrows(NullPointerException.class, () -> ZipUtil.unzip((Path) null, extractFolder));
       assertThrows(
-          IllegalArgumentException.class, () -> ZipUtil.unzip((InputStream) null, extractFolder));
-      assertThrows(
-          NoSuchFileException.class, () -> ZipUtil.unzip(Files.newInputStream(zipFile), null));
+          NullPointerException.class, () -> ZipUtil.unzip((InputStream) null, extractFolder));
     }
 
     @Test
-    @DisplayName("Should throw IOException for non-existent source directory")
-    void shouldThrowIOExceptionForNonExistentSourceDirectory() {
-      Path nonExistentDir = tempDir.resolve("nonExistent");
+    void should_throw_io_exception_for_non_existent_source_directory() {
+      var nonExistentDir = tempDir.resolve("does-not-exist");
 
-      IOException exception =
-          assertThrows(IOException.class, () -> ZipUtil.zip(nonExistentDir, zipFile));
-      assertThat(exception.getMessage()).contains("does not exist");
+      var exception = assertThrows(IOException.class, () -> ZipUtil.zip(nonExistentDir, zipFile));
+
+      assertTrue(exception.getMessage().contains("does not exist"));
     }
 
     @Test
-    @DisplayName("Should throw IOException for file instead of directory")
-    void shouldThrowIOExceptionForFileInsteadOfDirectory() throws IOException {
-      Path file = tempDir.resolve("notADirectory.txt");
+    void should_throw_io_exception_for_file_instead_of_directory() throws IOException {
+      var file = tempDir.resolve("not-a-directory.txt");
       Files.createFile(file);
 
-      IOException exception = assertThrows(IOException.class, () -> ZipUtil.zip(file, zipFile));
-      assertThat(exception.getMessage()).contains("not a directory");
+      var exception = assertThrows(IOException.class, () -> ZipUtil.zip(file, zipFile));
+      assertTrue(exception.getMessage().contains("not a directory"));
     }
 
     @Test
-    @DisplayName("Should throw IOException for non-existent zip file")
-    void shouldThrowIOExceptionForNonExistentZipFile() {
-      Path nonExistentZip = tempDir.resolve("nonExistent.zip");
-      Path extractFolder = tempDir.resolve("extracted");
+    void should_throw_io_exception_for_non_existent_zip_file() {
+      var nonExistentZip = tempDir.resolve("missing.zip");
+      var extractFolder = tempDir.resolve("extracted");
 
-      IOException exception =
+      var exception =
           assertThrows(IOException.class, () -> ZipUtil.unzip(nonExistentZip, extractFolder));
-      assertThat(exception.getMessage()).contains("does not exist");
+
+      assertTrue(exception.getMessage().contains("does not exist"));
+    }
+
+    @Test
+    void should_handle_input_stream_that_throws_null_pointer() {
+      var extractFolder = tempDir.resolve("extracted");
+
+      assertThrows(
+          NoSuchFileException.class,
+          () -> ZipUtil.unzip(Files.newInputStream(zipFile), extractFolder));
     }
   }
 
-  // ******* Helper Methods *******
+  // ================= Helper Classes and Methods =================
 
-  private void createTestDirectoryStructure() throws IOException {
-    Files.createDirectories(sourceFolder);
-    createTestFile(sourceFolder.resolve("test1.txt"));
-    createTestFile(sourceFolder.resolve("test2.txt"));
+  /** Fluent builder for creating test directory structures with real data */
+  /** Fluent builder for creating test directory structures with real data */
+  private static class TestDataBuilder {
+    private Path rootDir;
+    private Path currentDir;
+    private final Set<FileStructure> createdFiles = new HashSet<>();
 
-    Path subfolder = sourceFolder.resolve("subfolder");
-    Files.createDirectories(subfolder);
-    createTestFile(subfolder.resolve("test3.txt"));
+    TestDataBuilder directory(Path path) throws IOException {
+      Files.createDirectories(path);
+      this.rootDir = path;
+      this.currentDir = path;
+      return this;
+    }
+
+    TestDataBuilder file(String name, String content) throws IOException {
+      var filePath = currentDir.resolve(name);
+      Files.writeString(filePath, content, StandardCharsets.UTF_8);
+      createdFiles.add(
+          new FileStructure(
+              rootDir.relativize(filePath), content.getBytes(StandardCharsets.UTF_8)));
+      return this;
+    }
+
+    TestDataBuilder subdirectory(String name) throws IOException {
+      currentDir = currentDir.resolve(name);
+      Files.createDirectories(currentDir);
+      return this;
+    }
+
+    TestDataBuilder emptyDirectory(String name) throws IOException {
+      var dirPath = currentDir.resolve(name);
+      Files.createDirectories(dirPath);
+      createdFiles.add(
+          new FileStructure(rootDir.relativize(dirPath), null)); // null indicates directory
+      return this;
+    }
+
+    TestDataBuilder up() {
+      currentDir = currentDir.getParent();
+      return this;
+    }
+
+    Set<FileStructure> build() {
+      return Set.copyOf(createdFiles);
+    }
   }
 
-  private void createComplexDirectoryStructure() throws IOException {
-    Files.createDirectories(sourceFolder);
-    createTestFile(sourceFolder.resolve("root.txt"));
-
-    Path level1 = sourceFolder.resolve("level1");
-    Files.createDirectories(level1);
-    createTestFile(level1.resolve("file1.txt"));
-
-    Path level2 = level1.resolve("level2");
-    Files.createDirectories(level2);
-    createTestFile(level2.resolve("deep.txt"));
+  private record FileStructure(Path relativePath, byte[] content) {
+    boolean isDirectory() {
+      return content == null;
+    }
   }
 
-  private void createTestFile(Path filePath) throws IOException {
-    Files.write(filePath, testData);
+  /** Custom assertion helper for Path objects */
+  private static PathAssert assertThat(Path actual) {
+    return new PathAssert(actual);
   }
 
-  private void verifyExtractedFiles(Path extractFolder) throws IOException {
-    assertTrue(Files.exists(extractFolder.resolve("test1.txt")));
-    assertTrue(Files.exists(extractFolder.resolve("test2.txt")));
-    assertTrue(Files.exists(extractFolder.resolve("subfolder/test3.txt")));
+  private static class PathAssert {
+    private final Path actual;
 
-    assertEquals(testData.length, Files.size(extractFolder.resolve("test1.txt")));
-    assertArrayEquals(testData, Files.readAllBytes(extractFolder.resolve("test1.txt")));
+    PathAssert(Path actual) {
+      this.actual = actual;
+    }
+
+    PathAssert exists() {
+      assertTrue(Files.exists(actual), "Expected path to exist: " + actual);
+      return this;
+    }
+
+    PathAssert isDirectory() {
+      assertTrue(Files.isDirectory(actual), "Expected path to be directory: " + actual);
+      return this;
+    }
+
+    PathAssert hasPositiveSize() throws IOException {
+      assertTrue(Files.size(actual) > 0, "Expected file to have positive size: " + actual);
+      return this;
+    }
   }
 
-  private void verifyZipContents(Path zipPath, String... expectedEntries) throws IOException {
-    try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipPath))) {
-      java.util.Set<String> foundEntries = new java.util.HashSet<>();
+  private void verifyExtractedStructure(Path extractFolder, Set<FileStructure> expectedStructure)
+      throws IOException {
+    for (var structure : expectedStructure) {
+      var extractedPath = extractFolder.resolve(structure.relativePath());
+
+      assertTrue(
+          Files.exists(extractedPath),
+          "Expected extracted file/directory to exist: " + structure.relativePath());
+
+      if (structure.isDirectory()) {
+        assertTrue(
+            Files.isDirectory(extractedPath), "Expected directory: " + structure.relativePath());
+      } else {
+        var actualContent = Files.readAllBytes(extractedPath);
+        assertArrayEquals(
+            structure.content(),
+            actualContent,
+            "Content mismatch for file: " + structure.relativePath());
+      }
+    }
+  }
+
+  private void verifyZipContains(Path zipPath, String... expectedEntries) throws IOException {
+    try (var zis = new ZipInputStream(Files.newInputStream(zipPath))) {
+      var foundEntries = new HashSet<String>();
+
       ZipEntry entry;
-
       while ((entry = zis.getNextEntry()) != null) {
         foundEntries.add(entry.getName());
       }
 
-      for (String expectedEntry : expectedEntries) {
+      for (var expectedEntry : expectedEntries) {
         assertTrue(
             foundEntries.contains(expectedEntry),
-            "Expected entry not found in zip: " + expectedEntry);
+            "Expected entry not found in zip: "
+                + expectedEntry
+                + ". Found entries: "
+                + foundEntries);
       }
     }
-  }
-
-  private void verifyZipContains(Path zipPath, String expectedEntry) throws IOException {
-    try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipPath))) {
-      ZipEntry entry;
-      while ((entry = zis.getNextEntry()) != null) {
-        if (entry.getName().equals(expectedEntry)) {
-          return; // Found the entry
-        }
-      }
-    }
-    fail("Expected entry not found in zip: " + expectedEntry);
   }
 
   private Path createMaliciousZip(String maliciousPath) throws IOException {
-    Path maliciousZip = tempDir.resolve("malicious.zip");
+    var maliciousZip = tempDir.resolve("malicious.zip");
 
-    try (FileOutputStream fos = new FileOutputStream(maliciousZip.toFile());
-        ZipOutputStream zos = new ZipOutputStream(fos)) {
-
-      // Create a zip entry with a malicious path that attempts directory traversal
-      ZipEntry maliciousEntry = new ZipEntry(maliciousPath);
-      zos.putNextEntry(maliciousEntry);
-
-      // Write some dummy content
-      String content =
-          "This is malicious content that should not be extracted outside the target directory";
+    try (var zos = new ZipOutputStream(Files.newOutputStream(maliciousZip))) {
+      // Malicious entry
+      zos.putNextEntry(new ZipEntry(maliciousPath));
+      var content = "Malicious content attempting directory traversal";
       zos.write(content.getBytes(StandardCharsets.UTF_8));
       zos.closeEntry();
 
-      // Optionally add a normal entry for comparison
-      ZipEntry normalEntry = new ZipEntry("normal-file.txt");
-      zos.putNextEntry(normalEntry);
+      // Normal entry for contrast
+      zos.putNextEntry(new ZipEntry("legitimate-file.txt"));
       zos.write("Normal content".getBytes(StandardCharsets.UTF_8));
       zos.closeEntry();
     }
 
     return maliciousZip;
-  }
-
-  // Custom assertion helper
-  private StringAssert assertThat(String actual) {
-    return new StringAssert(actual);
-  }
-
-  private record StringAssert(String actual) {
-
-    void contains(String expected) {
-      assertTrue(
-          actual != null && actual.contains(expected),
-          "Expected string to contain: " + expected + ", but was: " + actual);
-    }
   }
 }

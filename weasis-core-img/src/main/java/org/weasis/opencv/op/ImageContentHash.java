@@ -9,6 +9,7 @@
  */
 package org.weasis.opencv.op;
 
+import java.util.Objects;
 import org.opencv.core.Mat;
 import org.opencv.img_hash.AverageHash;
 import org.opencv.img_hash.BlockMeanHash;
@@ -52,57 +53,68 @@ import org.opencv.img_hash.RadialVarianceHash;
  * @author Nicolas Roduit
  */
 public enum ImageContentHash {
-  AVERAGE() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return AverageHash.create();
-    }
-  },
-  PHASH() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return PHash.create();
-    }
-  },
-  MARR_HILDRETH() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return MarrHildrethHash.create();
-    }
-  },
-  RADIAL_VARIANCE() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return RadialVarianceHash.create();
-    }
-  },
-  BLOCK_MEAN_ZERO() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return BlockMeanHash.create(0);
-    }
-  },
-  BLOCK_MEAN_ONE() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return BlockMeanHash.create(1);
-    }
-  },
-  COLOR_MOMENT() {
-    @Override
-    public ImgHashBase getAlgorithm() {
-      return ColorMomentHash.create();
-    }
-  };
+  /** Fast hash algorithm, ideal when speed is prioritized over accuracy. */
+  AVERAGE(AverageHash::create),
 
-  public abstract ImgHashBase getAlgorithm();
+  /** Perceptual hash, best general-purpose algorithm balancing accuracy and performance. */
+  PHASH(PHash::create),
 
+  /** Structural similarity hash using edge detection. */
+  MARR_HILDRETH(MarrHildrethHash::create),
+
+  /** Rotation-invariant hash based on radial variance. */
+  RADIAL_VARIANCE(RadialVarianceHash::create),
+
+  /** Block-based mean hash with mode 0 for regional analysis. */
+  BLOCK_MEAN_ZERO(() -> BlockMeanHash.create(0)),
+
+  /** Block-based mean hash with mode 1 for enhanced regional analysis. */
+  BLOCK_MEAN_ONE(() -> BlockMeanHash.create(1)),
+
+  /** Color-based hash using statistical moments. */
+  COLOR_MOMENT(ColorMomentHash::create);
+
+  private final AlgorithmFactory algorithmFactory;
+
+  ImageContentHash(AlgorithmFactory algorithmFactory) {
+    this.algorithmFactory = algorithmFactory;
+  }
+
+  /**
+   * Creates a new instance of the hash algorithm.
+   *
+   * @return a new ImgHashBase instance
+   */
+  public ImgHashBase getAlgorithm() {
+    return algorithmFactory.create();
+  }
+
+  /**
+   * Compares two images using the hash algorithm and returns similarity score.
+   *
+   * @param imgIn first image to compare
+   * @param imgOut second image to compare
+   * @return similarity score (0.0 = identical, higher values = more different)
+   * @throws IllegalArgumentException if either image is null or empty
+   */
   public double compare(Mat imgIn, Mat imgOut) {
-    ImgHashBase hashAlgorithm = getAlgorithm();
-    Mat inHash = new Mat();
-    Mat outHash = new Mat();
+    Objects.requireNonNull(imgIn, "Input image cannot be null");
+    Objects.requireNonNull(imgOut, "Output image cannot be null");
+
+    if (imgIn.empty() || imgOut.empty()) {
+      throw new IllegalArgumentException("Images cannot be empty");
+    }
+
+    var hashAlgorithm = getAlgorithm();
+    var inHash = new Mat();
+    var outHash = new Mat();
     hashAlgorithm.compute(imgIn, inHash);
     hashAlgorithm.compute(imgOut, outHash);
     return hashAlgorithm.compare(inHash, outHash);
+  }
+
+  @FunctionalInterface
+  private interface AlgorithmFactory {
+    ImgHashBase create();
   }
 }

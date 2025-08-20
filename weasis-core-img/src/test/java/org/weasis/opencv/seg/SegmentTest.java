@@ -14,163 +14,159 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.awt.Dimension;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.opencv.osgi.OpenCVNativeLoader;
 
-@DisplayName("Segment Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class SegmentTest {
 
-  // Test constants
   private static final double DELTA = 0.001;
-  private static final Point2D POINT_1_2 = new Point2D.Double(1, 2);
-  private static final Point2D POINT_3_4 = new Point2D.Double(3, 4);
-  private static final Point2D POINT_5_6 = new Point2D.Double(5, 6);
-  private static final Point2D POINT_7_8 = new Point2D.Double(7, 8);
+
+  // Test data structures - using records for immutable test data
+  record TestPoints(Point2D point1, Point2D point2, Point2D point3, Point2D point4) {}
+
+  record GeometricShape(String name, double[] coordinates, int expectedPointCount) {}
+
+  record TransformTest(String name, AffineTransform transform, Point2D input, Point2D expected) {}
+
+  private static final TestPoints BASIC_POINTS =
+      new TestPoints(
+          new Point2D.Double(1, 2),
+          new Point2D.Double(3, 4),
+          new Point2D.Double(5, 6),
+          new Point2D.Double(7, 8));
 
   @BeforeAll
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
-    loader.init();
+  static void load_native_library() {
+    new OpenCVNativeLoader().init();
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_tests {
 
     @Test
-    @DisplayName("Should create empty segment with default constructor")
-    void createsEmptySegmentWithDefaultConstructor() {
-      Segment segment = new Segment();
+    void creates_empty_segment_with_default_constructor() {
+      var segment = new Segment();
 
-      assertTrue(segment.isEmpty(), "Default constructor should create empty segment");
-      assertTrue(segment.getChildren().isEmpty(), "Should have no children initially");
+      assertAll(
+          () -> assertTrue(segment.isEmpty()), () -> assertTrue(segment.getChildren().isEmpty()));
     }
 
     @Test
-    @DisplayName("Should create segment from Point2D collection")
-    void createsSegmentFromPoint2DCollection() {
-      List<Point2D> points = Arrays.asList(POINT_1_2, POINT_3_4, POINT_5_6);
+    void creates_segment_from_point2d_collection() {
+      var points = List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2(), BASIC_POINTS.point3());
 
-      Segment segment = new Segment(points);
+      var segment = new Segment(points);
 
       assertAll(
-          "Segment should contain all provided points",
           () -> assertEquals(points.size(), segment.size()),
           () -> assertEquals(points, segment),
           () -> assertTrue(segment.getChildren().isEmpty()));
     }
 
-    @Test
-    @DisplayName("Should create segment with forced closure from collection")
-    void createsSegmentWithForcedClosureFromCollection() {
-      List<Point2D> points = Arrays.asList(POINT_1_2, POINT_3_4, POINT_5_6);
+    @ParameterizedTest
+    @MethodSource("closedSegmentTestData")
+    void creates_segment_with_forced_closure(List<Point2D> points, boolean shouldAddClosingPoint) {
+      var segment = new Segment(points, true);
 
-      Segment segment = new Segment(points, true);
+      int expectedSize = shouldAddClosingPoint ? points.size() + 1 : points.size();
+      assertEquals(expectedSize, segment.size());
 
-      assertAll(
-          "Segment should be closed with duplicate first point",
-          () -> assertEquals(points.size() + 1, segment.size()),
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertEquals(POINT_5_6, segment.get(2)),
-          () -> assertEquals(POINT_1_2, segment.get(3), "Last point should equal first point"));
+      if (shouldAddClosingPoint) {
+        assertEquals(points.get(0), segment.get(segment.size() - 1));
+      }
+    }
+
+    @ParameterizedTest
+    @NullSource
+    void creates_empty_segment_from_null_collection(List<Point2D> nullPoints) {
+      var segment = new Segment(nullPoints);
+      assertTrue(segment.isEmpty());
     }
 
     @Test
-    @DisplayName("Should not add duplicate closing point when already closed")
-    void doesNotAddDuplicateClosingPointWhenAlreadyClosed() {
-      List<Point2D> closedPoints = Arrays.asList(POINT_1_2, POINT_3_4, POINT_1_2);
+    void creates_empty_segment_from_empty_collection() {
+      var segment = new Segment(Collections.<Point2D>emptyList());
+      assertTrue(segment.isEmpty());
+    }
 
-      Segment segment = new Segment(closedPoints, true);
+    @ParameterizedTest
+    @MethodSource("geometricShapeData")
+    void creates_segment_from_coordinate_arrays(GeometricShape shape) {
+      var segment = new Segment(shape.coordinates());
 
       assertEquals(
-          closedPoints.size(),
-          segment.size(),
-          "Should not add extra closing point when already closed");
+          shape.expectedPointCount(), segment.size(), () -> "Failed for shape: " + shape.name());
     }
 
-    @Test
-    @DisplayName("Should create empty segment from null or empty collection")
-    void createsEmptySegmentFromNullOrEmptyCollection() {
+    @ParameterizedTest
+    @MethodSource("transformAndDimensionData")
+    void creates_segment_with_transform_and_dimension(
+        double[] coordinates,
+        AffineTransform transform,
+        Dimension dimension,
+        Point2D[] expectedPoints) {
+      var segment = new Segment(coordinates, transform, false, dimension);
+
       assertAll(
-          "Should handle null and empty collections gracefully",
+          () -> assertEquals(expectedPoints.length, segment.size()),
           () -> {
-            Segment nullSegment = new Segment((List<Point2D>) null);
-            assertTrue(nullSegment.isEmpty(), "Null collection should create empty segment");
-          },
-          () -> {
-            Segment emptySegment = new Segment(Collections.emptyList());
-            assertTrue(emptySegment.isEmpty(), "Empty collection should create empty segment");
+            for (int i = 0; i < expectedPoints.length; i++) {
+              int finalI = i;
+              assertEquals(
+                  expectedPoints[i], segment.get(i), () -> "Point " + finalI + " mismatch");
+            }
           });
     }
 
-    @Test
-    @DisplayName("Should create segment from float array")
-    void createsSegmentFromFloatArray() {
-      float[] points = {1.5f, 2.5f, 3.5f, 4.5f};
-
-      Segment segment = new Segment(points);
-
-      assertAll(
-          "Segment should contain converted points",
-          () -> assertEquals(2, segment.size()),
-          () -> assertEquals(new Point2D.Double(1.5, 2.5), segment.get(0)),
-          () -> assertEquals(new Point2D.Double(3.5, 4.5), segment.get(1)));
+    // Test data providers
+    static Stream<Arguments> closedSegmentTestData() {
+      return Stream.of(
+          Arguments.of(
+              List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2(), BASIC_POINTS.point3()), true),
+          Arguments.of(
+              List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2(), BASIC_POINTS.point1()), false));
     }
 
-    @Test
-    @DisplayName("Should create segment from double array")
-    void createsSegmentFromDoubleArray() {
-      double[] points = {1.0, 2.0, 3.0, 4.0};
-
-      Segment segment = new Segment(points);
-
-      assertAll(
-          "Segment should contain points from double array",
-          () -> assertEquals(2, segment.size()),
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertEquals(POINT_3_4, segment.get(1)));
+    static Stream<GeometricShape> geometricShapeData() {
+      return Stream.of(
+          new GeometricShape("rectangle", new double[] {0, 0, 1, 0, 1, 1, 0, 1}, 4),
+          new GeometricShape("triangle", new double[] {0, 0, 1, 0, 0.5, 1}, 3),
+          new GeometricShape("line", new double[] {0, 0, 1, 1}, 2));
     }
 
-    @Test
-    @DisplayName("Should create segment with transform and dimension")
-    void createsSegmentWithTransformAndDimension() {
-      double[] points = {0.5, 0.5, 1.0, 1.0};
-      AffineTransform scale = AffineTransform.getScaleInstance(2.0, 3.0);
-      Dimension dim = new Dimension(100, 200);
-
-      Segment segment = new Segment(points, scale, false, dim);
-
-      assertAll(
-          "Segment should apply transform and dimension scaling",
-          () -> assertEquals(2, segment.size()),
-          () ->
-              assertEquals(
-                  new Point2D.Double(100.0, 300.0), segment.get(0)), // (0.5*2)*100, (0.5*3)*200
-          () ->
-              assertEquals(
-                  new Point2D.Double(200.0, 600.0), segment.get(1)) // (1.0*2)*100, (1.0*3)*200
-          );
+    static Stream<Arguments> transformAndDimensionData() {
+      return Stream.of(
+          Arguments.of(
+              new double[] {0.5, 0.5, 1.0, 1.0},
+              AffineTransform.getScaleInstance(2.0, 3.0),
+              new Dimension(100, 200),
+              new Point2D[] {
+                new Point2D.Double(100.0, 300.0), // (0.5*2)*100, (0.5*3)*200
+                new Point2D.Double(200.0, 600.0) // (1.0*2)*100, (1.0*3)*200
+              }));
     }
   }
 
   @Nested
-  @DisplayName("Point Setting Tests")
-  class PointSettingTests {
+  class Point_setting_tests {
 
     @Test
-    @DisplayName("Should set points from Point2D collection")
-    void setsPointsFromPoint2DCollection() {
-      Segment segment = new Segment();
-      List<Point2D> points = Arrays.asList(POINT_1_2, POINT_3_4);
+    void sets_points_from_point2d_collection() {
+      var segment = new Segment();
+      var points = List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2());
 
       segment.setPoints(points, false);
 
@@ -178,357 +174,203 @@ class SegmentTest {
     }
 
     @Test
-    @DisplayName("Should set points with forced closure")
-    void setsPointsWithForcedClosure() {
-      Segment segment = new Segment();
-      List<Point2D> openPoints = Arrays.asList(POINT_1_2, POINT_3_4, POINT_5_6);
-
-      segment.setPoints(openPoints, true);
-
-      assertAll(
-          "Should close the segment",
-          () -> assertEquals(openPoints.size() + 1, segment.size()),
-          () -> assertEquals(POINT_1_2, segment.get(segment.size() - 1)));
-    }
-
-    @Test
-    @DisplayName("Should clear existing points when setting new ones")
-    void clearsExistingPointsWhenSettingNewOnes() {
-      Segment segment = new Segment(Arrays.asList(POINT_7_8));
-      List<Point2D> newPoints = Arrays.asList(POINT_1_2, POINT_3_4);
+    void clears_existing_points_when_setting_new_ones() {
+      var segment = new Segment(List.of(BASIC_POINTS.point4()));
+      var newPoints = List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2());
 
       segment.setPoints(newPoints, false);
 
       assertAll(
-          "Should replace existing points",
           () -> assertEquals(2, segment.size()),
           () -> assertEquals(newPoints, segment),
-          () -> assertFalse(segment.contains(POINT_7_8)));
-    }
-
-    @Test
-    @DisplayName("Should handle null collection gracefully")
-    void handlesNullCollectionGracefully() {
-      Segment segment = new Segment(Arrays.asList(POINT_1_2));
-
-      segment.setPoints((List<Point2D>) null, false);
-
-      assertTrue(segment.isEmpty(), "Should clear segment when setting null collection");
+          () -> assertFalse(segment.contains(BASIC_POINTS.point4())));
     }
 
     @ParameterizedTest
     @NullSource
-    @DisplayName("Should throw exception for null array")
-    void throwsExceptionForNullArray(float[] nullArray) {
-      Segment segment = new Segment();
+    void throws_exception_for_null_array(float[] nullArray) {
+      var segment = new Segment();
 
-      assertThrows(
-          NullPointerException.class,
-          () -> segment.setPoints(nullArray, false, null),
-          "Should throw exception for null array");
+      assertThrows(NullPointerException.class, () -> segment.setPoints(nullArray, false, null));
     }
 
-    @Test
-    @DisplayName("Should handle insufficient points in array")
-    void handlesInsufficientPointsInArray() {
-      Segment segment = new Segment();
-      float[] insufficientPoints = {1.0f, 2.0f}; // Only 1 point (need at least 2)
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 3}) // Less than 4 coordinates (2 points minimum)
+    void handles_insufficient_coordinates(int coordinateCount) {
+      var segment = new Segment();
+      var insufficientPoints = new float[coordinateCount];
 
       segment.setPoints(insufficientPoints, false, null);
 
-      assertTrue(segment.isEmpty(), "Should create empty segment for insufficient points");
+      assertTrue(segment.isEmpty());
     }
 
     @Test
-    @DisplayName("Should handle odd number of coordinates")
-    void handlesOddNumberOfCoordinates() {
-      Segment segment = new Segment();
-      float[] oddPoints = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f}; // 2,5 points (odd count)
+    void handles_odd_number_of_coordinates() {
+      var segment = new Segment();
+      var oddPoints = new float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f}; // 2.5 points
 
       segment.setPoints(oddPoints, false, null);
 
-      assertEquals(2, segment.size(), "Should create segment with complete point pairs only");
+      assertEquals(2, segment.size()); // Only complete point pairs
     }
   }
 
   @Nested
-  @DisplayName("Transform Tests")
-  class TransformTests {
+  class Transform_tests {
 
-    @Test
-    @DisplayName("Should apply affine transform correctly")
-    void appliesAffineTransformCorrectly() {
-      Segment segment = new Segment();
-      float[] points = {1.0f, 2.0f, 3.0f, 4.0f};
-      AffineTransform scale = AffineTransform.getScaleInstance(2.0, 3.0);
+    @ParameterizedTest
+    @MethodSource("transformTestData")
+    void applies_transforms_correctly(TransformTest testCase) {
+      var segment = new Segment();
+      var coords = new double[] {testCase.input().getX(), testCase.input().getY(), 0, 0};
 
-      segment.setPoints(points, scale, false, null);
+      segment.setPoints(coords, testCase.transform(), false, null);
 
-      assertAll(
-          "Transform should be applied to all points",
-          () -> assertEquals(2, segment.size()),
-          () -> assertEquals(new Point2D.Double(2.0, 6.0), segment.get(0)),
-          () -> assertEquals(new Point2D.Double(6.0, 12.0), segment.get(1)));
+      assertEquals(testCase.expected(), segment.get(0), testCase.name());
     }
 
     @Test
-    @DisplayName("Should handle translation transform")
-    void handlesTranslationTransform() {
-      Segment segment = new Segment();
-      double[] points = {0.0, 0.0, 1.0, 1.0};
-      AffineTransform translate = AffineTransform.getTranslateInstance(10.0, 20.0);
-
-      segment.setPoints(points, translate, false, null);
-
-      assertAll(
-          "Translation should be applied",
-          () -> assertEquals(new Point2D.Double(10.0, 20.0), segment.get(0)),
-          () -> assertEquals(new Point2D.Double(11.0, 21.0), segment.get(1)));
-    }
-
-    @Test
-    @DisplayName("Should handle rotation transform")
-    void handlesRotationTransform() {
-      Segment segment = new Segment();
-      double[] points = {1.0, 0.0, 0.0, 1.0};
-      AffineTransform rotate = AffineTransform.getRotateInstance(Math.PI / 2); // 90 degrees
-
-      segment.setPoints(points, rotate, false, null);
-
-      assertAll(
-          "Rotation should be applied",
-          () -> assertEquals(0.0, segment.get(0).getX(), DELTA),
-          () -> assertEquals(1.0, segment.get(0).getY(), DELTA),
-          () -> assertEquals(-1.0, segment.get(1).getX(), DELTA),
-          () -> assertEquals(0.0, segment.get(1).getY(), DELTA));
-    }
-
-    @Test
-    @DisplayName("Should work without transform")
-    void worksWithoutTransform() {
-      Segment segment = new Segment();
-      float[] points = {1.0f, 2.0f, 3.0f, 4.0f};
+    void works_without_transform() {
+      var segment = new Segment();
+      var points = new float[] {1.0f, 2.0f, 3.0f, 4.0f};
 
       segment.setPoints(points, null, false, null);
 
       assertAll(
-          "Points should remain unchanged without transform",
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertEquals(POINT_3_4, segment.get(1)));
+          () -> assertEquals(BASIC_POINTS.point1(), segment.get(0)),
+          () -> assertEquals(BASIC_POINTS.point2(), segment.get(1)));
+    }
+
+    static Stream<TransformTest> transformTestData() {
+      return Stream.of(
+          new TransformTest(
+              "scale",
+              AffineTransform.getScaleInstance(2.0, 3.0),
+              new Point2D.Double(1.0, 2.0),
+              new Point2D.Double(2.0, 6.0)),
+          new TransformTest(
+              "translate",
+              AffineTransform.getTranslateInstance(10.0, 20.0),
+              new Point2D.Double(0.0, 0.0),
+              new Point2D.Double(10.0, 20.0)),
+          new TransformTest(
+              "rotate_90_degrees",
+              AffineTransform.getRotateInstance(Math.PI / 2),
+              new Point2D.Double(1.0, 0.0),
+              new Point2D.Double(0.0, 1.0)));
     }
   }
 
   @Nested
-  @DisplayName("Dimension Scaling Tests")
-  class DimensionScalingTests {
+  class Dimension_scaling_tests {
 
     @Test
-    @DisplayName("Should scale points by dimensions")
-    void scalesPointsByDimensions() {
-      Segment segment = new Segment();
-      double[] points = {0.5, 0.25, 1.0, 0.75}; // Normalized coordinates
-      Dimension dim = new Dimension(200, 400);
+    void scales_points_by_dimensions() {
+      var segment = new Segment();
+      var normalizedCoords = new double[] {0.5, 0.25, 1.0, 0.75};
+      var viewport = new Dimension(200, 400);
 
-      segment.setPoints(points, false, dim);
+      segment.setPoints(normalizedCoords, false, viewport);
 
       assertAll(
-          "Points should be scaled by dimensions",
-          () -> assertEquals(new Point2D.Double(100.0, 100.0), segment.get(0)), // 0.5*200, 0.25*400
-          () -> assertEquals(new Point2D.Double(200.0, 300.0), segment.get(1)) // 1.0*200, 0.75*400
-          );
+          () -> assertEquals(new Point2D.Double(100.0, 100.0), segment.get(0)),
+          () -> assertEquals(new Point2D.Double(200.0, 300.0), segment.get(1)));
     }
 
-    @Test
-    @DisplayName("Should ignore invalid dimensions")
-    void ignoresInvalidDimensions() {
-      Segment segment = new Segment();
-      double[] points = {1.0, 2.0, 3.0, 4.0};
+    @ParameterizedTest
+    @MethodSource("invalidDimensionData")
+    void ignores_invalid_dimensions(Dimension invalidDim) {
+      var segment = new Segment();
+      var points = new double[] {1.0, 2.0, 3.0, 4.0};
 
-      assertAll(
-          "Invalid dimensions should be ignored",
-          () -> {
-            segment.setPoints(points, false, new Dimension(0, 100));
-            assertEquals(POINT_1_2, segment.get(0)); // No scaling applied
-          },
-          () -> {
-            segment.setPoints(points, false, new Dimension(100, -50));
-            assertEquals(POINT_1_2, segment.get(0)); // No scaling applied
-          },
-          () -> {
-            segment.setPoints(points, false, null);
-            assertEquals(POINT_1_2, segment.get(0)); // No scaling applied
-          });
+      segment.setPoints(points, false, invalidDim);
+
+      assertEquals(BASIC_POINTS.point1(), segment.get(0)); // No scaling applied
     }
 
-    @Test
-    @DisplayName("Should combine transform and dimension scaling")
-    void combinesTransformAndDimensionScaling() {
-      Segment segment = new Segment();
-      double[] points = {0.5, 0.5, 2.0, 2.0};
-      AffineTransform scale = AffineTransform.getScaleInstance(2.0, 2.0);
-      Dimension dim = new Dimension(100, 100);
-
-      segment.setPoints(points, scale, false, dim);
-
-      // First transform: 0.5*2 = 1.0, then dimension: 1.0*100 = 100.0
-      assertEquals(new Point2D.Double(100.0, 100.0), segment.get(0));
+    static Stream<Dimension> invalidDimensionData() {
+      return Stream.of(
+          new Dimension(0, 100), new Dimension(100, -50), new Dimension(-10, -20), null);
     }
   }
 
   @Nested
-  @DisplayName("Force Close Tests")
-  class ForceCloseTests {
+  class Force_close_tests {
 
     @Test
-    @DisplayName("Should close segment when force close is true")
-    void closesSegmentWhenForceCloseIsTrue() {
-      Segment segment = new Segment();
-      float[] openPoints = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    void closes_segment_when_force_close_is_true() {
+      var segment = new Segment();
+      var openPoints = new float[] {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
 
       segment.setPoints(openPoints, true, null);
 
       assertAll(
-          "Segment should be closed",
-          () -> assertEquals(4, segment.size()), // 3 original + 1 closing point
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertEquals(POINT_1_2, segment.get(3)) // Last point equals first
+          () -> assertEquals(4, segment.size()), // 3 original + 1 closing
+          () -> assertEquals(BASIC_POINTS.point1(), segment.get(0)),
+          () -> assertEquals(BASIC_POINTS.point1(), segment.get(3)) // Closed
           );
     }
 
     @Test
-    @DisplayName("Should not add closing point when already closed")
-    void doesNotAddClosingPointWhenAlreadyClosed() {
-      Segment segment = new Segment();
-      float[] closedPoints = {1.0f, 2.0f, 3.0f, 4.0f, 1.0f, 2.0f}; // Already closed
+    void does_not_add_closing_point_when_already_closed() {
+      var segment = new Segment();
+      var closedPoints = new float[] {1.0f, 2.0f, 3.0f, 4.0f, 1.0f, 2.0f};
 
       segment.setPoints(closedPoints, true, null);
 
-      assertEquals(3, segment.size(), "Should not add extra closing point");
-    }
-
-    @Test
-    @DisplayName("Should not close segment when force close is false")
-    void doesNotCloseSegmentWhenForceCloseIsFalse() {
-      Segment segment = new Segment();
-      float[] openPoints = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
-
-      segment.setPoints(openPoints, false, null);
-
-      assertAll(
-          "Segment should remain open",
-          () -> assertEquals(3, segment.size()),
-          () -> assertEquals(POINT_5_6, segment.get(2)), // Last point unchanged
-          () -> assertNotEquals(POINT_1_2, segment.get(2)));
+      assertEquals(3, segment.size()); // No extra closing point
     }
   }
 
   @Nested
-  @DisplayName("Child Management Tests")
-  class ChildManagementTests {
+  class Child_management_tests {
 
     @Test
-    @DisplayName("Should add child segment")
-    void addsChildSegment() {
-      Segment parent = new Segment(Arrays.asList(POINT_1_2, POINT_3_4));
-      Segment child = new Segment(Arrays.asList(POINT_5_6, POINT_7_8));
-
-      parent.addChild(child);
-
-      assertAll(
-          "Child should be added correctly",
-          () -> assertEquals(1, parent.getChildren().size()),
-          () -> assertTrue(parent.getChildren().contains(child)),
-          () -> assertEquals(child, parent.getChildren().get(0)));
-    }
-
-    @Test
-    @DisplayName("Should add multiple children")
-    void addsMultipleChildren() {
-      Segment parent = new Segment(Arrays.asList(POINT_1_2, POINT_3_4));
-      Segment child1 = new Segment(Arrays.asList(POINT_5_6));
-      Segment child2 = new Segment(Arrays.asList(POINT_7_8));
+    void adds_and_manages_child_segments() {
+      var parent = new Segment(List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2()));
+      var child1 = new Segment(List.of(BASIC_POINTS.point3()));
+      var child2 = new Segment(List.of(BASIC_POINTS.point4()));
 
       parent.addChild(child1);
       parent.addChild(child2);
 
+      var children = parent.getChildren();
       assertAll(
-          "Multiple children should be added",
-          () -> assertEquals(2, parent.getChildren().size()),
-          () -> assertTrue(parent.getChildren().contains(child1)),
-          () -> assertTrue(parent.getChildren().contains(child2)));
+          () -> assertEquals(2, children.size()),
+          () -> assertTrue(children.contains(child1)),
+          () -> assertTrue(children.contains(child2)),
+          () ->
+              assertThrows(
+                  UnsupportedOperationException.class,
+                  () -> children.add(new Segment())) // Should be unmodifiable
+          );
     }
 
     @Test
-    @DisplayName("Should handle null child gracefully")
-    void handlesNullChildGracefully() {
-      Segment parent = new Segment(Arrays.asList(POINT_1_2, POINT_3_4));
+    void prevents_invalid_child_additions() {
+      var segment = new Segment(List.of(BASIC_POINTS.point1()));
 
-      parent.addChild(null);
+      segment.addChild(null);
+      segment.addChild(segment); // Self-reference
 
-      assertTrue(parent.getChildren().isEmpty(), "Should not add null child");
-    }
-
-    @Test
-    @DisplayName("Should prevent self-reference")
-    void preventsSelfReference() {
-      Segment segment = new Segment(Arrays.asList(POINT_1_2, POINT_3_4));
-
-      segment.addChild(segment);
-
-      assertTrue(segment.getChildren().isEmpty(), "Should not add self as child");
-    }
-
-    @Test
-    @DisplayName("Should return unmodifiable children list")
-    void returnsChildrenList() {
-      Segment parent = new Segment(Arrays.asList(POINT_1_2, POINT_3_4));
-      Segment child = new Segment(Arrays.asList(POINT_5_6));
-      parent.addChild(child);
-
-      List<Segment> children = parent.getChildren();
-
-      assertAll(
-          "Children list should be accessible",
-          () -> assertNotNull(children),
-          () -> assertEquals(1, children.size()),
-          () -> assertEquals(child, children.get(0)));
+      assertTrue(segment.getChildren().isEmpty());
     }
   }
 
   @Nested
-  @DisplayName("Utility Method Tests")
-  class UtilityMethodTests {
+  class Utility_method_tests {
 
-    @Test
-    @DisplayName("Should convert float array to double array")
-    void convertsFloatArrayToDoubleArray() {
-      float[] floatArray = {1.5f, 2.5f, 3.5f};
-      double[] expected = {1.5, 2.5, 3.5};
+    @ParameterizedTest
+    @MethodSource("floatToDoubleConversionData")
+    void converts_float_array_to_double_array(float[] input, double[] expected) {
+      var result = Segment.convertFloatToDouble(input);
 
-      double[] result = Segment.convertFloatToDouble(floatArray);
-
-      assertArrayEquals(expected, result, DELTA);
-    }
-
-    @Test
-    @DisplayName("Should handle null float array")
-    void handlesNullFloatArray() {
-      double[] result = Segment.convertFloatToDouble(null);
-
-      assertNull(result, "Should return null for null input");
-    }
-
-    @Test
-    @DisplayName("Should handle empty float array")
-    void handlesEmptyFloatArray() {
-      float[] emptyArray = {};
-
-      double[] result = Segment.convertFloatToDouble(emptyArray);
-
-      assertAll(
-          "Should handle empty array",
-          () -> assertNotNull(result),
-          () -> assertEquals(0, result.length));
+      if (expected == null) {
+        assertNull(result);
+      } else {
+        assertArrayEquals(expected, result, DELTA);
+      }
     }
 
     @ParameterizedTest
@@ -540,135 +382,111 @@ class SegmentTest {
           Float.NEGATIVE_INFINITY,
           Float.NaN
         })
-    @DisplayName("Should handle special float values")
-    void handlesSpecialFloatValues(float specialValue) {
-      float[] array = {specialValue};
+    void handles_special_float_values(float specialValue) {
+      var input = new float[] {specialValue};
+      var result = Segment.convertFloatToDouble(input);
 
-      double[] result = Segment.convertFloatToDouble(array);
+      assertEquals(specialValue, result[0], DELTA, "Failed for special value: " + specialValue);
+    }
 
-      assertEquals(
-          specialValue, result[0], DELTA, "Should convert special float value: " + specialValue);
+    static Stream<Arguments> floatToDoubleConversionData() {
+      return Stream.of(
+          Arguments.of(null, null),
+          Arguments.of(new float[] {}, new double[] {}),
+          Arguments.of(new float[] {1.5f, 2.5f, 3.5f}, new double[] {1.5, 2.5, 3.5}),
+          Arguments.of(new float[] {0.1f, 0.2f}, new double[] {0.1, 0.2}));
     }
   }
 
   @Nested
-  @DisplayName("Object Behavior Tests")
-  class ObjectBehaviorTests {
+  class Object_behavior_tests {
 
     @Test
-    @DisplayName("Should implement equals correctly")
-    void implementsEqualsCorrectly() {
-      List<Point2D> points = Arrays.asList(POINT_1_2, POINT_3_4);
-      Segment segment1 = new Segment(points);
-      Segment segment2 = new Segment(points);
-      Segment child = new Segment(Arrays.asList(POINT_5_6));
+    void implements_equals_and_hashcode_correctly() {
+      var points = List.of(BASIC_POINTS.point1(), BASIC_POINTS.point2());
+      var segment1 = new Segment(points);
+      var segment2 = new Segment(points);
+      var child = new Segment(List.of(BASIC_POINTS.point3()));
 
       segment1.addChild(child);
       segment2.addChild(child);
 
-      Segment segment3 = new Segment(points);
-      Segment differentChild = new Segment(Arrays.asList(POINT_7_8));
-      segment3.addChild(differentChild);
-
       assertAll(
-          "equals should work correctly",
-          () -> assertEquals(segment1, segment2, "Same points and children should be equal"),
-          () -> assertNotEquals(segment1, segment3, "Different children should not be equal"),
-          () -> assertEquals(segment1, segment1, "Should equal itself"),
-          () -> assertNotEquals(segment1, null, "Should not equal null"),
-          () -> assertNotEquals(segment1, "string", "Should not equal different type"));
+          () -> assertEquals(segment1, segment2),
+          () -> assertEquals(segment1.hashCode(), segment2.hashCode()),
+          () -> assertEquals(segment1, segment1), // Reflexive
+          () -> assertNotEquals(segment1, null),
+          () -> assertNotEquals(segment1, "not a segment"));
     }
 
     @Test
-    @DisplayName("Should implement hashCode consistently")
-    void implementsHashCodeConsistently() {
-      List<Point2D> points = Arrays.asList(POINT_1_2, POINT_3_4);
-      Segment segment1 = new Segment(points);
-      Segment segment2 = new Segment(points);
+    void maintains_arraylist_contract() {
+      var segment = new Segment();
 
-      assertEquals(
-          segment1.hashCode(), segment2.hashCode(), "Equal segments should have same hash code");
-    }
-
-    @Test
-    @DisplayName("Should maintain ArrayList contract")
-    void maintainsArrayListContract() {
-      Segment segment = new Segment();
-
-      // Test ArrayList methods work correctly
-      segment.add(POINT_1_2);
-      segment.add(POINT_3_4);
+      segment.add(BASIC_POINTS.point1());
+      segment.add(BASIC_POINTS.point2());
 
       assertAll(
-          "Should maintain ArrayList functionality",
           () -> assertEquals(2, segment.size()),
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertTrue(segment.contains(POINT_3_4)),
-          () -> assertEquals(1, segment.indexOf(POINT_3_4)));
+          () -> assertEquals(BASIC_POINTS.point1(), segment.get(0)),
+          () -> assertTrue(segment.contains(BASIC_POINTS.point2())),
+          () -> assertEquals(1, segment.indexOf(BASIC_POINTS.point2())),
+          () -> assertTrue(segment.remove(BASIC_POINTS.point1())),
+          () -> assertEquals(1, segment.size()));
     }
   }
 
   @Nested
-  @DisplayName("Integration Tests")
-  class IntegrationTests {
+  class Integration_tests {
 
     @Test
-    @DisplayName("Should handle complex real-world scenario")
-    void handlesComplexRealWorldScenario() {
-      // Create a complex segment representing a shape with holes
-      double[] outerShape = {0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0};
-      AffineTransform transform = AffineTransform.getScaleInstance(100, 100);
-      Dimension viewport = new Dimension(800, 600);
+    void handles_complex_hierarchical_shape() {
+      // Create main shape (rectangle)
+      var outerBounds = new double[] {0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0};
+      var transform = AffineTransform.getScaleInstance(100, 100);
+      var parent = new Segment(outerBounds, transform, true, null);
 
-      Segment parent = new Segment(outerShape, transform, true, null);
+      // Add holes (inner rectangles)
+      var hole1Bounds = new double[] {0.2, 0.2, 0.4, 0.2, 0.4, 0.4, 0.2, 0.4};
+      var hole2Bounds = new double[] {0.6, 0.6, 0.8, 0.6, 0.8, 0.8, 0.6, 0.8};
 
-      // Add holes (children)
-      double[] hole1 = {0.2, 0.2, 0.4, 0.2, 0.4, 0.4, 0.2, 0.4};
-      double[] hole2 = {0.6, 0.6, 0.8, 0.6, 0.8, 0.8, 0.6, 0.8};
+      var hole1 = new Segment(hole1Bounds, transform, true, null);
+      var hole2 = new Segment(hole2Bounds, transform, true, null);
 
-      Segment child1 = new Segment(hole1, transform, true, null);
-      Segment child2 = new Segment(hole2, transform, true, null);
-
-      parent.addChild(child1);
-      parent.addChild(child2);
+      parent.addChild(hole1);
+      parent.addChild(hole2);
 
       assertAll(
-          "Complex scenario should be handled correctly",
-          () -> assertEquals(5, parent.size(), "Parent should be closed (4+1 points)"),
+          () -> assertEquals(5, parent.size()), // Closed rectangle
           () -> assertEquals(new Point2D.Double(0, 0), parent.get(0)),
-          () -> assertEquals(new Point2D.Double(0, 0), parent.get(4)), // Closed
+          () -> assertEquals(new Point2D.Double(0, 0), parent.get(parent.size() - 1)), // Closed
           () -> assertEquals(2, parent.getChildren().size()),
-          () -> assertEquals(5, child1.size()), // Child should also be closed
-          () -> assertEquals(5, child2.size()));
+          () -> assertEquals(5, hole1.size()),
+          () -> assertEquals(5, hole2.size()),
+          () -> assertTrue(parent.getChildren().containsAll(List.of(hole1, hole2))));
     }
 
     @Test
-    @DisplayName("Should handle edge case with minimum valid points")
-    void handlesEdgeCaseWithMinimumValidPoints() {
-      float[] minPoints = {1.0f, 2.0f, 3.0f, 4.0f}; // Exactly 2 points
-
-      Segment segment = new Segment(minPoints, null, false, null);
+    void preserves_mathematical_precision() {
+      var preciseCoords = new double[] {Math.PI, Math.E, Math.sqrt(2), Math.sqrt(3)};
+      var segment = new Segment(preciseCoords);
 
       assertAll(
-          "Should handle minimum valid case",
-          () -> assertEquals(2, segment.size()),
-          () -> assertEquals(POINT_1_2, segment.get(0)),
-          () -> assertEquals(POINT_3_4, segment.get(1)));
-    }
-
-    @Test
-    @DisplayName("Should preserve precision through transformations")
-    void preservesPrecisionThroughTransformations() {
-      double[] precisePoints = {Math.PI, Math.E, Math.sqrt(2), Math.sqrt(3)};
-
-      Segment segment = new Segment(precisePoints, null, false, null);
-
-      assertAll(
-          "Should preserve mathematical precision",
           () -> assertEquals(Math.PI, segment.get(0).getX(), DELTA),
           () -> assertEquals(Math.E, segment.get(0).getY(), DELTA),
           () -> assertEquals(Math.sqrt(2), segment.get(1).getX(), DELTA),
           () -> assertEquals(Math.sqrt(3), segment.get(1).getY(), DELTA));
+    }
+
+    @Test
+    void handles_minimum_valid_input() {
+      var minimalCoords = new float[] {1.0f, 2.0f, 3.0f, 4.0f}; // Exactly 2 points
+      var segment = new Segment(minimalCoords);
+
+      assertAll(
+          () -> assertEquals(2, segment.size()),
+          () -> assertEquals(BASIC_POINTS.point1(), segment.get(0)),
+          () -> assertEquals(BASIC_POINTS.point2(), segment.get(1)));
     }
   }
 }

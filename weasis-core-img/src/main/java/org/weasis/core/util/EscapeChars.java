@@ -12,6 +12,10 @@ package org.weasis.core.util;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Utility class for escaping special characters in various formats including HTML, XML, and URLs.
+ * This class provides static methods to safely encode strings for use in web contexts.
+ */
 public final class EscapeChars {
 
   public static final String AMPERSAND = "&amp;";
@@ -34,13 +38,19 @@ public final class EscapeChars {
   private static final Map<Character, String> HTML_ENCODE_CHARS = createHtmlEncodeChars();
 
   private static Map<Character, String> createHtmlEncodeChars() {
-
-    // Basic XML characters
     var builder = new HashMap<>(XML_ENCODE_CHARS);
-    // Override XML quote for HTML
-    builder.put('\'', "&#39;");
+    builder.put('\'', "&#39;"); // Override XML quote for HTML
 
-    // Special characters
+    addSpecialCharacters(builder);
+    addUnicodeCharacters(builder);
+    addQuotationMarks(builder);
+    addIso88591Characters(builder);
+    addMathematicalAndGreekCharacters(builder);
+
+    return Map.copyOf(builder);
+  }
+
+  private static void addSpecialCharacters(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             'Œ',
@@ -63,8 +73,9 @@ public final class EscapeChars {
             "&mdash;",
             '€',
             "&euro;"));
+  }
 
-    // Unicode whitespace and control characters
+  private static void addUnicodeCharacters(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             '\u2002',
@@ -81,31 +92,25 @@ public final class EscapeChars {
             "&lrm;",
             '\u200F',
             "&rlm;"));
+  }
 
-    // Quotation marks
-    builder.put('‘', "&lsquo;");
-    builder.put('’', "&rsquo;");
-    builder.put('‚', "&sbquo;");
-    builder.put('“', "&ldquo;");
-    builder.put('”', "&rdquo;");
-    builder.put('„', "&bdquo;");
+  private static void addQuotationMarks(Map<Character, String> builder) {
+    builder.putAll(
+        Map.of(
+            '‘', "&lsquo;", '’', "&rsquo;", '‚', "&sbquo;", '“', "&ldquo;", '”', "&rdquo;", '„',
+            "&bdquo;"));
 
-    // Other special characters
     builder.putAll(
         Map.of(
             '†', "&dagger;", '‡', "&Dagger;", '‰', "&permil;", '‹', "&lsaquo;", '›', "&rsaquo;"));
-
-    // ISO 8859-1 characters
-    addIso88591Characters(builder);
-
-    // Mathematical, Greek and Symbolic characters
-    addMathematicalAndGreekCharacters(builder);
-
-    return Map.copyOf(builder);
   }
 
   private static void addIso88591Characters(Map<Character, String> builder) {
-    // Non-breaking space and punctuation
+    addPunctuationCharacters(builder);
+    addLatinCharacters(builder);
+  }
+
+  private static void addPunctuationCharacters(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             '\u00A0',
@@ -176,105 +181,288 @@ public final class EscapeChars {
             "&frac12;"));
 
     builder.putAll(Map.of('¾', "&frac34;", '¿', "&iquest;", '×', "&times;", '÷', "&divide;"));
-
-    // Latin characters with diacritics
-    addLatinCharacters(builder);
   }
 
   private static void addLatinCharacters(Map<Character, String> builder) {
-    // Uppercase Latin letters
-    String[] upperEntities = {
-      "&Agrave;", "&Aacute;", "&Acirc;", "&Atilde;", "&Auml;", "&Aring;", "&AElig;", "&Ccedil;",
-      "&Egrave;", "&Eacute;", "&Ecirc;", "&Euml;", "&Igrave;", "&Iacute;", "&Icirc;", "&Iuml;",
-      "&ETH;", "&Ntilde;", "&Ograve;", "&Oacute;", "&Ocirc;", "&Otilde;", "&Ouml;", "&Oslash;",
-      "&Ugrave;", "&Uacute;", "&Ucirc;", "&Uuml;", "&Yacute;", "&THORN;"
-    };
+    var latinMappings =
+        Map.of(
+            'À',
+            "&Agrave;",
+            'Á',
+            "&Aacute;",
+            'Â',
+            "&Acirc;",
+            'Ã',
+            "&Atilde;",
+            'Ä',
+            "&Auml;",
+            'Å',
+            "&Aring;",
+            'Æ',
+            "&AElig;",
+            'Ç',
+            "&Ccedil;",
+            'È',
+            "&Egrave;",
+            'É',
+            "&Eacute;");
+    builder.putAll(latinMappings);
 
-    // Lowercase Latin letters
-    String[] lowerEntities = {
-      "&agrave;", "&aacute;", "&acirc;", "&atilde;", "&auml;", "&aring;", "&aelig;", "&ccedil;",
-      "&egrave;", "&eacute;", "&ecirc;", "&euml;", "&igrave;", "&iacute;", "&icirc;", "&iuml;",
-      "&eth;", "&ntilde;", "&ograve;", "&oacute;", "&ocirc;", "&otilde;", "&ouml;", "&oslash;",
-      "&ugrave;", "&uacute;", "&ucirc;", "&uuml;", "&yacute;", "&thorn;", "&yuml;"
-    };
+    var moreLatinMappings =
+        Map.of(
+            'Ê',
+            "&Ecirc;",
+            'Ë',
+            "&Euml;",
+            'Ì',
+            "&Igrave;",
+            'Í',
+            "&Iacute;",
+            'Î',
+            "&Icirc;",
+            'Ï',
+            "&Iuml;",
+            'Ð',
+            "&ETH;",
+            'Ñ',
+            "&Ntilde;",
+            'Ò',
+            "&Ograve;",
+            'Ó',
+            "&Oacute;");
+    builder.putAll(moreLatinMappings);
 
-    // Character arrays - removed × and ÷ as they're not accented letters and are handled separately
-    char[] upperChars = "ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞ".toCharArray();
-    char[] lowerChars = "àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ".toCharArray();
+    var additionalLatinMappings =
+        Map.of(
+            'Ô',
+            "&Ocirc;",
+            'Õ',
+            "&Otilde;",
+            'Ö',
+            "&Ouml;",
+            'Ø',
+            "&Oslash;",
+            'Ù',
+            "&Ugrave;",
+            'Ú',
+            "&Uacute;",
+            'Û',
+            "&Ucirc;",
+            'Ü',
+            "&Uuml;",
+            'Ý',
+            "&Yacute;",
+            'Þ',
+            "&THORN;");
+    builder.putAll(additionalLatinMappings);
 
-    // Map uppercase characters to their HTML entities
-    for (int i = 0; i < upperChars.length; i++) {
-      builder.put(upperChars[i], upperEntities[i]);
-    }
+    // Lowercase variants
+    addLowercaseLatinCharacters(builder);
+  }
 
-    // Map lowercase characters to their HTML entities
-    for (int i = 0; i < lowerChars.length; i++) {
-      builder.put(lowerChars[i], lowerEntities[i]);
-    }
+  private static void addLowercaseLatinCharacters(Map<Character, String> builder) {
+    var lowerLatinMappings =
+        Map.of(
+            'à',
+            "&agrave;",
+            'á',
+            "&aacute;",
+            'â',
+            "&acirc;",
+            'ã',
+            "&atilde;",
+            'ä',
+            "&auml;",
+            'å',
+            "&aring;",
+            'æ',
+            "&aelig;",
+            'ç',
+            "&ccedil;",
+            'è',
+            "&egrave;",
+            'é',
+            "&eacute;");
+    builder.putAll(lowerLatinMappings);
 
-    // Add special characters separately
-    builder.put('ß', "&szlig;");
-    builder.put('×', "&times;");
-    builder.put('÷', "&divide;");
+    var moreLowerLatinMappings =
+        Map.of(
+            'ê',
+            "&ecirc;",
+            'ë',
+            "&euml;",
+            'ì',
+            "&igrave;",
+            'í',
+            "&iacute;",
+            'î',
+            "&icirc;",
+            'ï',
+            "&iuml;",
+            'ð',
+            "&eth;",
+            'ñ',
+            "&ntilde;",
+            'ò',
+            "&ograve;",
+            'ó',
+            "&oacute;");
+    builder.putAll(moreLowerLatinMappings);
+
+    var additionalLowerLatinMappings =
+        Map.of(
+            'ô',
+            "&ocirc;",
+            'õ',
+            "&otilde;",
+            'ö',
+            "&ouml;",
+            'ø',
+            "&oslash;",
+            'ù',
+            "&ugrave;",
+            'ú',
+            "&uacute;",
+            'û',
+            "&ucirc;",
+            'ü',
+            "&uuml;",
+            'ý',
+            "&yacute;",
+            'þ',
+            "&thorn;");
+    builder.putAll(additionalLowerLatinMappings);
+
+    builder.putAll(Map.of('ÿ', "&yuml;", 'ß', "&szlig;"));
   }
 
   private static void addMathematicalAndGreekCharacters(Map<Character, String> builder) {
     builder.put('ƒ', "&fnof;");
-
-    // Greek uppercase
-    String greekUpper = "ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ";
-    String[] greekUpperEntities = {
-      "&Alpha;", "&Beta;", "&Gamma;", "&Delta;", "&Epsilon;", "&Zeta;", "&Eta;", "&Theta;",
-      "&Iota;", "&Kappa;", "&Lambda;", "&Mu;", "&Nu;", "&Xi;", "&Omicron;", "&Pi;",
-      "&Rho;", "&Sigma;", "&Tau;", "&Upsilon;", "&Phi;", "&Chi;", "&Psi;", "&Omega;"
-    };
-
-    // Greek lowercase
-    String greekLower = "αβγδεζηθικλμνξοπρσςτυφχψω";
-    String[] greekLowerEntities = {
-      "&alpha;",
-      "&beta;",
-      "&gamma;",
-      "&delta;",
-      "&epsilon;",
-      "&zeta;",
-      "&eta;",
-      "&theta;",
-      "&iota;",
-      "&kappa;",
-      "&lambda;",
-      "&mu;",
-      "&nu;",
-      "&xi;",
-      "&omicron;",
-      "&pi;",
-      "&rho;",
-      "&sigma;",
-      "&sigmaf;",
-      "&tau;",
-      "&upsilon;",
-      "&phi;",
-      "&chi;",
-      "&psi;",
-      "&omega;"
-    };
-
-    for (int i = 0; i < greekUpper.length(); i++) {
-      builder.put(greekUpper.charAt(i), greekUpperEntities[i]);
-    }
-
-    for (int i = 0; i < greekLower.length(); i++) {
-      builder.put(greekLower.charAt(i), greekLowerEntities[i]);
-    }
-
-    // Special Greek symbols
-    builder.putAll(Map.of('ϑ', "&thetasym;", 'ϒ', "&upsih;", 'ϖ', "&piv;"));
-
-    // Mathematical and other symbols
+    addGreekCharacters(builder);
     addMathematicalSymbols(builder);
   }
 
+  private static void addGreekCharacters(Map<Character, String> builder) {
+    // Greek uppercase letters
+    var greekUpperMappings =
+        Map.of(
+            'Α',
+            "&Alpha;",
+            'Β',
+            "&Beta;",
+            'Γ',
+            "&Gamma;",
+            'Δ',
+            "&Delta;",
+            'Ε',
+            "&Epsilon;",
+            'Ζ',
+            "&Zeta;",
+            'Η',
+            "&Eta;",
+            'Θ',
+            "&Theta;",
+            'Ι',
+            "&Iota;",
+            'Κ',
+            "&Kappa;");
+    builder.putAll(greekUpperMappings);
+
+    var moreGreekUpperMappings =
+        Map.of(
+            'Λ',
+            "&Lambda;",
+            'Μ',
+            "&Mu;",
+            'Ν',
+            "&Nu;",
+            'Ξ',
+            "&Xi;",
+            'Ο',
+            "&Omicron;",
+            'Π',
+            "&Pi;",
+            'Ρ',
+            "&Rho;",
+            'Σ',
+            "&Sigma;",
+            'Τ',
+            "&Tau;",
+            'Υ',
+            "&Upsilon;");
+    builder.putAll(moreGreekUpperMappings);
+
+    builder.putAll(Map.of('Φ', "&Phi;", 'Χ', "&Chi;", 'Ψ', "&Psi;", 'Ω', "&Omega;"));
+
+    // Greek lowercase letters
+    addGreekLowercaseCharacters(builder);
+
+    // Special Greek symbols
+    builder.putAll(Map.of('ϑ', "&thetasym;", 'ϒ', "&upsih;", 'ϖ', "&piv;"));
+  }
+
+  private static void addGreekLowercaseCharacters(Map<Character, String> builder) {
+    var greekLowerMappings =
+        Map.of(
+            'α',
+            "&alpha;",
+            'β',
+            "&beta;",
+            'γ',
+            "&gamma;",
+            'δ',
+            "&delta;",
+            'ε',
+            "&epsilon;",
+            'ζ',
+            "&zeta;",
+            'η',
+            "&eta;",
+            'θ',
+            "&theta;",
+            'ι',
+            "&iota;",
+            'κ',
+            "&kappa;");
+    builder.putAll(greekLowerMappings);
+
+    var moreGreekLowerMappings =
+        Map.of(
+            'λ',
+            "&lambda;",
+            'μ',
+            "&mu;",
+            'ν',
+            "&nu;",
+            'ξ',
+            "&xi;",
+            'ο',
+            "&omicron;",
+            'π',
+            "&pi;",
+            'ρ',
+            "&rho;",
+            'σ',
+            "&sigma;",
+            'ς',
+            "&sigmaf;",
+            'τ',
+            "&tau;");
+    builder.putAll(moreGreekLowerMappings);
+
+    builder.putAll(
+        Map.of('υ', "&upsilon;", 'φ', "&phi;", 'χ', "&chi;", 'ψ', "&psi;", 'ω', "&omega;"));
+  }
+
   private static void addMathematicalSymbols(Map<Character, String> builder) {
+    addBasicMathSymbols(builder);
+    addArrowSymbols(builder);
+    addLogicalSymbols(builder);
+    addSetSymbols(builder);
+    addOtherMathSymbols(builder);
+  }
+
+  private static void addBasicMathSymbols(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             '•',
@@ -297,36 +485,21 @@ public final class EscapeChars {
             "&real;",
             '™',
             "&trade;"));
+  }
 
+  private static void addArrowSymbols(Map<Character, String> builder) {
+    builder.putAll(
+        Map.of(
+            '←', "&larr;", '↑', "&uarr;", '→', "&rarr;", '↓', "&darr;", '↔', "&harr;", '↵',
+            "&crarr;", '⇐', "&lArr;", '⇑', "&uArr;", '⇒', "&rArr;", '⇓', "&dArr;"));
+    builder.put('⇔', "&hArr;");
+  }
+
+  private static void addLogicalSymbols(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             'ℵ',
             "&alefsym;",
-            '←',
-            "&larr;",
-            '↑',
-            "&uarr;",
-            '→',
-            "&rarr;",
-            '↓',
-            "&darr;",
-            '↔',
-            "&harr;",
-            '↵',
-            "&crarr;",
-            '⇐',
-            "&lArr;",
-            '⇑',
-            "&uArr;",
-            '⇒',
-            "&rArr;"));
-
-    builder.putAll(
-        Map.of(
-            '⇓',
-            "&dArr;",
-            '⇔',
-            "&hArr;",
             '∀',
             "&forall;",
             '∂',
@@ -342,8 +515,38 @@ public final class EscapeChars {
             '∉',
             "&notin;",
             '∋',
-            "&ni;"));
+            "&ni;",
+            '∧',
+            "&and;"));
+    builder.put('∨', "&or;");
+  }
 
+  private static void addSetSymbols(Map<Character, String> builder) {
+    builder.putAll(
+        Map.of(
+            '∩',
+            "&cap;",
+            '∪',
+            "&cup;",
+            '⊂',
+            "&sub;",
+            '⊃',
+            "&sup;",
+            '⊄',
+            "&nsub;",
+            '⊆',
+            "&sube;",
+            '⊇',
+            "&supe;",
+            '⊕',
+            "&oplus;",
+            '⊗',
+            "&otimes;",
+            '⊥',
+            "&perp;"));
+  }
+
+  private static void addOtherMathSymbols(Map<Character, String> builder) {
     builder.putAll(
         Map.of(
             '∏',
@@ -362,63 +565,18 @@ public final class EscapeChars {
             "&infin;",
             '∠',
             "&ang;",
-            '∧',
-            "&and;",
-            '∨',
-            "&or;"));
-
-    builder.putAll(
-        Map.of(
-            '∩',
-            "&cap;",
-            '∪',
-            "&cup;",
             '∫',
             "&int;",
             '∴',
-            "&there4;",
-            '∼',
-            "&sim;",
-            '≅',
-            "&cong;",
-            '≈',
-            "&asymp;",
-            '≠',
-            "&ne;",
-            '≡',
-            "&equiv;",
-            '≤',
-            "&le;"));
+            "&there4;"));
 
     builder.putAll(
         Map.of(
-            '≥',
-            "&ge;",
-            '⊂',
-            "&sub;",
-            '⊃',
-            "&sup;",
-            '⊄',
-            "&nsub;",
-            '⊆',
-            "&sube;",
-            '⊇',
-            "&supe;",
-            '⊕',
-            "&oplus;",
-            '⊗',
-            "&otimes;",
-            '⊥',
-            "&perp;",
-            '⋅',
-            "&sdot;"));
+            '∼', "&sim;", '≅', "&cong;", '≈', "&asymp;", '≠', "&ne;", '≡', "&equiv;", '≤', "&le;",
+            '≥', "&ge;", '⋅', "&sdot;", '⌈', "&lceil;", '⌉', "&rceil;"));
 
     builder.putAll(
         Map.of(
-            '⌈',
-            "&lceil;",
-            '⌉',
-            "&rceil;",
             '⌊',
             "&lfloor;",
             '⌋',
@@ -434,11 +592,12 @@ public final class EscapeChars {
             '♣',
             "&clubs;",
             '♥',
-            "&hearts;"));
-
-    builder.put('♦', "&diams;");
+            "&hearts;",
+            '♦',
+            "&diams;"));
   }
 
+  /** Checks if a character is invalid XML according to XML 1.0 specification. */
   private static boolean isInvalidXml(char c) {
     return !(c == 0x9
         || c == 0xA
@@ -461,40 +620,39 @@ public final class EscapeChars {
       char ch = chars[i];
       String encoded = encodingMap.get(ch);
 
-      if (encoded != null) {
+      if (encoded != null || (isXmlEncoding && isInvalidXml(ch))) {
         result = appendSegment(chars, result, lastProcessedIndex, i, encoded);
-        lastProcessedIndex = i;
-      } else if (isXmlEncoding && isInvalidXml(ch)) {
-        result = appendSegment(chars, result, lastProcessedIndex, i, null);
         lastProcessedIndex = i;
       }
     }
 
-    if (result == null) {
-      return text;
-    }
-
-    // Append remaining characters
-    if (lastProcessedIndex + 1 < chars.length) {
-      result.append(chars, lastProcessedIndex + 1, chars.length - (lastProcessedIndex + 1));
-    }
-
-    return result.toString();
+    return result == null ? text : appendRemainingChars(result, chars, lastProcessedIndex);
   }
 
   private static StringBuilder appendSegment(
       char[] chars, StringBuilder buffer, int lastIndex, int currentIndex, String encoded) {
     if (buffer == null) {
-      buffer = new StringBuilder(chars.length * 2); // Better initial capacity
+      buffer = new StringBuilder(chars.length * 2);
     }
-    int segmentLength = currentIndex - (lastIndex + 1);
+
+    int segmentLength = currentIndex - lastIndex - 1;
     if (segmentLength > 0) {
       buffer.append(chars, lastIndex + 1, segmentLength);
     }
+
     if (encoded != null) {
       buffer.append(encoded);
     }
+
     return buffer;
+  }
+
+  private static String appendRemainingChars(
+      StringBuilder result, char[] chars, int lastProcessedIndex) {
+    if (lastProcessedIndex + 1 < chars.length) {
+      result.append(chars, lastProcessedIndex + 1, chars.length - lastProcessedIndex - 1);
+    }
+    return result.toString();
   }
 
   private EscapeChars() {}
@@ -545,7 +703,8 @@ public final class EscapeChars {
   }
 
   /**
-   * Converts a string containing LF, CR/LF, LF/CR or CR into a set of lines.
+   * Converts a string containing LF, CR/LF, LF/CR or CR into a set of lines. Properly handles mixed
+   * line break types by normalizing all line breaks.
    *
    * @param unformatted the input String
    * @return an array of strings containing the lines derived from the input string
@@ -554,18 +713,18 @@ public final class EscapeChars {
     if (unformatted == null) {
       return new String[0];
     }
-    int lfPos = unformatted.indexOf('\n');
-    int crPos = unformatted.indexOf('\r');
-    if (crPos < 0 && lfPos < 0) {
+
+    if (unformatted.indexOf('\n') == -1 && unformatted.indexOf('\r') == -1) {
       return new String[] {unformatted};
     }
-    String delimiter = determineLineDelimiter(lfPos, crPos);
-    return unformatted.split(delimiter, -1); // Use -1 to preserve trailing empty strings
+
+    // Normalize all line breaks to \n for consistent splitting
+    return normalizeLineBreaks(unformatted).split("\n", -1);
   }
 
-  private static String determineLineDelimiter(int lfPos, int crPos) {
-    if (lfPos == -1) return "\r";
-    if (crPos == -1) return "\n";
-    return crPos < lfPos ? "\r\n" : "\n\r";
+  /** Normalizes all types of line breaks to a single \n character. */
+  private static String normalizeLineBreaks(String text) {
+    // First replace \r\n and \n\r with \n to handle compound separators
+    return text.replace("\r\n", "\n").replace("\n\r", "\n").replace("\r", "\n");
   }
 }

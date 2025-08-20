@@ -9,6 +9,7 @@
  */
 package org.weasis.core.util;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
@@ -25,185 +26,182 @@ import java.util.Set;
  * memory is low. The map entries are cleared when the associated {@link SoftReference} is cleared
  * by the garbage collector.
  *
+ * <p>This implementation is not thread-safe. If multiple threads access this map concurrently, it
+ * must be synchronized externally.
+ *
  * @param <K> the type of keys maintained by this map
- * @param <V> the type of values held by this map
+ * @param <V> the type of values held by this map (must not be null)
  * @author Nicolas Roduit
  */
-public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
+public final class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
 
-  /** The internal HashMap that will hold the SoftReference. */
-  private final transient Map<K, SoftReference<V>> hash = new HashMap<>();
+  @Serial private static final long serialVersionUID = 1L;
 
+  private final transient Map<K, SoftReference<V>> primaryMap = new HashMap<>();
   private final transient Map<SoftReference<V>, K> reverseLookup = new HashMap<>();
-
-  /** Reference queue for cleared SoftReference objects. */
-  private final transient ReferenceQueue<V> queue = new ReferenceQueue<>();
+  private final transient ReferenceQueue<V> referenceQueue = new ReferenceQueue<>();
 
   @Override
   public V get(Object key) {
+    if (key == null) {
+      return null;
+    }
     expungeStaleEntries();
-    SoftReference<V> softRef = hash.get(key);
-    if (softRef != null) {
-      V result = softRef.get();
-      if (result == null) {
-        // If the value has been garbage collected, remove the entry from the HashMap.
-        removeElement(softRef);
-      }
-      return result;
+    var softRef = primaryMap.get(key);
+    if (softRef == null) {
+      return null;
     }
 
-    return null;
+    var result = softRef.get();
+    if (result == null) {
+      removeStaleReference(softRef);
+    }
+    return result;
   }
 
   @Override
   public V put(K key, V value) {
+    Objects.requireNonNull(key);
     if (value == null) {
       return remove(key);
     }
     expungeStaleEntries();
-    // Remove existing mapping if present
-    SoftReference<V> oldRef = hash.get(key);
-    V oldValue = null;
-    if (oldRef != null) {
-      oldValue = oldRef.get();
-      reverseLookup.remove(oldRef);
-    }
-
-    // Add new mapping
-    SoftReference<V> softRef = new SoftReference<>(value, queue);
-    hash.put(key, softRef);
-    reverseLookup.put(softRef, key);
+    var oldValue = removeExistingMapping(key);
+    addNewMapping(key, value);
     return oldValue;
   }
 
   @Override
   public V remove(Object key) {
-    expungeStaleEntries();
-    SoftReference<V> result = hash.remove(key);
-    if (result != null) {
-      reverseLookup.remove(result);
-      return result.get();
+    if (key == null) {
+      return null;
     }
-    return null;
+    expungeStaleEntries();
+    var removedRef = primaryMap.remove(key);
+    if (removedRef == null) {
+      return null;
+    }
+
+    reverseLookup.remove(removedRef);
+    return removedRef.get();
   }
 
   @Override
   public void clear() {
-    hash.clear();
+    primaryMap.clear();
     reverseLookup.clear();
-    // Clear the reference queue as well
-    while (queue.poll() != null) {
-      // Drain the queue
-    }
+    drainReferenceQueue();
   }
 
   @Override
   public int size() {
     expungeStaleEntries();
-    return hash.size();
+    return primaryMap.size();
   }
 
   @Override
   public boolean isEmpty() {
     expungeStaleEntries();
-    return hash.isEmpty();
+    return primaryMap.isEmpty();
   }
 
   @Override
-  public boolean containsValue(Object value) {
-    if (value == null) {
+  public boolean containsKey(Object key) {
+    if (key == null) {
       return false;
     }
     expungeStaleEntries();
-    for (SoftReference<V> softRef : hash.values()) {
-      V v = softRef.get();
-      if (v != null && v.equals(value)) {
-        return true;
-      }
-    }
-    return false;
+    return primaryMap.containsKey(key);
   }
 
-  /**
-   * Returns a copy of the key/values in the map at the point of calling. However, setValue still
-   * sets the value in the actual SoftHashMap.
-   */
   @Override
   public Set<Entry<K, V>> entrySet() {
     expungeStaleEntries();
-    Set<Entry<K, V>> result = new LinkedHashSet<>();
-    for (final Entry<K, SoftReference<V>> entry : hash.entrySet()) {
-      final V value = entry.getValue().get();
-      if (value != null) {
-        result.add(new SoftEntry<>(entry.getKey(), value, this));
-      }
-    }
-    return result;
-  }
-
-  /** Removes an element from both maps based on the soft reference. */
-  @SuppressWarnings("SuspiciousMethodCalls")
-  private void removeElement(Reference<? extends V> soft) {
-    K key = reverseLookup.remove(soft);
-    if (key != null) {
-      hash.remove(key);
-    }
-  }
-
-  /** Removes stale entries from the map by processing references queued for garbage collection. */
-  private void expungeStaleEntries() {
-    Reference<? extends V> sv;
-    while ((sv = queue.poll()) != null) {
-      removeElement(sv);
-    }
+    return primaryMap.entrySet().stream()
+        .map(
+            entry -> {
+              var key = entry.getKey();
+              var value = entry.getValue().get();
+              return key != null && value != null ? Map.entry(key, value) : null;
+            })
+        .filter(Objects::nonNull)
+        .map(entry -> new SoftEntry<>(entry.getKey(), entry.getValue(), this))
+        .collect(LinkedHashSet::new, Set::add, Set::addAll);
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof SoftHashMap<?, ?> that)) {
-      return false;
-    }
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (!(obj instanceof SoftHashMap<?, ?> other)) return false;
     expungeStaleEntries();
-    that.expungeStaleEntries();
+    other.expungeStaleEntries();
 
-    if (hash.size() != that.hash.size()) {
+    if (primaryMap.size() != other.primaryMap.size()) {
       return false;
     }
 
-    for (Entry<K, SoftReference<V>> entry : hash.entrySet()) {
-      var value = entry.getValue().get();
-      if (value == null) {
-        return false;
-      }
-
-      var otherValue = that.get(entry.getKey());
-      if (!Objects.equals(value, otherValue)) {
-        return false;
-      }
-    }
-
-    return true;
+    return primaryMap.entrySet().stream()
+        .allMatch(
+            entry -> {
+              var value = entry.getValue().get();
+              return value != null && Objects.equals(value, other.get(entry.getKey()));
+            });
   }
 
   @Override
   public int hashCode() {
     expungeStaleEntries();
-    int hashCode = 0;
-    for (Entry<K, SoftReference<V>> entry : hash.entrySet()) {
-      V value = entry.getValue().get();
-      if (value != null) {
-        K key = entry.getKey();
-        hashCode += Objects.hashCode(key) ^ Objects.hashCode(value);
-      }
-    }
-    return hashCode;
+    return primaryMap.entrySet().stream()
+        .mapToInt(
+            entry -> {
+              var value = entry.getValue().get();
+              return value != null ? Objects.hashCode(entry.getKey()) ^ Objects.hashCode(value) : 0;
+            })
+        .sum();
   }
 
-  /** A custom Entry implementation for the SoftHashMap. */
-  private record SoftEntry<K, V>(K key, V value, SoftHashMap<K, V> map) implements Entry<K, V> {
+  private V removeExistingMapping(K key) {
+    var oldRef = primaryMap.get(key);
+    if (oldRef == null) {
+      return null;
+    }
+    var oldValue = oldRef.get();
+    reverseLookup.remove(oldRef);
+    return oldValue;
+  }
+
+  private void addNewMapping(K key, V value) {
+    var softRef = new SoftReference<>(value, referenceQueue);
+    primaryMap.put(key, softRef);
+    reverseLookup.put(softRef, key);
+  }
+
+  private void removeStaleReference(Reference<? extends V> staleRef) {
+    // Safe cast: we only put SoftReference instances in the reverseLookup map
+    @SuppressWarnings("unchecked")
+    var softRef = (SoftReference<V>) staleRef;
+    var key = reverseLookup.remove(softRef);
+    if (key != null) {
+      primaryMap.remove(key);
+    }
+  }
+
+  private void expungeStaleEntries() {
+    Reference<? extends V> staleRef;
+    while ((staleRef = referenceQueue.poll()) != null) {
+      removeStaleReference(staleRef);
+    }
+  }
+
+  private void drainReferenceQueue() {
+    while (referenceQueue.poll() != null) {
+      // Intentionally empty - just drain the queue
+    }
+  }
+
+  /** Entry implementation that delegates setValue operations to the parent map. */
+  private record SoftEntry<K, V>(K key, V value, SoftHashMap<K, V> parentMap)
+      implements Entry<K, V> {
 
     @Override
     public K getKey() {
@@ -217,24 +215,19 @@ public class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable
 
     @Override
     public V setValue(V newValue) {
-      return map.put(key, newValue);
+      return parentMap.put(key, newValue);
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Entry<?, ?> entry)) {
-        return false;
-      }
-      return (key == null ? entry.getKey() == null : key.equals(entry.getKey()))
-          && (value == null ? entry.getValue() == null : value.equals(entry.getValue()));
+    public boolean equals(Object obj) {
+      return obj instanceof Entry<?, ?> entry
+          && Objects.equals(key, entry.getKey())
+          && Objects.equals(value, entry.getValue());
     }
 
     @Override
     public int hashCode() {
-      return (key == null ? 0 : key.hashCode()) ^ (value == null ? 0 : value.hashCode());
+      return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
   }
 }

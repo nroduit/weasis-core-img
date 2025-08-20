@@ -11,90 +11,78 @@ package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.DisplayName;
+import java.time.LocalDate;
+import java.util.List;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("Pair Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class PairTest {
 
-  private static final String FIRST_VALUE = "first";
-  private static final String SECOND_VALUE = "second";
-  private static final Integer FIRST_NUMBER = 1;
-  private static final Integer SECOND_NUMBER = 2;
-
   @Nested
-  @DisplayName("Basic Construction and Access")
-  class BasicConstructionTests {
+  class Basic_Construction_And_Access {
 
     @Test
-    @DisplayName("Should store and retrieve first and second values correctly")
-    void shouldStoreAndRetrieveValues() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      assertEquals(FIRST_VALUE, pair.first());
-      assertEquals(FIRST_NUMBER, pair.second());
+    void should_store_and_retrieve_values_correctly() {
+      var pair = new Pair<>("Alice", 25);
+      assertEquals("Alice", pair.first());
+      assertEquals(25, pair.second());
     }
 
     @Test
-    @DisplayName("Should handle different types correctly")
-    void shouldHandleDifferentTypes() {
-      Pair<Integer, String> pair = new Pair<>(FIRST_NUMBER, SECOND_VALUE);
-      assertEquals(FIRST_NUMBER, pair.first());
-      assertEquals(SECOND_VALUE, pair.second());
+    void should_handle_different_types() {
+      var pair = new Pair<>(LocalDate.of(2024, 1, 1), "New Year");
+      assertEquals(LocalDate.of(2024, 1, 1), pair.first());
+      assertEquals("New Year", pair.second());
     }
 
     @Test
-    @DisplayName("Should handle mixed null and non-null values")
-    void shouldHandleMixedNullAndNonNullValues() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, null);
-      assertEquals(FIRST_VALUE, pair.first());
+    void should_handle_mixed_null_and_non_null_values() {
+      var pair = new Pair<String, Integer>("test", null);
+      assertEquals("test", pair.first());
       assertNull(pair.second());
 
-      pair = new Pair<>(null, FIRST_NUMBER);
+      pair = new Pair<>(null, 42);
       assertNull(pair.first());
-      assertEquals(FIRST_NUMBER, pair.second());
+      assertEquals(42, pair.second());
     }
 
     @Test
-    @DisplayName("Should handle all null values")
-    void shouldHandleAllNullValues() {
-      Pair<String, Integer> pair = new Pair<>(null, null);
+    void should_handle_all_null_values() {
+      var pair = new Pair<String, Integer>(null, null);
       assertNull(pair.first());
       assertNull(pair.second());
     }
   }
 
   @Nested
-  @DisplayName("Factory Methods")
-  class FactoryMethodTests {
+  class Factory_Methods {
 
     @Test
-    @DisplayName("Should create pair using of() factory method")
-    void shouldCreatePairUsingOfFactory() {
-      Pair<String, Integer> pair = Pair.of(FIRST_VALUE, FIRST_NUMBER);
-      assertEquals(FIRST_VALUE, pair.first());
-      assertEquals(FIRST_NUMBER, pair.second());
+    void should_create_pair_using_of_factory_method() {
+      var pair = Pair.of("username", "password");
+      assertEquals("username", pair.first());
+      assertEquals("password", pair.second());
     }
 
     @Test
-    @DisplayName("Should create empty pair with all null values")
-    void shouldCreateEmptyPair() {
+    void should_create_empty_pair() {
       Pair<String, Integer> pair = Pair.empty();
       assertNull(pair.first());
       assertNull(pair.second());
     }
 
     @Test
-    @DisplayName("Should create pair with same values using same() factory")
-    void shouldCreatePairWithSameValues() {
-      Pair<String, String> pair = Pair.same(FIRST_VALUE);
-      assertEquals(FIRST_VALUE, pair.first());
-      assertEquals(FIRST_VALUE, pair.second());
+    void should_create_pair_with_same_values() {
+      var pair = Pair.same("duplicate");
+      assertEquals("duplicate", pair.first());
+      assertEquals("duplicate", pair.second());
     }
 
     @Test
-    @DisplayName("Should create pair with null values using same() factory")
-    void shouldCreatePairWithNullValueUsingSameFactory() {
+    void should_create_pair_with_null_using_same_factory() {
       Pair<String, String> pair = Pair.same(null);
       assertNull(pair.first());
       assertNull(pair.second());
@@ -102,315 +90,276 @@ class PairTest {
   }
 
   @Nested
-  @DisplayName("Equality and HashCode")
-  class EqualityTests {
+  class Equality_And_HashCode {
 
     @Test
-    @DisplayName("Should be equal when all elements are equal")
-    void shouldBeEqualWhenAllElementsAreEqual() {
-      Pair<String, Integer> pair1 = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> pair2 = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
+    void should_be_equal_when_all_elements_are_equal() {
+      var pair1 = new Pair<>("key", 123);
+      var pair2 = new Pair<>("key", 123);
       assertEquals(pair1, pair2);
       assertEquals(pair1.hashCode(), pair2.hashCode());
     }
 
     @Test
-    @DisplayName("Should not be equal when elements differ")
-    void shouldNotBeEqualWhenElementsDiffer() {
-      Pair<String, Integer> pair1 = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> pair2 = new Pair<>(SECOND_VALUE, FIRST_NUMBER);
+    void should_not_be_equal_when_elements_differ() {
+      var pair1 = new Pair<>("key1", 123);
+      var pair2 = new Pair<>("key2", 123);
       assertNotEquals(pair1, pair2);
 
-      pair2 = new Pair<>(FIRST_VALUE, SECOND_NUMBER);
+      pair2 = new Pair<>("key1", 456);
       assertNotEquals(pair1, pair2);
     }
 
     @Test
-    @DisplayName("Should handle null equality correctly")
-    void shouldHandleNullEqualityCorrectly() {
-      Pair<String, Integer> pair1 = new Pair<>(null, null);
-      Pair<String, Integer> pair2 = new Pair<>(null, null);
+    void should_handle_null_equality_correctly() {
+      var pair1 = new Pair<String, Integer>(null, null);
+      var pair2 = new Pair<String, Integer>(null, null);
       assertEquals(pair1, pair2);
 
-      pair1 = new Pair<>(FIRST_VALUE, null);
-      pair2 = new Pair<>(FIRST_VALUE, null);
+      pair1 = new Pair<>("test", null);
+      pair2 = new Pair<>("test", null);
       assertEquals(pair1, pair2);
     }
   }
 
   @Nested
-  @DisplayName("Swapping Operations")
-  class SwappingTests {
+  class Swapping_Operations {
 
     @Test
-    @DisplayName("Should swap first and second values")
-    void shouldSwapFirstAndSecondValues() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<Integer, String> swapped = original.swap();
+    void should_swap_values() {
+      var original = new Pair<>("name", 42);
+      var swapped = original.swap();
 
-      assertEquals(FIRST_NUMBER, swapped.first());
-      assertEquals(FIRST_VALUE, swapped.second());
+      assertEquals(42, swapped.first());
+      assertEquals("name", swapped.second());
     }
 
     @Test
-    @DisplayName("Should handle null values in swapping")
-    void shouldHandleNullValuesInSwapping() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, null);
-      Pair<Integer, String> swapped = original.swap();
+    void should_handle_null_values_in_swapping() {
+      var original = new Pair<String, Integer>("value", null);
+      var swapped = original.swap();
 
       assertNull(swapped.first());
-      assertEquals(FIRST_VALUE, swapped.second());
+      assertEquals("value", swapped.second());
     }
   }
 
   @Nested
-  @DisplayName("Immutable Updates")
-  class ImmutableUpdateTests {
+  class Immutable_Updates {
 
     @Test
-    @DisplayName("Should create new pair with different first element")
-    void shouldCreateNewPairWithDifferentFirstElement() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> updated = original.withFirst(SECOND_VALUE);
+    void should_create_new_pair_with_different_first_element() {
+      var original = new Pair<>("original", 100);
+      var updated = original.withFirst("updated");
 
-      assertEquals(SECOND_VALUE, updated.first());
-      assertEquals(FIRST_NUMBER, updated.second());
-      // Original should remain unchanged
-      assertEquals(FIRST_VALUE, original.first());
+      assertEquals("updated", updated.first());
+      assertEquals(100, updated.second());
+      assertEquals("original", original.first()); // Verify immutability
     }
 
     @Test
-    @DisplayName("Should create new pair with different second element")
-    void shouldCreateNewPairWithDifferentSecondElement() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> updated = original.withSecond(SECOND_NUMBER);
+    void should_create_new_pair_with_different_second_element() {
+      var original = new Pair<>("key", 100);
+      var updated = original.withSecond(200);
 
-      assertEquals(FIRST_VALUE, updated.first());
-      assertEquals(SECOND_NUMBER, updated.second());
-      // Original should remain unchanged
-      assertEquals(FIRST_NUMBER, original.second());
+      assertEquals("key", updated.first());
+      assertEquals(200, updated.second());
+      assertEquals(100, original.second()); // Verify immutability
     }
 
     @Test
-    @DisplayName("Should handle null values in with methods")
-    void shouldHandleNullValuesInWithMethods() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> updated = original.withFirst(null);
+    void should_handle_null_values_in_with_methods() {
+      var original = new Pair<>("key", 100);
+      var updated = original.withFirst(null);
 
       assertNull(updated.first());
-      assertEquals(FIRST_NUMBER, updated.second());
+      assertEquals(100, updated.second());
     }
   }
 
   @Nested
-  @DisplayName("Transformation Methods")
-  class TransformationTests {
+  class Transformation_Methods {
 
     @Test
-    @DisplayName("Should transform first element using mapFirst")
-    void shouldTransformFirstElementUsingMapFirst() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, Integer> transformed = original.mapFirst(String::toUpperCase);
+    void should_transform_first_element() {
+      var original = new Pair<>("hello", 5);
+      var transformed = original.mapFirst(String::toUpperCase);
 
-      assertEquals(FIRST_VALUE.toUpperCase(), transformed.first());
-      assertEquals(FIRST_NUMBER, transformed.second());
+      assertEquals("HELLO", transformed.first());
+      assertEquals(5, transformed.second());
     }
 
     @Test
-    @DisplayName("Should transform second element using mapSecond")
-    void shouldTransformSecondElementUsingMapSecond() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, String> transformed = original.mapSecond(String::valueOf);
+    void should_transform_second_element() {
+      var original = new Pair<>("count", 42);
+      var transformed = original.mapSecond(n -> n * 2);
 
-      assertEquals(FIRST_VALUE, transformed.first());
-      assertEquals(FIRST_NUMBER.toString(), transformed.second());
+      assertEquals("count", transformed.first());
+      assertEquals(84, transformed.second());
     }
 
     @Test
-    @DisplayName("Should transform both elements using mapBoth")
-    void shouldTransformBothElementsUsingMapBoth() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      Pair<String, String> transformed = original.mapBoth(String::toUpperCase, String::valueOf);
+    void should_transform_both_elements() {
+      var original = new Pair<>("test", 10);
+      var transformed = original.mapBoth(String::length, String::valueOf);
 
-      assertEquals(FIRST_VALUE.toUpperCase(), transformed.first());
-      assertEquals(FIRST_NUMBER.toString(), transformed.second());
+      assertEquals(4, transformed.first()); // "test".length()
+      assertEquals("10", transformed.second());
     }
 
     @Test
-    @DisplayName("Should handle null values in transformations")
-    void shouldHandleNullValuesInTransformations() {
-      Pair<String, Integer> original = new Pair<>(null, FIRST_NUMBER);
-      Pair<String, Integer> transformed =
-          original.mapFirst(value -> value == null ? "NULL" : value);
+    void should_handle_null_values_in_transformations() {
+      var original = new Pair<String, Integer>(null, 42);
+      var transformed = original.mapFirst(value -> value == null ? "NULL" : value);
 
       assertEquals("NULL", transformed.first());
-      assertEquals(FIRST_NUMBER, transformed.second());
+      assertEquals(42, transformed.second());
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException for null mappers")
-    void shouldThrowNullPointerExceptionForNullMappers() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
+    void should_throw_exception_for_null_mappers() {
+      var pair = new Pair<>("test", 100);
 
-      assertThrows(NullPointerException.class, () -> pair.mapFirst(null));
-      assertThrows(NullPointerException.class, () -> pair.mapSecond(null));
-      assertThrows(NullPointerException.class, () -> pair.mapBoth(null, String::valueOf));
-      assertThrows(NullPointerException.class, () -> pair.mapBoth(String::toUpperCase, null));
-    }
-  }
-
-  @Nested
-  @DisplayName("Null Checking Methods")
-  class NullCheckingTests {
-
-    @Test
-    @DisplayName("Should correctly identify when any element is null")
-    void shouldCorrectlyIdentifyWhenAnyElementIsNull() {
-      Pair<String, Integer> pair = new Pair<>(null, FIRST_NUMBER);
-      assertTrue(pair.hasNull());
-
-      pair = new Pair<>(FIRST_VALUE, null);
-      assertTrue(pair.hasNull());
-
-      pair = new Pair<>(null, null);
-      assertTrue(pair.hasNull());
-
-      pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      assertFalse(pair.hasNull());
-    }
-
-    @Test
-    @DisplayName("Should correctly identify when all elements are null")
-    void shouldCorrectlyIdentifyWhenAllElementsAreNull() {
-      Pair<String, Integer> pair = new Pair<>(null, null);
-      assertTrue(pair.isAllNull());
-
-      pair = new Pair<>(null, FIRST_NUMBER);
-      assertFalse(pair.isAllNull());
-
-      pair = new Pair<>(FIRST_VALUE, null);
-      assertFalse(pair.isAllNull());
-
-      pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      assertFalse(pair.isAllNull());
-    }
-
-    @Test
-    @DisplayName("Should correctly identify when all elements are non-null")
-    void shouldCorrectlyIdentifyWhenAllElementsAreNonNull() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      assertTrue(pair.isAllNonNull());
-
-      pair = new Pair<>(null, FIRST_NUMBER);
-      assertFalse(pair.isAllNonNull());
-
-      pair = new Pair<>(FIRST_VALUE, null);
-      assertFalse(pair.isAllNonNull());
-
-      pair = new Pair<>(null, null);
-      assertFalse(pair.isAllNonNull());
+      assertAll(
+          () -> assertThrows(NullPointerException.class, () -> pair.mapFirst(null)),
+          () -> assertThrows(NullPointerException.class, () -> pair.mapSecond(null)),
+          () -> assertThrows(NullPointerException.class, () -> pair.mapBoth(null, String::valueOf)),
+          () ->
+              assertThrows(
+                  NullPointerException.class, () -> pair.mapBoth(String::toUpperCase, null)));
     }
   }
 
   @Nested
-  @DisplayName("Array Conversion")
-  class ArrayConversionTests {
+  class Null_Checking_Methods {
 
     @Test
-    @DisplayName("Should convert pair to array")
-    void shouldConvertPairToArray() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
+    void should_identify_when_any_element_is_null() {
+      assertAll(
+          () -> assertTrue(new Pair<String, Integer>(null, 42).hasNull()),
+          () -> assertTrue(new Pair<>("test", null).hasNull()),
+          () -> assertTrue(new Pair<String, Integer>(null, null).hasNull()),
+          () -> assertFalse(new Pair<>("test", 42).hasNull()));
+    }
+
+    @Test
+    void should_identify_when_all_elements_are_null() {
+      assertAll(
+          () -> assertTrue(new Pair<String, Integer>(null, null).isAllNull()),
+          () -> assertFalse(new Pair<String, Integer>(null, 42).isAllNull()),
+          () -> assertFalse(new Pair<>("test", null).isAllNull()),
+          () -> assertFalse(new Pair<>("test", 42).isAllNull()));
+    }
+
+    @Test
+    void should_identify_when_all_elements_are_non_null() {
+      assertAll(
+          () -> assertTrue(new Pair<>("test", 42).isAllNonNull()),
+          () -> assertFalse(new Pair<String, Integer>(null, 42).isAllNonNull()),
+          () -> assertFalse(new Pair<>("test", null).isAllNonNull()),
+          () -> assertFalse(new Pair<String, Integer>(null, null).isAllNonNull()));
+    }
+  }
+
+  @Nested
+  class Array_Conversion {
+
+    @Test
+    void should_convert_pair_to_array() {
+      var pair = new Pair<>("data", 123);
       Object[] array = pair.toArray();
 
       assertEquals(2, array.length);
-      assertEquals(FIRST_VALUE, array[0]);
-      assertEquals(FIRST_NUMBER, array[1]);
+      assertEquals("data", array[0]);
+      assertEquals(123, array[1]);
     }
 
     @Test
-    @DisplayName("Should handle null values in array conversion")
-    void shouldHandleNullValuesInArrayConversion() {
-      Pair<String, Integer> pair = new Pair<>(null, FIRST_NUMBER);
+    void should_handle_null_values_in_array_conversion() {
+      var pair = new Pair<String, Integer>(null, 456);
       Object[] array = pair.toArray();
 
       assertEquals(2, array.length);
       assertNull(array[0]);
-      assertEquals(FIRST_NUMBER, array[1]);
+      assertEquals(456, array[1]);
     }
   }
 
   @Nested
-  @DisplayName("String Representation")
-  class StringRepresentationTests {
+  class String_Representation {
 
     @Test
-    @DisplayName("Should provide correct string representation")
-    void shouldProvideCorrectStringRepresentation() {
-      Pair<String, Integer> pair = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
-      String expected = "(" + FIRST_VALUE + ", " + FIRST_NUMBER + ")";
-      assertEquals(expected, pair.toString());
+    void should_provide_correct_string_representation() {
+      var pair = new Pair<>("key", 789);
+      assertEquals("(key, 789)", pair.toString());
     }
 
     @Test
-    @DisplayName("Should handle null values in string representation")
-    void shouldHandleNullValuesInStringRepresentation() {
-      Pair<String, Integer> pair = new Pair<>(null, FIRST_NUMBER);
-      String expected = "(null, " + FIRST_NUMBER + ")";
-      assertEquals(expected, pair.toString());
+    void should_handle_null_values_in_string_representation() {
+      var pair = new Pair<String, Integer>(null, 123);
+      assertEquals("(null, 123)", pair.toString());
     }
 
     @Test
-    @DisplayName("Should handle all null values in string representation")
-    void shouldHandleAllNullValuesInStringRepresentation() {
-      Pair<String, Integer> pair = new Pair<>(null, null);
+    void should_handle_all_null_values_in_string_representation() {
+      var pair = new Pair<String, Integer>(null, null);
       assertEquals("(null, null)", pair.toString());
     }
   }
 
   @Nested
-  @DisplayName("Edge Cases and Integration")
-  class EdgeCasesTests {
+  class Complex_Scenarios {
 
     @Test
-    @DisplayName("Should handle method chaining")
-    void shouldHandleMethodChaining() {
-      Pair<Integer, String> result =
-          new Pair<>(FIRST_VALUE, FIRST_NUMBER)
-              .withFirst(SECOND_VALUE)
+    void should_handle_method_chaining() {
+      var result =
+          new Pair<>("initial", 10)
+              .withFirst("changed")
               .mapSecond(n -> n * 2)
               .swap()
-              .withSecond("transformed");
+              .withSecond("final");
 
-      assertEquals(SECOND_NUMBER, result.first());
-      assertEquals("transformed", result.second());
+      assertEquals(20, result.first());
+      assertEquals("final", result.second());
     }
 
     @Test
-    @DisplayName("Should handle complex transformations")
-    void shouldHandleComplexTransformations() {
-      Pair<String, Integer> original = new Pair<>("hello", 42);
-      Pair<Integer, String> transformed = original.mapBoth(String::length, n -> "Number: " + n);
-      Pair<String, Integer> result = transformed.swap();
+    void should_handle_complex_transformations_with_realistic_data() {
+      var userProfile = new Pair<>("john_doe", List.of("admin", "user"));
+      var transformed =
+          userProfile.mapBoth(username -> username.replace("_", " ").toUpperCase(), List::size);
+      var final_result = transformed.swap();
 
-      assertEquals("Number: 42", result.first());
-      assertEquals(5, result.second());
+      assertEquals(2, final_result.first()); // Number of roles
+      assertEquals("JOHN DOE", final_result.second()); // Formatted username
     }
 
     @Test
-    @DisplayName("Should maintain immutability contract")
-    void shouldMaintainImmutabilityContract() {
-      Pair<String, Integer> original = new Pair<>(FIRST_VALUE, FIRST_NUMBER);
+    void should_maintain_immutability_contract() {
+      var original = new Pair<>("immutable", 999);
 
       // All operations should return new instances
-      assertNotSame(original, original.withFirst(SECOND_VALUE));
-      assertNotSame(original, original.withSecond(SECOND_NUMBER));
-      assertNotSame(original, original.mapFirst(String::toUpperCase));
-      assertNotSame(original, original.mapSecond(n -> n * 2));
-      assertNotSame(original, original.swap());
+      assertAll(
+          () -> assertNotSame(original, original.withFirst("different")),
+          () -> assertNotSame(original, original.withSecond(111)),
+          () -> assertNotSame(original, original.mapFirst(String::toUpperCase)),
+          () -> assertNotSame(original, original.mapSecond(n -> n + 1)),
+          () -> assertNotSame(original, original.swap()));
 
       // Original should remain unchanged
-      assertEquals(FIRST_VALUE, original.first());
-      assertEquals(FIRST_NUMBER, original.second());
+      assertEquals("immutable", original.first());
+      assertEquals(999, original.second());
+    }
+
+    @Test
+    void should_work_with_complex_data_types() {
+      var dateRange = new Pair<>(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31));
+
+      var daysBetween = dateRange.mapBoth(LocalDate::getDayOfYear, LocalDate::getDayOfYear);
+
+      assertTrue(daysBetween.first() < daysBetween.second());
+      assertEquals(1, daysBetween.first());
+      assertEquals(366, daysBetween.second()); // 2024 is a leap year
     }
   }
 }

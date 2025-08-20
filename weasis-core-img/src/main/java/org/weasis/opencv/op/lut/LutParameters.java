@@ -9,7 +9,6 @@
  */
 package org.weasis.opencv.op.lut;
 
-import java.util.Objects;
 import org.weasis.core.util.annotations.Generated;
 
 /**
@@ -56,50 +55,13 @@ public record LutParameters(
     int bitsOutput,
     boolean inversePaddingMLUT) {
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
+  /** Compact constructor with validation. */
+  public LutParameters {
+    if (bitsStored < 1 || bitsStored > 32) {
+      throw new IllegalArgumentException("bitsStored must be between 1 and 32, got: " + bitsStored);
     }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
+    if (bitsOutput < 1 || bitsOutput > 32) {
+      throw new IllegalArgumentException("bitsOutput must be between 1 and 32, got: " + bitsOutput);
     }
-    LutParameters that = (LutParameters) o;
-    return Double.compare(that.intercept, intercept) == 0
-        && Double.compare(that.slope, slope) == 0
-        && bitsStored == that.bitsStored
-        && signed == that.signed
-        && applyPadding == that.applyPadding
-        && outputSigned == that.outputSigned
-        && bitsOutput == that.bitsOutput
-        && inversePaddingMLUT == that.inversePaddingMLUT
-        && Objects.equals(paddingMinValue, that.paddingMinValue)
-        && Objects.equals(paddingMaxValue, that.paddingMaxValue);
-  }
-
-  @Override
-  public String toString() {
-    return "LutParameters{"
-        + "intercept="
-        + intercept
-        + ", slope="
-        + slope
-        + ", applyPadding="
-        + applyPadding
-        + ", paddingMinValue="
-        + paddingMinValue
-        + ", paddingMaxValue="
-        + paddingMaxValue
-        + ", bitsStored="
-        + bitsStored
-        + ", signed="
-        + signed
-        + ", outputSigned="
-        + outputSigned
-        + ", bitsOutput="
-        + bitsOutput
-        + ", inversePaddingMLUT="
-        + inversePaddingMLUT
-        + '}';
   }
 }

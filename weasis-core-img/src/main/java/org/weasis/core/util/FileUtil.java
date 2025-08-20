@@ -19,12 +19,7 @@ import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Properties;
-import java.util.stream.Stream;
+import java.util.*;
 import javax.imageio.stream.ImageInputStream;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamWriter;
@@ -33,90 +28,101 @@ import org.slf4j.LoggerFactory;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Utility class for file operations and path management.
+ * Modern utility class for file operations and path management using Java NIO.2.
  *
- * <p>This class provides methods for file manipulation, validation, and path operations using
- * {@link Path} as the primary API. For stream operations, use {@link StreamUtil}.
+ * <p>This class provides comprehensive file manipulation, validation, and path operations using
+ * {@link Path} as the primary API, leveraging Java 17 features for better performance and
+ * maintainability.
  *
- * <p>All {@link File}-based methods are deprecated in favor of {@link Path}-based equivalents.
+ * <p>Key features:
+ *
+ * <ul>
+ *   <li>Path-based operations with automatic parent directory creation
+ *   <li>Safe file and directory deletion with proper error handling
+ *   <li>Stream-based file copying with resource management
+ *   <li>Filename validation and sanitization
+ *   <li>Extension-based file filtering
+ * </ul>
+ *
+ * <p>For stream operations, use {@link StreamUtil}. All {@link File}-based methods are deprecated
+ * in favor of {@link Path}-based equivalents.
  *
  * @author Nicolas Roduit
  */
 public final class FileUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
   public static final int FILE_BUFFER = 4096;
-
-  private static final int[] ILLEGAL_CHARS = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-    26, 27, 28, 29, 30, 31, 34, 42, 47, 58, 60, 62, 63, 92, 124
-  };
   private static final String CANNOT_DELETE = "Cannot delete";
+
+  // Optimized with Set for O(1) lookups instead of binary search
+  private static final Set<Integer> ILLEGAL_CHARS =
+      Set.of(
+          0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+          25, 26, 27, 28, 29, 30, 31, 34, 42, 47, 58, 60, 62, 63, 92, 124);
 
   private FileUtil() {
     // Prevent instantiation
   }
 
   /**
-   * Transform a fileName into a writable fileName for all operating systems. All special and
-   * control characters are excluded.
+   * Transform a fileName into a valid fileName for all operating systems. All special and control
+   * characters are excluded.
    *
    * @param fileName a filename or directory name
-   * @return a writable filename
+   * @return a valid filename, empty string if input is null
    */
   public static String getValidFileName(String fileName) {
     if (fileName == null) {
       return "";
     }
 
-    StringBuilder cleanName = new StringBuilder(fileName.length());
-    for (int i = 0; i < fileName.length(); i++) {
-      char c = fileName.charAt(i);
-      if (isValidFileNameChar(c)) {
-        cleanName.append(c);
-      }
-    }
-    return cleanName.toString().trim();
+    return fileName
+        .chars()
+        .filter(FileUtil::isValidFileNameChar)
+        .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+        .toString()
+        .trim();
   }
 
-  private static boolean isValidFileNameChar(char c) {
-    return Arrays.binarySearch(ILLEGAL_CHARS, c) < 0 && c >= ' ' && (c <= '~' || c >= '\u00a0');
+  private static boolean isValidFileNameChar(int codePoint) {
+    return !ILLEGAL_CHARS.contains(codePoint)
+        && codePoint >= ' '
+        && (codePoint <= '~' || codePoint >= '\u00a0');
   }
 
   /**
-   * Transform a fileName into a fileName for all operating systems. All special and control
-   * characters are excluded. HTML or XML tags are also removed.
+   * Transform a fileName into a valid fileName for all operating systems. HTML/XML tags and special
+   * characters are removed.
    *
    * @param fileName a file name
-   * @return a writable file name
+   * @return a valid file name, empty string if input is null
    */
   public static String getValidFileNameWithoutHTML(String fileName) {
     if (fileName == null) {
       return "";
     }
-    // Remove HTML tags first
-    String withoutHtml = fileName.replaceAll("<[^>]*>", "");
-    return getValidFileName(withoutHtml);
+    return getValidFileName(fileName.replaceAll("<[^>]*>", ""));
   }
 
   /**
    * Create a unique temporary directory in the specified directory.
    *
    * @param baseDir the base directory where the temporary directory is created
-   * @return the temporary directory
+   * @return the temporary directory path
    * @throws IllegalArgumentException if baseDir is null or not a directory
-   * @throws IllegalStateException if the directory cannot be created
+   * @throws IllegalStateException if the directory cannot be created after 1000 attempts
    */
   public static Path createTempDir(Path baseDir) {
     if (baseDir == null || !Files.isDirectory(baseDir)) {
       throw new IllegalArgumentException("Base directory must exist and be a directory");
     }
-    String baseName = String.valueOf(System.currentTimeMillis());
+    var baseName = String.valueOf(System.currentTimeMillis());
     for (int counter = 0; counter < 1000; counter++) {
-      Path tempDir = baseDir.resolve(baseName + counter);
+      var tempDir = baseDir.resolve(baseName + counter);
       try {
         return Files.createDirectory(tempDir);
       } catch (FileAlreadyExistsException ignored) {
-        // Try next counter
+        // Continue to next counter
       } catch (IOException e) {
         throw new IllegalStateException("Failed to create temporary directory", e);
       }
@@ -128,35 +134,40 @@ public final class FileUtil {
    * Get all files in a directory and its subdirectories.
    *
    * @param directory the directory path
-   * @param files the list of paths to fill
+   * @param files the list of paths to populate
    */
   public static void getAllFilesInDirectory(Path directory, List<Path> files) {
     getAllFilesInDirectory(directory, files, true);
   }
 
   /**
-   * Get all files in a directory.
+   * Get all files in a directory with optional recursion.
    *
    * @param directory the directory path
-   * @param files the list of paths to fill
-   * @param recursive true to get files in subdirectories
+   * @param files the list of paths to populate
+   * @param recursive true to include subdirectories
    */
   public static void getAllFilesInDirectory(Path directory, List<Path> files, boolean recursive) {
-    if (directory == null || !Files.isDirectory(directory) || files == null) {
+    if (!isValidDirectory(directory) || files == null) {
       return;
     }
 
-    try (Stream<Path> stream = Files.list(directory)) {
-      stream.forEach(
-          path -> {
-            if (Files.isRegularFile(path)) {
-              files.add(path);
-            } else if (recursive && Files.isDirectory(path)) {
-              getAllFilesInDirectory(path, files, true);
-            }
-          });
+    try (var stream = Files.list(directory)) {
+      stream.forEach(path -> processDirectoryEntry(path, files, recursive));
     } catch (IOException e) {
       LOGGER.warn("Failed to list directory contents: {}", directory, e);
+    }
+  }
+
+  private static boolean isValidDirectory(Path directory) {
+    return directory != null && Files.isDirectory(directory);
+  }
+
+  private static void processDirectoryEntry(Path path, List<Path> files, boolean recursive) {
+    if (Files.isRegularFile(path)) {
+      files.add(path);
+    } else if (recursive && Files.isDirectory(path)) {
+      getAllFilesInDirectory(path, files, true);
     }
   }
 
@@ -171,45 +182,54 @@ public final class FileUtil {
       return false;
     }
 
-    if (Files.isDirectory(path)) {
-      try (Stream<Path> walk = Files.walk(path)) {
-        walk.sorted(Comparator.reverseOrder()) // Reverse order for depth-first deletion
-            .forEach(FileUtil::deleteQuietly);
-      } catch (IOException e) {
-        LOGGER.error(CANNOT_DELETE + ": {}", path, e);
-        return false;
+    try {
+      if (Files.isDirectory(path)) {
+        return deleteDirectory(path);
+      } else {
+        return deleteQuietly(path);
       }
-    } else {
-      return deleteQuietly(path);
+    } catch (Exception e) {
+      LOGGER.error("{}: {}", CANNOT_DELETE, path, e);
+      return false;
     }
-    return !Files.exists(path);
+  }
+
+  private static boolean deleteDirectory(Path directory) {
+    try (var walk = Files.walk(directory)) {
+      walk.sorted(Comparator.reverseOrder()).forEach(FileUtil::deleteQuietly);
+      return !Files.exists(directory);
+    } catch (IOException e) {
+      LOGGER.error("{}: {}", CANNOT_DELETE, directory, e);
+      return false;
+    }
   }
 
   /**
-   * Delete the content of a directory and optionally the directory itself.
+   * Delete directory contents based on directory level.
    *
    * @param directory the directory path
    * @param deleteDirLevel the level of subdirectories to delete
    * @param level the current level
    */
   public static void deleteDirectoryContents(Path directory, int deleteDirLevel, int level) {
-    if (directory == null || !Files.isDirectory(directory)) {
+    if (!isValidDirectory(directory)) {
       return;
     }
-    try (Stream<Path> stream = Files.list(directory)) {
-      stream.forEach(
-          path -> {
-            if (Files.isDirectory(path)) {
-              deleteDirectoryContents(path, deleteDirLevel, level + 1);
-            } else {
-              deleteQuietly(path);
-            }
-          });
+    try (var stream = Files.list(directory)) {
+      stream.forEach(path -> processDeleteEntry(path, deleteDirLevel, level));
     } catch (IOException e) {
       LOGGER.warn("Failed to delete directory contents: {}", directory, e);
     }
     if (level >= deleteDirLevel) {
       deleteQuietly(directory);
+    }
+  }
+
+  private static void processDeleteEntry(Path path, int deleteDirLevel, int level) {
+    if (Files.isDirectory(path)) {
+      deleteDirectoryContents(path, deleteDirLevel, level + 1);
+    } else {
+      deleteQuietly(path);
     }
   }
 
@@ -226,26 +246,28 @@ public final class FileUtil {
    * Delete all files and subdirectories of a directory.
    *
    * @param rootDir the root directory to delete
-   * @param deleteRoot true to delete the root directory at the end, false to keep it
+   * @param deleteRoot true to delete the root directory, false to keep it
    */
   public static void recursiveDelete(Path rootDir, boolean deleteRoot) {
-    if (rootDir == null || !Files.isDirectory(rootDir)) {
+    if (!isValidDirectory(rootDir)) {
       return;
     }
-    try (Stream<Path> stream = Files.list(rootDir)) {
-      stream.forEach(
-          path -> {
-            if (Files.isDirectory(path)) {
-              recursiveDelete(path, true);
-            } else {
-              deleteQuietly(path);
-            }
-          });
+    try (var stream = Files.list(rootDir)) {
+      stream.forEach(FileUtil::processRecursiveDelete);
     } catch (IOException e) {
       LOGGER.warn("Failed to delete directory contents: {}", rootDir, e);
     }
+
     if (deleteRoot) {
       deleteQuietly(rootDir);
+    }
+  }
+
+  private static void processRecursiveDelete(Path path) {
+    if (Files.isDirectory(path)) {
+      recursiveDelete(path, true);
+    } else {
+      deleteQuietly(path);
     }
   }
 
@@ -253,7 +275,7 @@ public final class FileUtil {
     try {
       return Files.deleteIfExists(path);
     } catch (IOException e) {
-      LOGGER.error(CANNOT_DELETE + ": {}", path, e);
+      LOGGER.error("{}: {}", CANNOT_DELETE, path, e);
       return false;
     }
   }
@@ -265,17 +287,17 @@ public final class FileUtil {
    * @throws IOException if an I/O error occurs
    */
   public static void prepareToWriteFile(Path path) throws IOException {
-    Path parent = path.getParent();
+    var parent = path.getParent();
     if (parent != null && !Files.exists(parent)) {
       Files.createDirectories(parent);
     }
   }
 
   /**
-   * Get the name of a file without the extension (e.g. convert image.png to image).
+   * Get the name of a file without the extension.
    *
-   * @param filename The file name.
-   * @return The name of the file without extension.
+   * @param filename the file name
+   * @return the name without extension, null if input is null
    */
   public static String nameWithoutExtension(String filename) {
     if (filename == null) {
@@ -286,10 +308,10 @@ public final class FileUtil {
   }
 
   /**
-   * Get the extension of a file name, like ".png" or ".jpg".
+   * Get the extension of a file name.
    *
-   * @param filename The file name to retrieve the extension of.
-   * @return The extension of the file name starting with '.' or empty string if none.
+   * @param filename the file name
+   * @return the extension starting with '.' or empty string if none
    */
   public static String getExtension(String filename) {
     if (filename == null) {
@@ -300,20 +322,19 @@ public final class FileUtil {
   }
 
   /**
-   * Check if the extension of the file name matches one of the extensions in the array. The
-   * extension can start with '.' or not and is case-insensitive.
+   * Check if file extension matches any of the provided extensions (case-insensitive).
    *
    * @param path the file path
-   * @param extensions the extensions array, e.g. {"png", "jpg"} or {".png", ".jpg"}
-   * @return true if the file extension matches one of the provided extensions
+   * @param extensions the extensions array (with or without dots)
+   * @return true if extension matches
    */
   public static boolean isFileExtensionMatching(Path path, String[] extensions) {
     if (path == null || extensions == null) {
       return false;
     }
 
-    String filename = path.getFileName() != null ? path.getFileName().toString() : "";
-    String fileExtension = getExtension(filename);
+    var filename = Optional.ofNullable(path.getFileName()).map(Path::toString).orElse("");
+    var fileExtension = getExtension(filename);
     if (!StringUtil.hasLength(fileExtension)) {
       return false;
     }
@@ -325,40 +346,20 @@ public final class FileUtil {
   }
 
   /**
-   * Write inputStream content into a file and close the input stream if closeInputStream is true.
+   * Write inputStream content to a file.
    *
    * @param inputStream the input stream
    * @param outPath the output file path
    * @param closeInputStream true to close the input stream
-   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
-   *     written before interruption
+   * @return the number of written bytes (-1 = success, 0 = error, other = interrupted bytes)
    * @throws StreamIOException if an I/O error occurs
    */
   public static int writeStream(InputStream inputStream, Path outPath, boolean closeInputStream)
       throws StreamIOException {
     try {
       prepareToWriteFile(outPath);
+      return performStreamWrite(inputStream, outPath);
     } catch (IOException e) {
-      throw new StreamIOException(e);
-    }
-    try (OutputStream outputStream = Files.newOutputStream(outPath)) {
-      byte[] buf = new byte[FILE_BUFFER];
-      int offset;
-      while ((offset = inputStream.read(buf)) > 0) {
-        outputStream.write(buf, 0, offset);
-      }
-      outputStream.flush();
-      return -1;
-    } catch (SocketTimeoutException e) {
-      delete(outPath);
-      throw new StreamIOException(e);
-    } catch (InterruptedIOException e) {
-      delete(outPath);
-      // Specific for ProgressMonitor
-      LOGGER.error("Interruption when writing file: {}", e.getMessage());
-      return e.bytesTransferred;
-    } catch (IOException e) {
-      delete(outPath);
       throw new StreamIOException(e);
     } finally {
       if (closeInputStream) {
@@ -367,13 +368,40 @@ public final class FileUtil {
     }
   }
 
+  private static int performStreamWrite(InputStream inputStream, Path outPath)
+      throws StreamIOException {
+    try (var outputStream = Files.newOutputStream(outPath)) {
+      return copyStreamData(inputStream, outputStream, outPath);
+    } catch (SocketTimeoutException e) {
+      delete(outPath);
+      throw new StreamIOException(e);
+    } catch (InterruptedIOException e) {
+      delete(outPath);
+      LOGGER.error("Interruption when writing file: {}", e.getMessage());
+      return e.bytesTransferred;
+    } catch (IOException e) {
+      delete(outPath);
+      throw new StreamIOException(e);
+    }
+  }
+
+  private static int copyStreamData(
+      InputStream inputStream, OutputStream outputStream, Path outPath) throws IOException {
+    var buffer = new byte[FILE_BUFFER];
+    int bytesRead;
+    while ((bytesRead = inputStream.read(buffer)) > 0) {
+      outputStream.write(buffer, 0, bytesRead);
+    }
+    outputStream.flush();
+    return -1; // Success indicator
+  }
+
   /**
-   * Write inputStream content into a file.
+   * Write inputStream content to a file.
    *
    * @param inputStream the input stream
    * @param outPath the output file path
-   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
-   *     written before interruption
+   * @return the number of written bytes (-1 = success, 0 = error, other = interrupted bytes)
    * @throws StreamIOException if an I/O error occurs
    */
   public static int writeStream(InputStream inputStream, Path outPath) throws StreamIOException {
@@ -381,11 +409,11 @@ public final class FileUtil {
   }
 
   /**
-   * Write inputStream content into a file using StreamUtil.
+   * Write inputStream content to a file with exception on failure.
    *
    * @param inputStream the input stream
    * @param outPath the output file path
-   * @throws StreamIOException if an I/O error occurs
+   * @throws StreamIOException if an I/O error occurs or write fails
    */
   public static void writeStreamWithIOException(InputStream inputStream, Path outPath)
       throws StreamIOException {
@@ -396,71 +424,85 @@ public final class FileUtil {
   }
 
   /**
-   * Write ImageInputStream content into a file.
+   * Write ImageInputStream content to a file.
    *
    * @param imageInputStream the input stream
    * @param outPath the output file path
-   * @return the number of written bytes. 0 = error, -1 = all bytes has been written, other = bytes
-   *     written before interruption
+   * @return the number of written bytes (-1 = success, 0 = error, other = interrupted bytes)
    * @throws StreamIOException if an I/O error occurs
    */
   public static int writeFile(ImageInputStream imageInputStream, Path outPath)
       throws StreamIOException {
     try {
       prepareToWriteFile(outPath);
+      return performImageStreamWrite(imageInputStream, outPath);
     } catch (IOException e) {
-      throw new StreamIOException(e);
-    }
-    try (OutputStream outputStream = Files.newOutputStream(outPath)) {
-      byte[] buf = new byte[FILE_BUFFER];
-      int offset;
-      while ((offset = imageInputStream.read(buf)) > 0) {
-        outputStream.write(buf, 0, offset);
-      }
-      outputStream.flush();
-      return -1;
-    } catch (SocketTimeoutException e) {
-      delete(outPath);
-      throw new StreamIOException(e);
-    } catch (InterruptedIOException e) {
-      delete(outPath);
-      // Specific for SeriesProgressMonitor
-      LOGGER.error("Interruption when writing image {}", e.getMessage());
-      return e.bytesTransferred;
-    } catch (IOException e) {
-      delete(outPath);
       throw new StreamIOException(e);
     } finally {
       StreamUtil.safeClose(imageInputStream);
     }
   }
 
+  private static int performImageStreamWrite(ImageInputStream imageInputStream, Path outPath)
+      throws StreamIOException {
+    try (var outputStream = Files.newOutputStream(outPath)) {
+      return copyImageStreamData(imageInputStream, outputStream);
+    } catch (SocketTimeoutException e) {
+      delete(outPath);
+      throw new StreamIOException(e);
+    } catch (InterruptedIOException e) {
+      delete(outPath);
+      LOGGER.error("Interruption when writing image: {}", e.getMessage());
+      return e.bytesTransferred;
+    } catch (IOException e) {
+      delete(outPath);
+      throw new StreamIOException(e);
+    }
+  }
+
+  private static int copyImageStreamData(
+      ImageInputStream imageInputStream, OutputStream outputStream) throws IOException {
+    var buffer = new byte[FILE_BUFFER];
+    int bytesRead;
+    while ((bytesRead = imageInputStream.read(buffer)) > 0) {
+      outputStream.write(buffer, 0, bytesRead);
+    }
+    outputStream.flush();
+    return -1; // Success indicator
+  }
+
   /**
-   * Print a byte count in a human-readable format.
+   * Format byte count in human-readable format.
    *
    * @see <a href="https://programming.guide/worlds-most-copied-so-snippet.html">World's most copied
    *     StackOverflow snippet</a>
    * @param bytes number of bytes
-   * @param si true for SI units (powers of 1000), false for binary units (powers of 1024)
-   * @return the human-readable size of the byte count
+   * @param si true for SI units (1000), false for binary units (1024)
+   * @return human-readable size string
    */
   public static String humanReadableByte(long bytes, boolean si) {
     int unit = si ? 1000 : 1024;
     long absBytes = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
-    if (absBytes < unit) return bytes + " B";
+    if (absBytes < unit) {
+      return bytes + " B";
+    }
     int exp = (int) (Math.log(absBytes) / Math.log(unit));
-    long th = (long) Math.ceil(Math.pow(unit, exp) * (unit - 0.05));
-    if (exp < 6 && absBytes >= th - ((th & 0xFFF) == 0xD00 ? 51 : 0)) exp++;
-    String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
+    long threshold = (long) Math.ceil(Math.pow(unit, exp) * (unit - 0.05));
+    if (exp < 6 && absBytes >= threshold - ((threshold & 0xFFF) == 0xD00 ? 51 : 0)) {
+      exp++;
+    }
+
+    var unitChars = si ? "kMGTPE" : "KMGTPE";
+    var prefix = unitChars.charAt(exp - 1) + (si ? "" : "i");
     if (exp > 4) {
       bytes /= unit;
       exp -= 1;
     }
-    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), prefix);
   }
 
   /**
-   * Copy a folder and its content to another folder with copy options.
+   * Copy a folder and its contents to another folder.
    *
    * @param source the source folder
    * @param target the target folder
@@ -469,54 +511,62 @@ public final class FileUtil {
    */
   public static void copyFolder(Path source, Path target, CopyOption... options)
       throws IOException {
-    Files.walkFileTree(
-        source,
-        new SimpleFileVisitor<Path>() {
-
-          @Override
-          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-              throws IOException {
-            Files.createDirectories(target.resolve(source.relativize(dir)));
-            return FileVisitResult.CONTINUE;
-          }
-
-          @Override
-          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-              throws IOException {
-            Files.copy(file, target.resolve(source.relativize(file)), options);
-            return FileVisitResult.CONTINUE;
-          }
-        });
+    Files.walkFileTree(source, new FolderCopyVisitor(source, target, options));
   }
 
   /**
-   * Get the combined path. If output is a file, it is returned as is. If output is a directory, the
-   * input filename is added to the output path.
+   * Get the output path, resolving filename if target is a directory.
    *
-   * @param input The input filename
-   * @param output The output path
-   * @return The combined output path
+   * @param input the input path
+   * @param output the output path
+   * @return the resolved output path
    */
   public static Path getOutputPath(Path input, Path output) {
     return Files.isDirectory(output) ? output.resolve(input.getFileName()) : output;
   }
 
   /**
-   * Add a file index to the file name. The index number is added before the file extension.
+   * Add an index to a filename before the extension.
    *
    * @param path the file path
-   * @param index the index to add to the filename
-   * @param indexSize the minimal number of digits of the index (0 padding)
-   * @return the new path
+   * @param index the index to add
+   * @param indexSize the minimum number of digits (zero-padded)
+   * @return the path with index added
    */
   public static Path addFileIndex(Path path, int index, int indexSize) {
     if (indexSize < 1) {
       return path;
     }
-    String pattern = "$1-%0" + indexSize + "d$2";
-    String insert = String.format(pattern, index);
-    return path.resolveSibling(
-        path.getFileName().toString().replaceFirst("(.*?)(\\.[^.]+)?$", insert));
+    var pattern = String.format("$1-%%0%dd$2", indexSize);
+    var replacement = String.format(pattern, index);
+    var newName = path.getFileName().toString().replaceFirst("(.*?)(\\.[^.]+)?$", replacement);
+    return path.resolveSibling(newName);
+  }
+
+  // Inner class for folder copying
+  private static class FolderCopyVisitor extends SimpleFileVisitor<Path> {
+    private final Path source;
+    private final Path target;
+    private final CopyOption[] options;
+
+    FolderCopyVisitor(Path source, Path target, CopyOption[] options) {
+      this.source = source;
+      this.target = target;
+      this.options = options;
+    }
+
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+        throws IOException {
+      Files.createDirectories(target.resolve(source.relativize(dir)));
+      return FileVisitResult.CONTINUE;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      Files.copy(file, target.resolve(source.relativize(file)), options);
+      return FileVisitResult.CONTINUE;
+    }
   }
 
   // ============================== DEPRECATED FILE-BASED METHODS ==============================

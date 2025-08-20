@@ -11,446 +11,529 @@ package org.weasis.core.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-@DisplayName("Triple Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class TripleTest {
 
+  // Test data constants - using real data structures
+  private static final String SAMPLE_STRING = "Hello World";
+  private static final Integer SAMPLE_INTEGER = 42;
+  private static final Double SAMPLE_DOUBLE = 3.14159;
+  private static final Boolean SAMPLE_BOOLEAN = true;
+  private static final LocalDate SAMPLE_DATE = LocalDate.of(2024, 1, 15);
+  private static final List<String> SAMPLE_LIST = List.of("apple", "banana", "cherry");
+  private static final Map<String, Integer> SAMPLE_MAP = Map.of("key1", 100, "key2", 200);
+  private static final Set<Integer> SAMPLE_SET = Set.of(1, 2, 3, 4, 5);
+  private static final BigDecimal SAMPLE_BIG_DECIMAL = new BigDecimal("123.456");
+
   @Nested
-  @DisplayName("Basic Construction and Access")
-  class BasicConstructionTests {
+  class Basic_construction_and_access {
 
     @Test
-    @DisplayName("Should store and retrieve all three values correctly")
-    void testTripleStoresFirstSecondAndThirdValues() {
-      Triple<String, Integer, Double> triple = new Triple<>("first", 1, 2.0);
-      assertEquals("first", triple.first());
-      assertEquals(1, triple.second());
-      assertEquals(2.0, triple.third());
+    void should_store_and_retrieve_all_three_values_correctly() {
+      var triple = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+
+      assertEquals(SAMPLE_STRING, triple.first());
+      assertEquals(SAMPLE_INTEGER, triple.second());
+      assertEquals(SAMPLE_DOUBLE, triple.third());
     }
 
     @Test
-    @DisplayName("Should handle different types correctly")
-    void testTripleWithDifferentTypes() {
-      Triple<Integer, String, Boolean> triple = new Triple<>(1, "second", true);
-      assertEquals(1, triple.first());
-      assertEquals("second", triple.second());
-      assertTrue(triple.third());
+    void should_handle_different_types_correctly() {
+      var triple = new Triple<>(SAMPLE_DATE, SAMPLE_LIST, SAMPLE_BOOLEAN);
+
+      assertEquals(SAMPLE_DATE, triple.first());
+      assertEquals(SAMPLE_LIST, triple.second());
+      assertEquals(SAMPLE_BOOLEAN, triple.third());
     }
 
     @Test
-    @DisplayName("Should handle mixed null and non-null values")
-    void testTripleHandlesMixedNullAndNonNullValues() {
-      Triple<String, Integer, Double> triple = new Triple<>("first", null, 2.0);
-      assertEquals("first", triple.first());
-      assertNull(triple.second());
-      assertEquals(2.0, triple.third());
+    void should_handle_mixed_null_and_non_null_values() {
+      var partialNull1 = new Triple<>(SAMPLE_STRING, null, SAMPLE_DOUBLE);
+      assertEquals(SAMPLE_STRING, partialNull1.first());
+      assertNull(partialNull1.second());
+      assertEquals(SAMPLE_DOUBLE, partialNull1.third());
 
-      triple = new Triple<>(null, 1, null);
-      assertNull(triple.first());
-      assertEquals(1, triple.second());
-      assertNull(triple.third());
+      var partialNull2 = new Triple<>(null, SAMPLE_INTEGER, null);
+      assertNull(partialNull2.first());
+      assertEquals(SAMPLE_INTEGER, partialNull2.second());
+      assertNull(partialNull2.third());
     }
 
     @Test
-    @DisplayName("Should handle all null values")
-    void testTripleWithAllNullValues() {
-      Triple<String, Integer, Double> triple = new Triple<>(null, null, null);
-      assertNull(triple.first());
-      assertNull(triple.second());
-      assertNull(triple.third());
+    void should_handle_all_null_values() {
+      var allNull = new Triple<String, Integer, Double>(null, null, null);
+
+      assertNull(allNull.first());
+      assertNull(allNull.second());
+      assertNull(allNull.third());
+    }
+
+    @Test
+    void should_handle_complex_data_structures() {
+      var complexTriple = new Triple<>(SAMPLE_MAP, SAMPLE_SET, SAMPLE_BIG_DECIMAL);
+
+      assertEquals(SAMPLE_MAP, complexTriple.first());
+      assertEquals(SAMPLE_SET, complexTriple.second());
+      assertEquals(SAMPLE_BIG_DECIMAL, complexTriple.third());
     }
   }
 
   @Nested
-  @DisplayName("Factory Methods")
-  class FactoryMethodTests {
+  class Factory_methods {
 
     @Test
-    @DisplayName("Should create triple using of() factory method")
-    void testFactoryMethodOf() {
-      Triple<String, Integer, Boolean> triple = Triple.of("hello", 42, true);
-      assertEquals("hello", triple.first());
-      assertEquals(42, triple.second());
-      assertTrue(triple.third());
+    void should_create_triple_using_of_factory_method() {
+      var triple = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_BOOLEAN);
+
+      assertEquals(SAMPLE_STRING, triple.first());
+      assertEquals(SAMPLE_INTEGER, triple.second());
+      assertEquals(SAMPLE_BOOLEAN, triple.third());
     }
 
     @Test
-    @DisplayName("Should create empty triple with all null values")
-    void testFactoryMethodEmpty() {
-      Triple<String, Integer, Boolean> triple = Triple.empty();
-      assertNull(triple.first());
-      assertNull(triple.second());
-      assertNull(triple.third());
+    void should_create_empty_triple_with_all_null_values() {
+      var empty = Triple.<String, Integer, Boolean>empty();
+
+      assertNull(empty.first());
+      assertNull(empty.second());
+      assertNull(empty.third());
     }
 
     @Test
-    @DisplayName("Should create triple with null values using of()")
-    void testFactoryMethodOfWithNulls() {
-      Triple<String, Integer, Boolean> triple = Triple.of(null, null, null);
-      assertNull(triple.first());
-      assertNull(triple.second());
-      assertNull(triple.third());
+    void should_create_triple_with_null_values_using_of() {
+      var nullTriple = Triple.<String, Integer, Boolean>of(null, null, null);
+
+      assertNull(nullTriple.first());
+      assertNull(nullTriple.second());
+      assertNull(nullTriple.third());
+    }
+
+    @Test
+    void should_create_triple_with_collections() {
+      var collectionsTriple = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+
+      assertEquals(SAMPLE_LIST, collectionsTriple.first());
+      assertEquals(SAMPLE_MAP, collectionsTriple.second());
+      assertEquals(SAMPLE_SET, collectionsTriple.third());
     }
   }
 
   @Nested
-  @DisplayName("Equality and HashCode")
-  class EqualityTests {
+  class Equality_and_hash_code {
 
     @Test
-    @DisplayName("Should be equal when all elements are equal")
-    void testTripleEquality() {
-      Triple<String, Integer, Double> triple1 = new Triple<>("first", 1, 2.0);
-      Triple<String, Integer, Double> triple2 = new Triple<>("first", 1, 2.0);
+    void should_be_equal_when_all_elements_are_equal() {
+      var triple1 = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var triple2 = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+
       assertEquals(triple1, triple2);
       assertEquals(triple1.hashCode(), triple2.hashCode());
     }
 
     @Test
-    @DisplayName("Should not be equal when elements differ")
-    void testTripleInequality() {
-      Triple<String, Integer, Double> triple1 = new Triple<>("first", 1, 2.0);
+    void should_not_be_equal_when_elements_differ() {
+      var original = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
 
-      // Different first element
-      Triple<String, Integer, Double> triple2 = new Triple<>("second", 1, 2.0);
-      assertNotEquals(triple1, triple2);
+      var differentFirst = new Triple<>("Different", SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var differentSecond = new Triple<>(SAMPLE_STRING, 999, SAMPLE_DOUBLE);
+      var differentThird = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, 9.99);
 
-      // Different second element
-      triple2 = new Triple<>("first", 2, 2.0);
-      assertNotEquals(triple1, triple2);
-
-      // Different third element
-      triple2 = new Triple<>("first", 1, 3.0);
-      assertNotEquals(triple1, triple2);
+      assertNotEquals(original, differentFirst);
+      assertNotEquals(original, differentSecond);
+      assertNotEquals(original, differentThird);
     }
 
     @Test
-    @DisplayName("Should handle null equality correctly")
-    void testTripleEqualityWithNulls() {
-      Triple<String, Integer, Double> triple1 = new Triple<>(null, 1, null);
-      Triple<String, Integer, Double> triple2 = new Triple<>(null, 1, null);
+    void should_handle_null_equality_correctly() {
+      var triple1 = new Triple<>(null, SAMPLE_INTEGER, null);
+      var triple2 = new Triple<>(null, SAMPLE_INTEGER, null);
+
       assertEquals(triple1, triple2);
       assertEquals(triple1.hashCode(), triple2.hashCode());
     }
 
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"not a triple", "42"})
+    void should_not_be_equal_to_null_or_other_types(Object other) {
+      var triple = new Triple<>(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+
+      assertNotEquals(triple, other);
+    }
+
     @Test
-    @DisplayName("Should not be equal to null or other types")
-    void testTripleNotEqualToNullOrOtherTypes() {
-      Triple<String, Integer, Double> triple = new Triple<>("first", 1, 2.0);
-      assertNotEquals(null, triple);
-      assertNotEquals("not a triple", triple);
-      assertNotEquals(42, triple);
+    void should_handle_complex_objects_equality() {
+      var complex1 = new Triple<>(SAMPLE_LIST, SAMPLE_MAP, LocalDateTime.now());
+      var complex2 = new Triple<>(SAMPLE_LIST, SAMPLE_MAP, complex1.third());
+
+      assertEquals(complex1, complex2);
     }
   }
 
   @Nested
-  @DisplayName("Immutable Updates")
-  class ImmutableUpdateTests {
+  class Immutable_updates {
 
     @Test
-    @DisplayName("Should create new triple with different first element")
-    void testWithFirst() {
-      Triple<String, Integer, Double> original = Triple.of("first", 1, 2.0);
-      Triple<Integer, Integer, Double> updated = original.withFirst(42);
+    void should_create_new_triple_with_different_first_element() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var updated = original.withFirst(SAMPLE_DATE);
 
-      assertEquals(42, updated.first());
-      assertEquals(1, updated.second());
-      assertEquals(2.0, updated.third());
+      assertEquals(SAMPLE_DATE, updated.first());
+      assertEquals(SAMPLE_INTEGER, updated.second());
+      assertEquals(SAMPLE_DOUBLE, updated.third());
 
-      // Original should be unchanged
-      assertEquals("first", original.first());
+      // Original unchanged
+      assertEquals(SAMPLE_STRING, original.first());
     }
 
     @Test
-    @DisplayName("Should create new triple with different second element")
-    void testWithSecond() {
-      Triple<String, Integer, Double> original = Triple.of("first", 1, 2.0);
-      Triple<String, String, Double> updated = original.withSecond("new");
+    void should_create_new_triple_with_different_second_element() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var updated = original.withSecond(SAMPLE_LIST);
 
-      assertEquals("first", updated.first());
-      assertEquals("new", updated.second());
-      assertEquals(2.0, updated.third());
+      assertEquals(SAMPLE_STRING, updated.first());
+      assertEquals(SAMPLE_LIST, updated.second());
+      assertEquals(SAMPLE_DOUBLE, updated.third());
 
-      // Original should be unchanged
-      assertEquals(1, original.second());
+      // Original unchanged
+      assertEquals(SAMPLE_INTEGER, original.second());
     }
 
     @Test
-    @DisplayName("Should create new triple with different third element")
-    void testWithThird() {
-      Triple<String, Integer, Double> original = Triple.of("first", 1, 2.0);
-      Triple<String, Integer, Boolean> updated = original.withThird(true);
+    void should_create_new_triple_with_different_third_element() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var updated = original.withThird(SAMPLE_BOOLEAN);
 
-      assertEquals("first", updated.first());
-      assertEquals(1, updated.second());
-      assertTrue(updated.third());
+      assertEquals(SAMPLE_STRING, updated.first());
+      assertEquals(SAMPLE_INTEGER, updated.second());
+      assertEquals(SAMPLE_BOOLEAN, updated.third());
 
-      // Original should be unchanged
-      assertEquals(2.0, original.third());
+      // Original unchanged
+      assertEquals(SAMPLE_DOUBLE, original.third());
     }
 
     @Test
-    @DisplayName("Should handle null values in with methods")
-    void testWithMethodsWithNulls() {
-      Triple<String, Integer, Double> original = Triple.of("first", 1, 2.0);
+    void should_handle_null_values_in_with_methods() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
 
-      Triple<String, Integer, Double> withNullFirst = original.withFirst(null);
+      var withNullFirst = original.withFirst(null);
+      var withNullSecond = original.withSecond(null);
+      var withNullThird = original.withThird(null);
+
       assertNull(withNullFirst.first());
-
-      Triple<String, Integer, Double> withNullSecond = original.withSecond(null);
       assertNull(withNullSecond.second());
-
-      Triple<String, Integer, Double> withNullThird = original.withThird(null);
       assertNull(withNullThird.third());
     }
+
+    @Test
+    void should_maintain_immutability_with_complex_objects() {
+      var original = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+      var modified = original.withSecond(Map.of("new", 999));
+
+      assertEquals(SAMPLE_MAP, original.second());
+      assertEquals(Map.of("new", 999), modified.second());
+    }
   }
 
   @Nested
-  @DisplayName("Transformation Methods")
-  class TransformationTests {
+  class Transformation_methods {
 
     @Test
-    @DisplayName("Should transform first element using mapFirst")
-    void testMapFirst() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 1, 2.0);
-      Triple<Integer, Integer, Double> transformed = original.mapFirst(String::length);
+    void should_transform_first_element_using_map_first() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var transformed = original.mapFirst(String::length);
 
-      assertEquals(5, transformed.first());
-      assertEquals(1, transformed.second());
-      assertEquals(2.0, transformed.third());
+      assertEquals(SAMPLE_STRING.length(), transformed.first());
+      assertEquals(SAMPLE_INTEGER, transformed.second());
+      assertEquals(SAMPLE_DOUBLE, transformed.third());
     }
 
     @Test
-    @DisplayName("Should transform second element using mapSecond")
-    void testMapSecond() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 1, 2.0);
-      Triple<String, Integer, Double> transformed = original.mapSecond(x -> x * 2);
+    void should_transform_second_element_using_map_second() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var transformed = original.mapSecond(x -> x * 2);
 
-      assertEquals("hello", transformed.first());
-      assertEquals(2, transformed.second());
-      assertEquals(2.0, transformed.third());
+      assertEquals(SAMPLE_STRING, transformed.first());
+      assertEquals(SAMPLE_INTEGER * 2, transformed.second());
+      assertEquals(SAMPLE_DOUBLE, transformed.third());
     }
 
     @Test
-    @DisplayName("Should transform third element using mapThird")
-    void testMapThird() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 1, 2.0);
-      Triple<String, Integer, String> transformed = original.mapThird(Object::toString);
+    void should_transform_third_element_using_map_third() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var transformed = original.mapThird(Object::toString);
 
-      assertEquals("hello", transformed.first());
-      assertEquals(1, transformed.second());
-      assertEquals("2.0", transformed.third());
+      assertEquals(SAMPLE_STRING, transformed.first());
+      assertEquals(SAMPLE_INTEGER, transformed.second());
+      assertEquals(SAMPLE_DOUBLE.toString(), transformed.third());
     }
 
     @Test
-    @DisplayName("Should transform all elements using mapAll")
-    void testMapAll() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 1, 2.0);
-      Triple<Integer, String, Boolean> transformed =
-          original.mapAll(String::length, Object::toString, x -> x > 1.0);
+    void should_transform_all_elements_using_map_all() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var transformed = original.mapAll(String::length, x -> x * 10, x -> x > 3.0);
 
-      assertEquals(5, transformed.first());
-      assertEquals("1", transformed.second());
+      assertEquals(SAMPLE_STRING.length(), transformed.first());
+      assertEquals(SAMPLE_INTEGER * 10, transformed.second());
       assertTrue(transformed.third());
     }
 
     @Test
-    @DisplayName("Should handle null values in transformations")
-    void testTransformationsWithNulls() {
-      Triple<String, Integer, Double> original = Triple.of(null, 1, null);
+    void should_handle_null_values_in_transformations() {
+      var original = Triple.of((String) null, SAMPLE_INTEGER, (Double) null);
 
-      Triple<Integer, Integer, Double> transformed =
-          original.mapFirst(x -> x == null ? 0 : x.length());
-      assertEquals(0, transformed.first());
+      var transformed = original.mapFirst(x -> x == null ? "NULL" : x.toUpperCase());
+      assertEquals("NULL", transformed.first());
 
-      Triple<String, Integer, String> transformedThird =
-          original.mapThird(x -> x == null ? "null" : x.toString());
-      assertEquals("null", transformedThird.third());
+      var transformedThird = original.mapThird(x -> x == null ? -1.0 : x * 2);
+      assertEquals(-1.0, transformedThird.third());
     }
 
     @Test
-    @DisplayName("Should throw NullPointerException for null mappers")
-    void testNullMapperThrowsException() {
-      Triple<String, Integer, Double> triple = Triple.of("hello", 1, 2.0);
+    void should_transform_complex_objects() {
+      var original = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+      var transformed =
+          original.mapAll(
+              List::size, Map::keySet, set -> set.stream().mapToInt(Integer::intValue).sum());
 
-      assertThrows(NullPointerException.class, () -> triple.mapFirst(null));
-      assertThrows(NullPointerException.class, () -> triple.mapSecond(null));
-      assertThrows(NullPointerException.class, () -> triple.mapThird(null));
-      assertThrows(NullPointerException.class, () -> triple.mapAll(null, x -> x, x -> x));
-      assertThrows(NullPointerException.class, () -> triple.mapAll(x -> x, null, x -> x));
-      assertThrows(NullPointerException.class, () -> triple.mapAll(x -> x, x -> x, null));
-    }
-  }
-
-  @Nested
-  @DisplayName("Null Checking Methods")
-  class NullCheckingTests {
-
-    @Test
-    @DisplayName("Should correctly identify when any element is null")
-    void testHasNull() {
-      assertTrue(Triple.of(null, 1, 2.0).hasNull());
-      assertTrue(Triple.of("hello", null, 2.0).hasNull());
-      assertTrue(Triple.of("hello", 1, null).hasNull());
-      assertTrue(Triple.of(null, null, null).hasNull());
-      assertFalse(Triple.of("hello", 1, 2.0).hasNull());
+      assertEquals(SAMPLE_LIST.size(), transformed.first());
+      assertEquals(SAMPLE_MAP.keySet(), transformed.second());
+      assertEquals(15, transformed.third()); // Sum of 1+2+3+4+5
     }
 
-    @Test
-    @DisplayName("Should correctly identify when all elements are null")
-    void testIsAllNull() {
-      assertTrue(Triple.of(null, null, null).isAllNull());
-      assertTrue(Triple.empty().isAllNull());
-      assertFalse(Triple.of("hello", null, null).isAllNull());
-      assertFalse(Triple.of(null, 1, null).isAllNull());
-      assertFalse(Triple.of(null, null, 2.0).isAllNull());
-      assertFalse(Triple.of("hello", 1, 2.0).isAllNull());
+    @ParameterizedTest
+    @MethodSource("nullMapperTestCases")
+    void should_throw_null_pointer_exception_for_null_mappers(Runnable nullMapperTest) {
+      assertThrows(NullPointerException.class, nullMapperTest::run);
     }
 
-    @Test
-    @DisplayName("Should correctly identify when all elements are non-null")
-    void testIsAllNonNull() {
-      assertTrue(Triple.of("hello", 1, 2.0).isAllNonNull());
-      assertFalse(Triple.of(null, 1, 2.0).isAllNonNull());
-      assertFalse(Triple.of("hello", null, 2.0).isAllNonNull());
-      assertFalse(Triple.of("hello", 1, null).isAllNonNull());
-      assertFalse(Triple.of(null, null, null).isAllNonNull());
+    static Stream<Arguments> nullMapperTestCases() {
+      var triple = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      return Stream.of(
+          Arguments.of((Runnable) () -> triple.mapFirst(null)),
+          Arguments.of((Runnable) () -> triple.mapSecond(null)),
+          Arguments.of((Runnable) () -> triple.mapThird(null)),
+          Arguments.of((Runnable) () -> triple.mapAll(null, x -> x, x -> x)),
+          Arguments.of((Runnable) () -> triple.mapAll(x -> x, null, x -> x)),
+          Arguments.of((Runnable) () -> triple.mapAll(x -> x, x -> x, null)));
     }
   }
 
   @Nested
-  @DisplayName("Swapping Methods")
-  class SwappingTests {
+  class Null_checking_methods {
+
+    @ParameterizedTest
+    @MethodSource("hasNullTestCases")
+    void should_correctly_identify_when_any_element_is_null(
+        Triple<?, ?, ?> triple, boolean expected) {
+      assertEquals(expected, triple.hasNull());
+    }
+
+    static Stream<Arguments> hasNullTestCases() {
+      return Stream.of(
+          Arguments.of(Triple.of(null, SAMPLE_INTEGER, SAMPLE_DOUBLE), true),
+          Arguments.of(Triple.of(SAMPLE_STRING, null, SAMPLE_DOUBLE), true),
+          Arguments.of(Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, null), true),
+          Arguments.of(Triple.of(null, null, null), true),
+          Arguments.of(Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE), false));
+    }
+
+    @ParameterizedTest
+    @MethodSource("isAllNullTestCases")
+    void should_correctly_identify_when_all_elements_are_null(
+        Triple<?, ?, ?> triple, boolean expected) {
+      assertEquals(expected, triple.isAllNull());
+    }
+
+    static Stream<Arguments> isAllNullTestCases() {
+      return Stream.of(
+          Arguments.of(Triple.of(null, null, null), true),
+          Arguments.of(Triple.empty(), true),
+          Arguments.of(Triple.of(SAMPLE_STRING, null, null), false),
+          Arguments.of(Triple.of(null, SAMPLE_INTEGER, null), false),
+          Arguments.of(Triple.of(null, null, SAMPLE_DOUBLE), false),
+          Arguments.of(Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE), false));
+    }
+
+    @ParameterizedTest
+    @MethodSource("isAllNonNullTestCases")
+    void should_correctly_identify_when_all_elements_are_non_null(
+        Triple<?, ?, ?> triple, boolean expected) {
+      assertEquals(expected, triple.isAllNonNull());
+    }
+
+    static Stream<Arguments> isAllNonNullTestCases() {
+      return Stream.of(
+          Arguments.of(Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE), true),
+          Arguments.of(Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET), true),
+          Arguments.of(Triple.of(null, SAMPLE_INTEGER, SAMPLE_DOUBLE), false),
+          Arguments.of(Triple.of(SAMPLE_STRING, null, SAMPLE_DOUBLE), false),
+          Arguments.of(Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, null), false),
+          Arguments.of(Triple.of(null, null, null), false));
+    }
+  }
+
+  @Nested
+  class Swapping_methods {
 
     @Test
-    @DisplayName("Should swap first and second elements")
-    void testSwapFirstSecond() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 42, 3.14);
-      Triple<Integer, String, Double> swapped = original.swapFirstSecond();
+    void should_swap_first_and_second_elements() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var swapped = original.swapFirstSecond();
 
-      assertEquals(42, swapped.first());
-      assertEquals("hello", swapped.second());
-      assertEquals(3.14, swapped.third());
+      assertEquals(SAMPLE_INTEGER, swapped.first());
+      assertEquals(SAMPLE_STRING, swapped.second());
+      assertEquals(SAMPLE_DOUBLE, swapped.third());
     }
 
     @Test
-    @DisplayName("Should swap first and third elements")
-    void testSwapFirstThird() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 42, 3.14);
-      Triple<Double, Integer, String> swapped = original.swapFirstThird();
+    void should_swap_first_and_third_elements() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var swapped = original.swapFirstThird();
 
-      assertEquals(3.14, swapped.first());
-      assertEquals(42, swapped.second());
-      assertEquals("hello", swapped.third());
+      assertEquals(SAMPLE_DOUBLE, swapped.first());
+      assertEquals(SAMPLE_INTEGER, swapped.second());
+      assertEquals(SAMPLE_STRING, swapped.third());
     }
 
     @Test
-    @DisplayName("Should swap second and third elements")
-    void testSwapSecondThird() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 42, 3.14);
-      Triple<String, Double, Integer> swapped = original.swapSecondThird();
+    void should_swap_second_and_third_elements() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var swapped = original.swapSecondThird();
 
-      assertEquals("hello", swapped.first());
-      assertEquals(3.14, swapped.second());
-      assertEquals(42, swapped.third());
+      assertEquals(SAMPLE_STRING, swapped.first());
+      assertEquals(SAMPLE_DOUBLE, swapped.second());
+      assertEquals(SAMPLE_INTEGER, swapped.third());
     }
 
     @Test
-    @DisplayName("Should handle null values in swapping")
-    void testSwapWithNulls() {
-      Triple<String, Integer, Double> original = Triple.of(null, 42, null);
+    void should_handle_null_values_in_swapping() {
+      var original = Triple.of((String) null, SAMPLE_INTEGER, (Double) null);
 
-      Triple<Integer, String, Double> swapped = original.swapFirstSecond();
-      assertEquals(42, swapped.first());
+      var swapped = original.swapFirstSecond();
+      assertEquals(SAMPLE_INTEGER, swapped.first());
       assertNull(swapped.second());
       assertNull(swapped.third());
     }
+
+    @Test
+    void should_swap_complex_objects() {
+      var original = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+      var swapped = original.swapFirstThird();
+
+      assertEquals(SAMPLE_SET, swapped.first());
+      assertEquals(SAMPLE_MAP, swapped.second());
+      assertEquals(SAMPLE_LIST, swapped.third());
+    }
   }
 
   @Nested
-  @DisplayName("Array Conversion")
-  class ArrayConversionTests {
+  class Array_conversion {
 
     @Test
-    @DisplayName("Should convert triple to array")
-    void testToArray() {
-      Triple<String, Integer, Double> triple = Triple.of("hello", 42, 3.14);
-      Object[] array = triple.toArray();
+    void should_convert_triple_to_array() {
+      var triple = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var array = triple.toArray();
 
       assertEquals(3, array.length);
-      assertEquals("hello", array[0]);
-      assertEquals(42, array[1]);
-      assertEquals(3.14, array[2]);
+      assertEquals(SAMPLE_STRING, array[0]);
+      assertEquals(SAMPLE_INTEGER, array[1]);
+      assertEquals(SAMPLE_DOUBLE, array[2]);
     }
 
     @Test
-    @DisplayName("Should handle null values in array conversion")
-    void testToArrayWithNulls() {
-      Triple<String, Integer, Double> triple = Triple.of(null, 42, null);
-      Object[] array = triple.toArray();
+    void should_handle_null_values_in_array_conversion() {
+      var triple = Triple.of((String) null, SAMPLE_INTEGER, (Double) null);
+      var array = triple.toArray();
 
       assertEquals(3, array.length);
       assertNull(array[0]);
-      assertEquals(42, array[1]);
+      assertEquals(SAMPLE_INTEGER, array[1]);
       assertNull(array[2]);
     }
-  }
-
-  @Nested
-  @DisplayName("String Representation")
-  class StringRepresentationTests {
 
     @Test
-    @DisplayName("Should provide correct string representation")
-    void testToString() {
-      Triple<String, Integer, Double> triple = Triple.of("hello", 42, 3.14);
-      assertEquals("(hello, 42, 3.14)", triple.toString());
-    }
+    void should_convert_complex_objects_to_array() {
+      var triple = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+      var array = triple.toArray();
 
-    @Test
-    @DisplayName("Should handle null values in string representation")
-    void testToStringWithNulls() {
-      Triple<String, Integer, Double> triple = Triple.of(null, 42, null);
-      assertEquals("(null, 42, null)", triple.toString());
-    }
-
-    @Test
-    @DisplayName("Should handle all null values in string representation")
-    void testToStringAllNulls() {
-      Triple<String, Integer, Double> triple = Triple.empty();
-      assertEquals("(null, null, null)", triple.toString());
+      assertEquals(3, array.length);
+      assertEquals(SAMPLE_LIST, array[0]);
+      assertEquals(SAMPLE_MAP, array[1]);
+      assertEquals(SAMPLE_SET, array[2]);
     }
   }
 
   @Nested
-  @DisplayName("Serialization")
-  class SerializationTests {
+  class String_representation {
 
     @Test
-    @DisplayName("Should be serializable and deserializable")
-    void testSerialization() throws IOException, ClassNotFoundException {
-      Triple<String, Integer, Double> original = Triple.of("hello", 42, 3.14);
+    void should_provide_correct_string_representation() {
+      var triple = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+      var expected = "(%s, %s, %s)".formatted(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
 
-      // Serialize
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-        oos.writeObject(original);
-      }
+      assertEquals(expected, triple.toString());
+    }
 
-      // Deserialize
-      ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-      Triple<String, Integer, Double> deserialized;
-      try (ObjectInputStream ois = new ObjectInputStream(bais)) {
-        deserialized = (Triple<String, Integer, Double>) ois.readObject();
-      }
+    @Test
+    void should_handle_null_values_in_string_representation() {
+      var triple = Triple.of((String) null, SAMPLE_INTEGER, (Double) null);
+      var expected = "(null, %s, null)".formatted(SAMPLE_INTEGER);
+
+      assertEquals(expected, triple.toString());
+    }
+
+    @Test
+    void should_handle_all_null_values_in_string_representation() {
+      var empty = Triple.<String, Integer, Double>empty();
+
+      assertEquals("(null, null, null)", empty.toString());
+    }
+
+    @Test
+    void should_format_complex_objects_correctly() {
+      var triple = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_DATE);
+      var result = triple.toString();
+
+      assertTrue(result.startsWith("("));
+      assertTrue(result.endsWith(")"));
+      assertTrue(result.contains(SAMPLE_LIST.toString()));
+      assertTrue(result.contains(SAMPLE_MAP.toString()));
+      assertTrue(result.contains(SAMPLE_DATE.toString()));
+    }
+  }
+
+  @Nested
+  class Serialization {
+
+    @Test
+    void should_be_serializable_and_deserializable() throws IOException, ClassNotFoundException {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
+
+      var serialized = serializeObject(original);
+      var deserialized = deserializeObject(serialized, Triple.class);
 
       assertEquals(original, deserialized);
       assertEquals(original.first(), deserialized.first());
@@ -459,55 +542,66 @@ class TripleTest {
     }
 
     @Test
-    @DisplayName("Should serialize and deserialize null values")
-    void testSerializationWithNulls() throws IOException, ClassNotFoundException {
-      Triple<String, Integer, Double> original = Triple.of(null, 42, null);
+    void should_serialize_and_deserialize_null_values() throws IOException, ClassNotFoundException {
+      var original = Triple.of((String) null, SAMPLE_INTEGER, (Double) null);
 
-      // Serialize
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-        oos.writeObject(original);
-      }
-
-      // Deserialize
-      ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-      Triple<String, Integer, Double> deserialized;
-      try (ObjectInputStream ois = new ObjectInputStream(bais)) {
-        deserialized = (Triple<String, Integer, Double>) ois.readObject();
-      }
+      var serialized = serializeObject(original);
+      var deserialized = deserializeObject(serialized, Triple.class);
 
       assertEquals(original, deserialized);
       assertNull(deserialized.first());
-      assertEquals(42, deserialized.second());
+      assertEquals(SAMPLE_INTEGER, deserialized.second());
       assertNull(deserialized.third());
+    }
+
+    @Test
+    void should_serialize_complex_objects() throws IOException, ClassNotFoundException {
+      var original = Triple.of(SAMPLE_LIST, SAMPLE_DATE, SAMPLE_BIG_DECIMAL);
+
+      var serialized = serializeObject(original);
+      var deserialized = deserializeObject(serialized, Triple.class);
+
+      assertEquals(original, deserialized);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T deserializeObject(byte[] data, Class<T> type)
+        throws IOException, ClassNotFoundException {
+      try (var bais = new ByteArrayInputStream(data);
+          var ois = new ObjectInputStream(bais)) {
+        return (T) ois.readObject();
+      }
+    }
+
+    private byte[] serializeObject(Object obj) throws IOException {
+      try (var baos = new ByteArrayOutputStream();
+          var oos = new ObjectOutputStream(baos)) {
+        oos.writeObject(obj);
+        return baos.toByteArray();
+      }
     }
   }
 
   @Nested
-  @DisplayName("Edge Cases and Integration")
-  class EdgeCasesTests {
+  class Edge_cases_and_integration {
 
     @Test
-    @DisplayName("Should handle method chaining")
-    void testMethodChaining() {
-      Triple<String, Integer, Double> result =
-          Triple.of("hello", 1, 2.0)
+    void should_handle_method_chaining() {
+      var result =
+          Triple.of(SAMPLE_STRING, 1, 2.0)
               .mapFirst(String::toUpperCase)
               .mapSecond(x -> x * 10)
               .withThird(100.0);
 
-      assertEquals("HELLO", result.first());
+      assertEquals(SAMPLE_STRING.toUpperCase(), result.first());
       assertEquals(10, result.second());
       assertEquals(100.0, result.third());
     }
 
     @Test
-    @DisplayName("Should handle complex transformations")
-    void testComplexTransformations() {
-      Triple<String, String, String> triple = Triple.of("hello", "world", "java");
-
-      Triple<Integer, Integer, Integer> lengths =
-          triple.mapAll(String::length, String::length, String::length);
+    void should_handle_complex_transformations() {
+      var triple = Triple.of("hello", "world", "java");
+      var lengths = triple.mapAll(String::length, String::length, String::length);
 
       assertEquals(5, lengths.first());
       assertEquals(5, lengths.second());
@@ -515,42 +609,56 @@ class TripleTest {
     }
 
     @ParameterizedTest
-    @MethodSource("provideTripleTestData")
-    @DisplayName("Should handle various data types")
-    void testVariousDataTypes(Object first, Object second, Object third) {
-      Triple<Object, Object, Object> triple = Triple.of(first, second, third);
+    @MethodSource("provideRealWorldTestData")
+    void should_handle_various_real_world_data_types(Object first, Object second, Object third) {
+      var triple = Triple.of(first, second, third);
+
       assertEquals(first, triple.first());
       assertEquals(second, triple.second());
       assertEquals(third, triple.third());
     }
 
-    static Stream<Arguments> provideTripleTestData() {
+    static Stream<Arguments> provideRealWorldTestData() {
       return Stream.of(
-          Arguments.of("string", 42, 3.14),
-          Arguments.of(true, false, null),
-          Arguments.of(new Object(), "test", 100L),
+          Arguments.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE),
+          Arguments.of(SAMPLE_BOOLEAN, SAMPLE_DATE, null),
+          Arguments.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET),
           Arguments.of(null, null, null),
-          Arguments.of(new int[] {1, 2, 3}, "array", 'c'));
+          Arguments.of(SAMPLE_BIG_DECIMAL, LocalDateTime.now(), "test"),
+          Arguments.of(new int[] {1, 2, 3}, "array", 'c'),
+          Arguments.of(Map.of("nested", List.of(1, 2, 3)), SAMPLE_SET, SAMPLE_DOUBLE));
     }
 
     @Test
-    @DisplayName("Should maintain immutability contract")
-    void testImmutabilityContract() {
-      Triple<String, Integer, Double> original = Triple.of("hello", 42, 3.14);
+    void should_maintain_immutability_contract() {
+      var original = Triple.of(SAMPLE_STRING, SAMPLE_INTEGER, SAMPLE_DOUBLE);
 
-      // All transformation methods should return new instances
-      Triple<String, Integer, Double> withFirst = original.withFirst("world");
-      Triple<String, Integer, Double> withSecond = original.withSecond(100);
-      Triple<String, Integer, Double> withThird = original.withThird(2.71);
+      var withFirst = original.withFirst("world");
+      var withSecond = original.withSecond(100);
+      var withThird = original.withThird(2.71);
 
       assertNotSame(original, withFirst);
       assertNotSame(original, withSecond);
       assertNotSame(original, withThird);
 
-      // Original should be unchanged
-      assertEquals("hello", original.first());
-      assertEquals(42, original.second());
-      assertEquals(3.14, original.third());
+      // Original unchanged
+      assertEquals(SAMPLE_STRING, original.first());
+      assertEquals(SAMPLE_INTEGER, original.second());
+      assertEquals(SAMPLE_DOUBLE, original.third());
+    }
+
+    @Test
+    void should_work_with_different_generic_combinations() {
+      var stringIntBool = Triple.of("test", 42, true);
+      var listMapSet = Triple.of(SAMPLE_LIST, SAMPLE_MAP, SAMPLE_SET);
+      var dateTimeNumber = Triple.of(SAMPLE_DATE, LocalDateTime.now(), SAMPLE_BIG_DECIMAL);
+
+      assertAll(
+          () -> assertEquals("test", stringIntBool.first()),
+          () -> assertEquals(42, stringIntBool.second()),
+          () -> assertTrue(stringIntBool.third()),
+          () -> assertEquals(SAMPLE_LIST, listMapSet.first()),
+          () -> assertNotNull(dateTimeNumber.second()));
     }
   }
 }

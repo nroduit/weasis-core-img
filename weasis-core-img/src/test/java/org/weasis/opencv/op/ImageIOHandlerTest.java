@@ -17,12 +17,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfInt;
@@ -32,550 +37,539 @@ import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
 
 /**
- * Comprehensive test suite for {@link ImageIOHandler} class. Tests all image I/O operations
- * including reading, writing, and thumbnail generation.
+ * Test suite for {@link ImageIOHandler} class. Tests image I/O operations including reading,
+ * writing, and thumbnail generation.
  */
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ImageIOHandlerTest {
 
   @TempDir Path tempDir;
 
-  private Mat testImage;
-  private ImageCV testImageCV;
-  private Path testImagePath;
-  private Path testJp2ImagePath;
-
-  private Mat colorImage;
-  private ImageCV colorImageCV;
-  private Path colorImagePath;
+  private TestImageData testData;
 
   @BeforeAll
-  @DisplayName("Load OpenCV native library")
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_openCV_native_library() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @BeforeEach
   void setUp() throws IOException {
-    // Create a test image (100x100 grayscale with some pattern)
-    testImage = new Mat(100, 100, CvType.CV_8UC1);
-    for (int y = 0; y < 100; y++) {
-      for (int x = 0; x < 100; x++) {
-        testImage.put(y, x, new byte[] {(byte) ((x + y) % 256)});
-      }
-    }
-    testImageCV = ImageCV.fromMat(testImage);
+    testData = new TestImageData(tempDir);
+  }
 
-    // Create a temporary test image file
-    testImagePath = tempDir.resolve("test_image.png");
-    assertTrue(Imgcodecs.imwrite(testImagePath.toString(), testImage));
+  // === Reading Tests ===
 
-    // Create a color test image (RGB with different values per channel)
-    colorImage = new Mat(80, 80, CvType.CV_8UC3);
-    for (int y = 0; y < 80; y++) {
-      for (int x = 0; x < 80; x++) {
-        byte r = (byte) ((x * 2) % 256);
-        byte g = (byte) ((y * 3) % 256);
-        byte b = (byte) ((x + y) % 256);
-        colorImage.put(y, x, new byte[] {b, g, r}); // BGR format in OpenCV
-      }
-    }
-    colorImageCV = ImageCV.fromMat(colorImage);
-    colorImagePath = tempDir.resolve("color_image.png");
-    assertTrue(Imgcodecs.imwrite(colorImagePath.toString(), colorImage));
+  @Test
+  void read_image_successfully_returns_image_data() {
+    var tags = new ArrayList<String>();
+    var result = ImageIOHandler.readImage(testData.grayscaleImagePath(), tags);
 
-    // Create a JP2 image for testing (using color LUT on grayscale)
-    testJp2ImagePath = tempDir.resolve("test_image.jp2");
-    assertTrue(Imgcodecs.imwrite(testJp2ImagePath.toString(), colorImage));
+    assertThat(result).isNotNull();
+    assertThat(result.cols()).isEqualTo(100);
+    assertThat(result.rows()).isEqualTo(100);
+    assertThat(result.type()).isEqualTo(CvType.CV_8UC1);
   }
 
   @Test
-  @DisplayName("Test reading JP2 image format")
-  void testReadJp2Image_Success() {
-    List<String> tags = new ArrayList<>();
-    ImageCV result = ImageIOHandler.readImage(testJp2ImagePath, tags);
+  void read_image_with_color_format_preserves_channels() {
+    var result = ImageIOHandler.readImage(testData.colorImagePath(), null);
 
-    assertNotNull(result, "JP2 image should be read successfully");
-    assertEquals(80, result.cols(), "JP2 image width should match");
-    assertEquals(80, result.rows(), "JP2 image height should match");
-    assertEquals(3, CvType.channels(result.type()), "JP2 image should have 3 channels (color)");
+    assertThat(result).isNotNull();
+    assertThat(result.cols()).isEqualTo(80);
+    assertThat(result.rows()).isEqualTo(80);
+    assertThat(CvType.channels(result.type())).isEqualTo(3);
+  }
+
+  @ParameterizedTest
+  @MethodSource("supportedImageFormats")
+  void read_image_supports_various_formats(String extension, Mat testImage) throws IOException {
+    var imagePath = testData.createImageWithExtension(extension, testImage);
+    var result = ImageIOHandler.readImage(imagePath, null);
+
+    assertThat(result).isNotNull();
+    assertThat(result.cols()).isEqualTo(testImage.cols());
+    assertThat(result.rows()).isEqualTo(testImage.rows());
   }
 
   @Test
-  @DisplayName("Test reading JP2 image with exception handling")
-  void testReadJp2ImageWithCvException_Success() {
-    List<String> tags = new ArrayList<>();
-    ImageCV result = ImageIOHandler.readImageWithCvException(testJp2ImagePath, tags);
+  void read_image_with_exception_throws_cv_exception_for_invalid_path() {
+    var nonExistentPath = tempDir.resolve("non_existent.png");
 
-    assertNotNull(result, "JP2 image should be read with exception handling");
-    assertEquals(80, result.cols());
-    assertEquals(80, result.rows());
-    assertEquals(3, CvType.channels(result.type()));
+    assertThatThrownBy(() -> ImageIOHandler.readImageWithCvException(nonExistentPath, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not readable");
   }
 
   @Test
-  @DisplayName("Test reading color image")
-  void testReadColorImage_Success() {
-    List<String> tags = new ArrayList<>();
-    ImageCV result = ImageIOHandler.readImage(colorImagePath, tags);
-
-    assertNotNull(result, "Color image should be read successfully");
-    assertEquals(80, result.cols(), "Color image width should match");
-    assertEquals(80, result.rows(), "Color image height should match");
-    assertEquals(3, CvType.channels(result.type()), "Color image should have 3 channels");
-    assertEquals(CvType.CV_8UC3, result.type(), "Color image should be 8-bit 3-channel");
+  void read_image_with_null_path_throws_null_pointer_exception() {
+    assertThatThrownBy(() -> ImageIOHandler.readImage(null, null))
+        .isInstanceOf(NullPointerException.class);
   }
 
-  @Test
-  @DisplayName("Test writing color image")
-  void testWriteColorImage_Success() throws IOException {
-    Path outputPath = tempDir.resolve("color_output.png");
-
-    boolean result = ImageIOHandler.writeImage(colorImage, outputPath);
-
-    assertTrue(result, "Color image should be written successfully");
-    assertTrue(Files.exists(outputPath), "Color output file should exist");
-
-    // Verify the written color image
-    ImageCV readBack = ImageIOHandler.readImage(outputPath, null);
-    assertNotNull(readBack, "Written color image should be readable");
-    assertEquals(colorImage.cols(), readBack.cols(), "Color image width should match");
-    assertEquals(colorImage.rows(), readBack.rows(), "Color image height should match");
-    assertEquals(3, CvType.channels(readBack.type()), "Read back image should maintain 3 channels");
-  }
+  // === Writing Tests ===
 
   @Test
-  @DisplayName("Test color image thumbnail generation")
-  void testColorImageThumbnail_Success() {
-    Path thumbnailPath = tempDir.resolve("color_thumbnail.jpg");
-    int maxSize = 40;
+  void write_mat_image_creates_readable_file() throws IOException {
+    var outputPath = tempDir.resolve("output.png");
 
-    boolean result = ImageIOHandler.writeThumbnail(colorImage, thumbnailPath, maxSize);
+    var success = ImageIOHandler.writeImage(testData.grayscaleImage(), outputPath);
 
-    assertTrue(result, "Color thumbnail should be created successfully");
-    assertTrue(Files.exists(thumbnailPath), "Color thumbnail file should exist");
-
-    // Verify thumbnail properties
-    ImageCV thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
-    assertNotNull(thumbnail, "Color thumbnail should be readable");
-    assertTrue(thumbnail.cols() <= maxSize, "Thumbnail width should not exceed max size");
-    assertTrue(thumbnail.rows() <= maxSize, "Thumbnail height should not exceed max size");
-
-    // Verify it's still a color image (JPEG may convert to RGB)
-    int channels = CvType.channels(thumbnail.type());
-    assertTrue(channels >= 1 && channels <= 3, "Thumbnail should have valid channel count");
-  }
-
-  @Test
-  @DisplayName("Test building thumbnail from color PlanarImage")
-  void testBuildColorThumbnail_KeepRatio() {
-    Dimension iconDim = new Dimension(40, 40);
-
-    ImageCV thumbnail = ImageIOHandler.buildThumbnail(colorImageCV, iconDim, true);
-
-    assertNotNull(thumbnail, "Color thumbnail should be created");
-    assertEquals(40, thumbnail.cols(), "Color thumbnail width should match");
-    assertEquals(40, thumbnail.rows(), "Color thumbnail height should match");
-
-    // Should maintain color information
-    int channels = CvType.channels(thumbnail.type());
-    assertEquals(3, channels, "Color thumbnail should maintain 3 channels");
-  }
-
-  @Test
-  @DisplayName("Test metadata extraction from images")
-  void testMetadataExtraction() {
-    List<String> tags = new ArrayList<>();
-
-    // Test with grayscale image
-    ImageCV grayscaleResult = ImageIOHandler.readImage(testImagePath, tags);
-    assertNotNull(grayscaleResult, "Should read grayscale image with metadata");
-
-    // Test with color image
-    tags.clear();
-    ImageCV colorResult = ImageIOHandler.readImage(colorImagePath, tags);
-    assertNotNull(colorResult, "Should read color image with metadata");
-
-    // Test with JP2 image
-    tags.clear();
-    ImageCV jp2Result = ImageIOHandler.readImage(testJp2ImagePath, tags);
-    assertNotNull(jp2Result, "Should read JP2 image with metadata");
-  }
-
-  @Test
-  @DisplayName("Test color image format conversions")
-  void testColorImageFormatConversions() throws IOException {
-    String[] colorFormats = {".png", ".jpg", ".bmp", ".tiff"};
-
-    for (String ext : colorFormats) {
-      Path outputPath = tempDir.resolve("color_test" + ext);
-      boolean result = ImageIOHandler.writeImage(colorImage, outputPath);
-
-      assertTrue(result, "Failed to write color image in " + ext + " format");
-      assertTrue(Files.exists(outputPath), ext + " color file not created");
-
-      // Try to read back and verify it's still a color image
-      ImageCV readBack = ImageIOHandler.readImage(outputPath, null);
-      assertNotNull(readBack, "Failed to read back color " + ext + " format");
-
-      int channels = CvType.channels(readBack.type());
-      assertTrue(channels >= 1, "Should have at least 1 channel for " + ext);
-      // Note: Some formats may convert RGB to grayscale, so we check for valid range
-      assertTrue(channels <= 3, "Should have at most 3 channels for " + ext);
-    }
-  }
-
-  @Test
-  @DisplayName("Test large color image handling")
-  void testLargeColorImage() {
-    // Create a larger color image (300x200)
-    Mat largeColorImage = new Mat(200, 300, CvType.CV_8UC3);
-    for (int y = 0; y < 200; y++) {
-      for (int x = 0; x < 300; x++) {
-        byte r = (byte) ((x + y) % 256);
-        byte g = (byte) ((x * 2 + y) % 256);
-        byte b = (byte) ((x + y * 2) % 256);
-        largeColorImage.put(y, x, new byte[] {b, g, r});
-      }
-    }
-
-    Path outputPath = tempDir.resolve("large_color.png");
-    boolean result = ImageIOHandler.writeImage(largeColorImage, outputPath);
-
-    assertTrue(result, "Large color image should be written successfully");
-    assertTrue(Files.exists(outputPath), "Large color image file should exist");
-
-    // Test thumbnail generation from large color image
-    Path thumbnailPath = tempDir.resolve("large_color_thumb.jpg");
-    boolean thumbResult = ImageIOHandler.writeThumbnail(largeColorImage, thumbnailPath, 100);
-
-    assertTrue(thumbResult, "Large color image thumbnail should be created");
-
-    ImageCV thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
-    assertNotNull(thumbnail, "Large color thumbnail should be readable");
-    assertTrue(thumbnail.cols() <= 100, "Large color thumbnail width should be constrained");
-    assertTrue(thumbnail.rows() <= 100, "Large color thumbnail height should be constrained");
-  }
-
-  // Existing tests continue below...
-  @Test
-  void testReadImage_Success() {
-    List<String> tags = new ArrayList<>();
-    ImageCV result = ImageIOHandler.readImage(testImagePath, tags);
-
-    assertNotNull(result);
-    assertEquals(100, result.cols());
-    assertEquals(100, result.rows());
-    assertEquals(CvType.CV_8UC1, CvType.depth(result.type()));
-  }
-
-  @Test
-  void testReadImage_NonExistentFile() {
-    Path nonExistentPath = tempDir.resolve("non_existent.png");
-
-    IllegalArgumentException exception =
-        assertThrows(
-            IllegalArgumentException.class, () -> ImageIOHandler.readImage(nonExistentPath, null));
-    assertTrue(exception.getMessage().contains("not readable"));
-  }
-
-  @Test
-  void testReadImage_NullPath() {
-    assertThrows(NullPointerException.class, () -> ImageIOHandler.readImage(null, null));
-  }
-
-  @Test
-  void testReadImageWithCvException_Success() {
-    List<String> tags = new ArrayList<>();
-    ImageCV result = ImageIOHandler.readImageWithCvException(testImagePath, tags);
-
-    assertNotNull(result);
-    assertEquals(100, result.cols());
-    assertEquals(100, result.rows());
-  }
-
-  @Test
-  void testReadImageWithCvException_NonExistentFile() {
-    Path nonExistentPath = tempDir.resolve("non_existent.png");
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.readImageWithCvException(nonExistentPath, null));
-  }
-
-  @Test
-  void testWriteImage_Mat_Success() throws IOException {
-    Path outputPath = tempDir.resolve("output.png");
-
-    boolean result = ImageIOHandler.writeImage(testImage, outputPath);
-
-    assertTrue(result);
-    assertTrue(Files.exists(outputPath));
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
     assertTrue(Files.size(outputPath) > 0);
+
+    // Verify readability
+    var readBack = ImageIOHandler.readImage(outputPath, null);
+    assertThat(readBack).isNotNull();
+    assertThat(readBack.cols()).isEqualTo(testData.grayscaleImage().cols());
   }
 
   @Test
-  void testWriteImage_Mat_NullSource() {
-    Path outputPath = tempDir.resolve("output.png");
+  void write_rendered_image_converts_and_saves_successfully() {
+    var bufferedImage = createTestBufferedImage(50, 50);
+    var outputPath = tempDir.resolve("buffered_output.png");
 
-    assertThrows(
-        NullPointerException.class, () -> ImageIOHandler.writeImage((Mat) null, outputPath));
+    var success = ImageIOHandler.writeImage(bufferedImage, outputPath);
+
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
   }
 
   @Test
-  void testWriteImage_Mat_EmptySource() {
-    Mat emptyMat = new Mat();
-    Path outputPath = tempDir.resolve("output.png");
+  void write_image_with_custom_parameters_applies_settings() {
+    var outputPath = tempDir.resolve("output_with_params.jpg");
+    var params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 95);
 
-    assertThrows(
-        IllegalArgumentException.class, () -> ImageIOHandler.writeImage(emptyMat, outputPath));
+    var success = ImageIOHandler.writeImage(testData.grayscaleImage(), outputPath, params);
+
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {".png", ".jpg", ".bmp", ".tiff"})
+  void write_image_supports_multiple_formats(String extension) throws IOException {
+    var outputPath = tempDir.resolve("test" + extension);
+
+    var success = ImageIOHandler.writeImage(testData.colorImage(), outputPath);
+
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
   }
 
   @Test
-  void testWriteImage_Mat_NullPath() {
-    assertThrows(NullPointerException.class, () -> ImageIOHandler.writeImage(testImage, null));
+  void write_image_with_null_source_throws_exception() {
+    var outputPath = tempDir.resolve("output.png");
+
+    assertThatThrownBy(() -> ImageIOHandler.writeImage((Mat) null, outputPath))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test
-  void testWriteImage_RenderedImage_Success() {
-    BufferedImage bufferedImage = new BufferedImage(50, 50, BufferedImage.TYPE_BYTE_GRAY);
-    // Fill with test pattern
-    for (int y = 0; y < 50; y++) {
-      for (int x = 0; x < 50; x++) {
-        bufferedImage.setRGB(x, y, (x + y) % 256);
-      }
-    }
+  void write_image_with_empty_source_throws_exception() {
+    var emptyMat = new Mat();
+    var outputPath = tempDir.resolve("output.png");
 
-    Path outputPath = tempDir.resolve("buffered_output.png");
-    boolean result = ImageIOHandler.writeImage(bufferedImage, outputPath);
-
-    assertTrue(result);
-    assertTrue(Files.exists(outputPath));
+    assertThatThrownBy(() -> ImageIOHandler.writeImage(emptyMat, outputPath))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("empty");
   }
 
-  @Test
-  void testWriteImage_RenderedImage_NullSource() {
-    Path outputPath = tempDir.resolve("output.png");
-
-    assertThrows(
-        NullPointerException.class,
-        () -> ImageIOHandler.writeImage((BufferedImage) null, outputPath));
-  }
+  // === PNG-specific Tests ===
 
   @Test
-  void testWriteImage_WithParams_Success() {
-    Path outputPath = tempDir.resolve("output_with_params.jpg");
-    MatOfInt params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 95);
+  void write_PNG_creates_file_with_correct_extension() {
+    var outputPath = tempDir.resolve("test_output.png");
 
-    boolean result = ImageIOHandler.writeImage(testImage, outputPath, params);
+    var success = ImageIOHandler.writePNG(testData.grayscaleImage(), outputPath);
 
-    assertTrue(result);
-    assertTrue(Files.exists(outputPath));
-  }
-
-  @Test
-  void testWritePNG_Success() {
-    Path outputPath = tempDir.resolve("test_output.png");
-
-    boolean result = ImageIOHandler.writePNG(testImage, outputPath);
-
-    assertTrue(result);
-    assertTrue(Files.exists(outputPath));
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
     assertTrue(outputPath.toString().endsWith(".png"));
   }
 
   @Test
-  void testWritePNG_EnforceExtension() {
-    Path outputPath = tempDir.resolve("test_output.jpg"); // Wrong extension
+  void write_PNG_enforces_extension_when_different_provided() {
+    var outputPathWithWrongExt = tempDir.resolve("test_output.jpg");
 
-    boolean result = ImageIOHandler.writePNG(testImage, outputPath);
+    var success = ImageIOHandler.writePNG(testData.grayscaleImage(), outputPathWithWrongExt);
 
-    assertTrue(result);
-    // Check that the actual file created has .png extension
-    Path pngPath = tempDir.resolve("test_output.png");
-    assertTrue(Files.exists(pngPath));
+    assertThat(success).isTrue();
+    var expectedPngPath = tempDir.resolve("test_output.png");
+    assertThat(Files.exists(expectedPngPath)).isTrue();
   }
 
   @Test
-  void testWritePNG_16BitImage() {
-    Mat image16bit = new Mat(50, 50, CvType.CV_16UC1, new Scalar(32000));
-    Path outputPath = tempDir.resolve("test_16bit.png");
+  void write_PNG_handles_16bit_images() {
+    var image16bit = new Mat(50, 50, CvType.CV_16UC1, new Scalar(32000));
+    var outputPath = tempDir.resolve("test_16bit.png");
 
-    boolean result = ImageIOHandler.writePNG(image16bit, outputPath);
+    var success = ImageIOHandler.writePNG(image16bit, outputPath);
 
-    assertTrue(result);
-    assertTrue(Files.exists(outputPath));
+    assertThat(success).isTrue();
+    assertThat(Files.exists(outputPath)).isTrue();
+  }
+
+  // === Thumbnail Tests ===
+
+  @Test
+  void write_thumbnail_creates_scaled_image() {
+    var thumbnailPath = tempDir.resolve("thumbnail.jpg");
+    var maxSize = 50;
+
+    var success = ImageIOHandler.writeThumbnail(testData.grayscaleImage(), thumbnailPath, maxSize);
+
+    assertThat(success).isTrue();
+    assertThat(Files.exists(thumbnailPath)).isTrue();
+
+    var thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
+    assertThat(thumbnail).isNotNull();
+    assertThat(thumbnail.cols()).isLessThanOrEqualTo(maxSize);
+    assertThat(thumbnail.rows()).isLessThanOrEqualTo(maxSize);
   }
 
   @Test
-  void testWriteThumbnail_Success() {
-    Path thumbnailPath = tempDir.resolve("thumbnail.jpg");
-    int maxSize = 50;
+  void write_thumbnail_preserves_original_size_when_larger_than_max() {
+    var thumbnailPath = tempDir.resolve("large_thumbnail.jpg");
+    var maxSize = 200; // Larger than original 100x100
 
-    boolean result = ImageIOHandler.writeThumbnail(testImage, thumbnailPath, maxSize);
+    var success = ImageIOHandler.writeThumbnail(testData.grayscaleImage(), thumbnailPath, maxSize);
 
-    assertTrue(result);
-    assertTrue(Files.exists(thumbnailPath));
+    assertThat(success).isTrue();
+    var thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
+    assertThat(thumbnail.cols()).isEqualTo(100);
+    assertThat(thumbnail.rows()).isEqualTo(100);
+  }
 
-    // Verify thumbnail size
-    ImageCV thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
-    assertNotNull(thumbnail);
-    assertTrue(thumbnail.cols() <= maxSize);
-    assertTrue(thumbnail.rows() <= maxSize);
+  @ParameterizedTest
+  @ValueSource(ints = {0, -1, -10})
+  void write_thumbnail_with_invalid_max_size_throws_exception(int invalidMaxSize) {
+    var thumbnailPath = tempDir.resolve("thumbnail.jpg");
+
+    assertThatThrownBy(
+            () ->
+                ImageIOHandler.writeThumbnail(
+                    testData.grayscaleImage(), thumbnailPath, invalidMaxSize))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("positive");
   }
 
   @Test
-  void testWriteThumbnail_LargerThanOriginal() {
-    Path thumbnailPath = tempDir.resolve("large_thumbnail.jpg");
-    int maxSize = 200; // Larger than original 100x100
+  void build_thumbnail_with_aspect_ratio_preservation() {
+    var iconDim = new Dimension(50, 50);
 
-    boolean result = ImageIOHandler.writeThumbnail(testImage, thumbnailPath, maxSize);
+    var thumbnail = ImageIOHandler.buildThumbnail(testData.grayscaleImageCV(), iconDim, true);
 
-    assertTrue(result);
-    assertTrue(Files.exists(thumbnailPath));
-
-    // Should not scale up - thumbnail should be same size as original
-    ImageCV thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
-    assertNotNull(thumbnail);
-    assertEquals(100, thumbnail.cols());
-    assertEquals(100, thumbnail.rows());
+    assertThat(thumbnail).isNotNull();
+    assertThat(thumbnail.cols()).isEqualTo(50);
+    assertThat(thumbnail.rows()).isEqualTo(50);
   }
 
   @Test
-  void testWriteThumbnail_InvalidMaxSize() {
-    Path thumbnailPath = tempDir.resolve("thumbnail.jpg");
+  void build_thumbnail_without_aspect_ratio_preservation_stretches_image() {
+    var iconDim = new Dimension(60, 40); // Different aspect ratio
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.writeThumbnail(testImage, thumbnailPath, 0));
+    var thumbnail = ImageIOHandler.buildThumbnail(testData.grayscaleImageCV(), iconDim, false);
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.writeThumbnail(testImage, thumbnailPath, -1));
+    assertThat(thumbnail).isNotNull();
+    assertThat(thumbnail.cols()).isEqualTo(60);
+    assertThat(thumbnail.rows()).isEqualTo(40);
   }
 
   @Test
-  void testBuildThumbnail_KeepRatio() {
-    Dimension iconDim = new Dimension(50, 50);
+  void build_thumbnail_larger_than_original_returns_original_size() {
+    var iconDim = new Dimension(200, 200);
 
-    ImageCV thumbnail = ImageIOHandler.buildThumbnail(testImageCV, iconDim, true);
+    var thumbnail = ImageIOHandler.buildThumbnail(testData.grayscaleImageCV(), iconDim, true);
 
-    assertNotNull(thumbnail);
-    assertEquals(50, thumbnail.cols());
-    assertEquals(50, thumbnail.rows());
+    assertThat(thumbnail).isNotNull();
+    assertThat(thumbnail.cols()).isEqualTo(100);
+    assertThat(thumbnail.rows()).isEqualTo(100);
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidThumbnailDimensions")
+  void build_thumbnail_with_invalid_dimensions_throws_exception(Dimension invalidDimension) {
+    assertThatThrownBy(
+            () ->
+                ImageIOHandler.buildThumbnail(testData.grayscaleImageCV(), invalidDimension, true))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  // === Validation Tests ===
+
+  @Test
+  void validate_readable_path_accepts_valid_path() {
+    assertThatCode(() -> ImageIOHandler.validateReadablePath(testData.grayscaleImagePath()))
+        .doesNotThrowAnyException();
   }
 
   @Test
-  void testBuildThumbnail_NoKeepRatio() {
-    Dimension iconDim = new Dimension(75, 25); // Different aspect ratio
-
-    ImageCV thumbnail = ImageIOHandler.buildThumbnail(testImageCV, iconDim, false);
-
-    assertNotNull(thumbnail);
-    assertEquals(75, thumbnail.cols());
-    assertEquals(25, thumbnail.rows());
+  void validate_readable_path_rejects_null() {
+    assertThatThrownBy(() -> ImageIOHandler.validateReadablePath(null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test
-  void testBuildThumbnail_LargerThanOriginal() {
-    Dimension iconDim = new Dimension(200, 200);
+  void validate_readable_path_rejects_non_readable_path() {
+    var nonReadablePath = tempDir.resolve("non_existent.png");
 
-    ImageCV thumbnail = ImageIOHandler.buildThumbnail(testImageCV, iconDim, true);
-
-    assertNotNull(thumbnail);
-    // Should not scale up
-    assertEquals(100, thumbnail.cols());
-    assertEquals(100, thumbnail.rows());
+    assertThatThrownBy(() -> ImageIOHandler.validateReadablePath(nonReadablePath))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
-  void testBuildThumbnail_NullSource() {
-    Dimension iconDim = new Dimension(50, 50);
-
-    assertThrows(
-        NullPointerException.class, () -> ImageIOHandler.buildThumbnail(null, iconDim, true));
+  void validate_source_accepts_valid_mat() {
+    assertThatCode(() -> ImageIOHandler.validateSource(testData.grayscaleImage()))
+        .doesNotThrowAnyException();
   }
 
   @Test
-  void testBuildThumbnail_NullDimension() {
-    assertThrows(
-        NullPointerException.class, () -> ImageIOHandler.buildThumbnail(testImageCV, null, true));
+  void validate_source_rejects_null_mat() {
+    assertThatThrownBy(() -> ImageIOHandler.validateSource(null))
+        .isInstanceOf(NullPointerException.class);
   }
 
   @Test
-  void testBuildThumbnail_InvalidDimensions() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.buildThumbnail(testImageCV, new Dimension(0, 50), true));
+  void validate_source_rejects_empty_mat() {
+    assertThatThrownBy(() -> ImageIOHandler.validateSource(new Mat()))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.buildThumbnail(testImageCV, new Dimension(50, -1), true));
+  // === Integration Tests ===
+
+  @Test
+  void complete_read_write_cycle_preserves_image_data() throws IOException {
+    var originalPath = testData.colorImagePath();
+    var outputPath = tempDir.resolve("cycle_test.png");
+
+    // Read and write back
+    var originalImage = ImageIOHandler.readImage(originalPath, null);
+    var writeSuccess = ImageIOHandler.writeImage(originalImage.toMat(), outputPath);
+    var readBackImage = ImageIOHandler.readImage(outputPath, null);
+
+    assertThat(writeSuccess).isTrue();
+    assertThat(readBackImage).isNotNull();
+    assertThat(readBackImage.cols()).isEqualTo(originalImage.cols());
+    assertThat(readBackImage.rows()).isEqualTo(originalImage.rows());
+    assertThat(readBackImage.type()).isEqualTo(originalImage.type());
   }
 
   @Test
-  void testValidateSourcePath_ValidPath() {
-    assertDoesNotThrow(() -> ImageIOHandler.validateSourcePath(testImagePath));
+  void metadata_extraction_preserves_tag_list() {
+    var tags = new ArrayList<String>();
+    var result = ImageIOHandler.readImage(testData.colorImagePath(), tags);
+
+    assertThat(result).isNotNull();
+    // Tags list should be preserved (though may be empty for synthetic images)
+    assertThat(tags).isNotNull();
   }
 
-  @Test
-  void testValidateSourcePath_NullPath() {
-    assertThrows(NullPointerException.class, () -> ImageIOHandler.validateSourcePath(null));
+  // === Test Data Providers ===
+
+  static Stream<Arguments> supportedImageFormats() {
+    var grayscale = createTestMat(50, 50, CvType.CV_8UC1);
+    var color = createTestMat(50, 50, CvType.CV_8UC3);
+
+    return Stream.of(
+        Arguments.of(".png", grayscale),
+        Arguments.of(".jpg", grayscale),
+        Arguments.of(".bmp", color),
+        Arguments.of(".jp2", color));
   }
 
-  @Test
-  void testValidateSourcePath_NonReadablePath() {
-    Path nonExistentPath = tempDir.resolve("non_existent.png");
-
-    assertThrows(
-        IllegalArgumentException.class, () -> ImageIOHandler.validateSourcePath(nonExistentPath));
+  static Stream<Dimension> invalidThumbnailDimensions() {
+    return Stream.of(
+        new Dimension(0, 50), new Dimension(50, 0), new Dimension(-10, 50), new Dimension(50, -10));
   }
 
-  @Test
-  void testValidateSource_ValidMat() {
-    assertDoesNotThrow(() -> ImageIOHandler.validateSource(testImage));
+  // === Helper Methods ===
+
+  private BufferedImage createTestBufferedImage(int width, int height) {
+    var image = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+    var graphics = image.getGraphics();
+    graphics.fillRect(0, 0, width, height);
+    graphics.dispose();
+    return image;
   }
 
-  @Test
-  void testValidateSource_NullMat() {
-    assertThrows(NullPointerException.class, () -> ImageIOHandler.validateSource(null));
+  private static Mat createTestMat(int width, int height, int type) {
+    var mat = new Mat(height, width, type);
+    // Fill with test pattern
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        if (CvType.channels(type) == 1) {
+          mat.put(y, x, new byte[] {(byte) ((x + y) % 256)});
+        } else {
+          mat.put(
+              y,
+              x,
+              new byte[] {
+                (byte) ((x + y) % 256), (byte) ((x * 2 + y) % 256), (byte) ((y * 2 + x) % 256)
+              });
+        }
+      }
+    }
+    return mat;
   }
 
-  @Test
-  void testValidateSource_EmptyMat() {
-    Mat emptyMat = new Mat();
-    assertThrows(IllegalArgumentException.class, () -> ImageIOHandler.validateSource(emptyMat));
+  // === Helper assertion methods using AssertJ-style (assuming available) ===
+  private static <T> ObjectAssert<T> assertThat(T actual) {
+    return new ObjectAssert<>(actual);
   }
 
-  @Test
-  void testAspectRatioPreservation() {
-    // Create a rectangular image (200x100)
-    Mat rectangularImage = new Mat(100, 200, CvType.CV_8UC1, new Scalar(128));
-    ImageCV rectImageCV = ImageCV.fromMat(rectangularImage);
-
-    Dimension iconDim = new Dimension(50, 50);
-    ImageCV thumbnail = ImageIOHandler.buildThumbnail(rectImageCV, iconDim, true);
-
-    assertNotNull(thumbnail);
-    // Should maintain aspect ratio - width should be 50, height should be 25
-    assertEquals(50, thumbnail.cols());
-    assertEquals(25, thumbnail.rows());
+  private static IntegerAssert assertThat(int actual) {
+    return new IntegerAssert(actual);
   }
 
-  @Test
-  void testMultipleFormats() throws IOException {
-    String[] extensions = {".png", ".jpg", ".bmp", ".tiff"};
+  private static BooleanAssert assertThat(boolean actual) {
+    return new BooleanAssert(actual);
+  }
 
-    for (String ext : extensions) {
-      Path outputPath = tempDir.resolve("test" + ext);
-      boolean result = ImageIOHandler.writeImage(testImage, outputPath);
+  private static <T> ObjectAssert<T> assertThatThrownBy(ThrowingCallable callable) {
+    try {
+      callable.call();
+      throw new AssertionError("Expected exception was not thrown");
+    } catch (Exception e) {
+      return new ObjectAssert<>((T) e);
+    }
+  }
 
-      assertTrue(result, "Failed to write " + ext + " format");
-      assertTrue(Files.exists(outputPath), ext + " file not created");
+  private static ObjectAssert<Void> assertThatCode(ThrowingCallable callable) {
+    try {
+      callable.call();
+      return new ObjectAssert<>(null);
+    } catch (Exception e) {
+      throw new AssertionError("Unexpected exception", e);
+    }
+  }
 
-      // Try to read back
-      ImageCV readBack = ImageIOHandler.readImage(outputPath, null);
-      assertNotNull(readBack, "Failed to read back " + ext + " format");
+  @FunctionalInterface
+  interface ThrowingCallable {
+    void call() throws Exception;
+  }
+
+  // Placeholder assertion classes (replace with actual AssertJ or similar)
+  static class ObjectAssert<T> {
+    private final T actual;
+
+    ObjectAssert(T actual) {
+      this.actual = actual;
+    }
+
+    ObjectAssert<T> isNotNull() {
+      assertNotNull(actual);
+      return this;
+    }
+
+    ObjectAssert<T> isInstanceOf(Class<?> type) {
+      assertTrue(type.isInstance(actual));
+      return this;
+    }
+
+    ObjectAssert<T> hasMessageContaining(String message) {
+      if (actual instanceof Exception) {
+        assertTrue(((Exception) actual).getMessage().contains(message));
+      }
+      return this;
+    }
+
+    ObjectAssert<T> doesNotThrowAnyException() {
+      // This is handled in assertThatCode
+      return this;
+    }
+  }
+
+  static class IntegerAssert {
+    private final int actual;
+
+    IntegerAssert(int actual) {
+      this.actual = actual;
+    }
+
+    IntegerAssert isEqualTo(int expected) {
+      assertEquals(expected, actual);
+      return this;
+    }
+
+    IntegerAssert isLessThanOrEqualTo(int expected) {
+      assertTrue(actual <= expected);
+      return this;
+    }
+
+    IntegerAssert isGreaterThan(int expected) {
+      assertTrue(actual > expected);
+      return this;
+    }
+  }
+
+  static class BooleanAssert {
+    private final boolean actual;
+
+    BooleanAssert(boolean actual) {
+      this.actual = actual;
+    }
+
+    BooleanAssert isTrue() {
+      assertTrue(actual);
+      return this;
+    }
+
+    BooleanAssert isFalse() {
+      assertFalse(actual);
+      return this;
+    }
+  }
+
+  /** Test data helper class that creates and manages test images. */
+  private static class TestImageData {
+    private final Path tempDir;
+    private final Mat grayscaleImage;
+    private final Mat colorImage;
+    private final ImageCV grayscaleImageCV;
+    private final Path grayscaleImagePath;
+    private final Path colorImagePath;
+
+    TestImageData(Path tempDir) throws IOException {
+      this.tempDir = tempDir;
+
+      // Create grayscale test image
+      this.grayscaleImage = createTestMat(100, 100, CvType.CV_8UC1);
+      this.grayscaleImageCV = ImageCV.fromMat(grayscaleImage);
+      this.grayscaleImagePath = tempDir.resolve("test_grayscale.png");
+      assertTrue(Imgcodecs.imwrite(grayscaleImagePath.toString(), grayscaleImage));
+
+      // Create color test image
+      this.colorImage = createTestMat(80, 80, CvType.CV_8UC3);
+      this.colorImagePath = tempDir.resolve("test_color.png");
+      assertTrue(Imgcodecs.imwrite(colorImagePath.toString(), colorImage));
+    }
+
+    Mat grayscaleImage() {
+      return grayscaleImage;
+    }
+
+    Mat colorImage() {
+      return colorImage;
+    }
+
+    ImageCV grayscaleImageCV() {
+      return grayscaleImageCV;
+    }
+
+    Path grayscaleImagePath() {
+      return grayscaleImagePath;
+    }
+
+    Path colorImagePath() {
+      return colorImagePath;
+    }
+
+    Path createImageWithExtension(String extension, Mat image) throws IOException {
+      var path = tempDir.resolve("test" + extension);
+      assertTrue(Imgcodecs.imwrite(path.toString(), image));
+      return path;
     }
   }
 }

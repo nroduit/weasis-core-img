@@ -23,14 +23,13 @@ import org.weasis.core.util.annotations.Generated;
  * </ul>
  *
  * <p>As a record, this class is inherently immutable and thread-safe, making it suitable for
- * concurrent image processing operations. All instances are created through constructor parameters
- * and cannot be modified after instantiation.
+ * concurrent image processing operations.
  *
  * <p><b>Usage Example:</b>
  *
  * <pre>{@code
- * PresentationStateLut prLut = // ... obtain presentation state LUT
- * DefaultWlPresentation presentation = new DefaultWlPresentation(prLut, true);
+ * var prLut = // ... obtain presentation state LUT
+ * var presentation = new DefaultWlPresentation(prLut, true);
  *
  * if (presentation.isPixelPadding()) {
  *     // Apply pixel padding during transformation

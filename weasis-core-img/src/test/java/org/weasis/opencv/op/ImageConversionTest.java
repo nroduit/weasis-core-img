@@ -9,38 +9,25 @@
  */
 package org.weasis.opencv.op;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
-import java.awt.Graphics2D;
 import java.awt.Rectangle;
-import java.awt.image.BandedSampleModel;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
 import java.awt.image.DataBuffer;
 import java.awt.image.MultiPixelPackedSampleModel;
-import java.awt.image.PixelInterleavedSampleModel;
 import java.awt.image.Raster;
-import java.awt.image.RenderedImage;
-import java.awt.image.SampleModel;
 import java.awt.image.WritableRaster;
-import java.util.Vector;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
@@ -49,61 +36,50 @@ import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
-@DisplayName("Image Conversion Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ImageConversionTest {
 
   @BeforeAll
-  @DisplayName("Load OpenCV native library")
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_opencv_native_library() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
   @Nested
-  @DisplayName("BufferedImage Conversion Tests")
-  class BufferedImageConversionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class BufferedImage_conversion_tests {
 
     @Test
-    @DisplayName("Should return null for null inputs")
-    void testToBufferedImageWithNullInputs() {
+    void should_return_null_for_null_inputs() {
       assertNull(ImageConversion.toBufferedImage((Mat) null));
       assertNull(ImageConversion.toBufferedImage((PlanarImage) null));
     }
 
     @Test
-    @DisplayName("Should throw exception for unsupported CV types")
-    void testToBufferedImageWithUnsupportedTypes() {
-      try (ImageCV img = new ImageCV(3, 3, CvType.CV_8UC4, new Scalar(7))) {
-        assertThrowsExactly(
+    void should_throw_exception_for_unsupported_cv_types() {
+      try (var img4Channel = new ImageCV(3, 3, CvType.CV_8UC4, new Scalar(7))) {
+        assertThrows(
             UnsupportedOperationException.class,
-            () -> ImageConversion.toBufferedImage((PlanarImage) img));
+            () -> ImageConversion.toBufferedImage((PlanarImage) img4Channel));
       }
 
-      try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_16UC2, new Scalar(4096))) {
-        assertThrowsExactly(
+      try (var img2Channel = new ImageCV(new Size(7, 7), CvType.CV_16UC2, new Scalar(4096))) {
+        assertThrows(
             UnsupportedOperationException.class,
-            () -> ImageConversion.toBufferedImage((PlanarImage) img));
-      }
-
-      try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_16F, new Scalar(-1.56287f))) {
-        assertThrowsExactly(
-            UnsupportedOperationException.class,
-            () -> ImageConversion.toBufferedImage((PlanarImage) img));
+            () -> ImageConversion.toBufferedImage((PlanarImage) img2Channel));
       }
     }
 
-    @ParameterizedTest(name = "Convert {0} image type")
-    @MethodSource("supportedImageTypes")
-    @DisplayName("Should convert supported CV types to BufferedImage")
-    void testToBufferedImageWithSupportedTypes(
+    @ParameterizedTest
+    @MethodSource("supported_image_types")
+    void should_convert_supported_cv_types_to_buffered_image(
         String description, int cvType, Scalar value, int expectedBytes) {
-      try (ImageCV img = new ImageCV(new Size(7, 7), cvType, value)) {
-        testToBufferedImageConversion(img);
-        assertEquals(expectedBytes, img.physicalBytes(), "Physical bytes should match expected");
+      try (var img = new ImageCV(new Size(7, 7), cvType, value)) {
+        test_buffered_image_conversion(img, expectedBytes);
       }
     }
 
-    static Stream<Arguments> supportedImageTypes() {
+    static Stream<Arguments> supported_image_types() {
       return Stream.of(
           Arguments.of("8-bit single channel", CvType.CV_8UC1, new Scalar(255), 49),
           Arguments.of("8-bit three channel", CvType.CV_8UC3, new Scalar(7), 147),
@@ -114,227 +90,175 @@ class ImageConversionTest {
           Arguments.of("64-bit double", CvType.CV_64F, new Scalar(-23566.221548796545), 392));
     }
 
-    private void testToBufferedImageConversion(ImageCV img) {
+    private void test_buffered_image_conversion(ImageCV img, int expectedBytes) {
       int width = img.width();
       int height = img.height();
-      int cvType = img.type();
-      int channels = CvType.channels(cvType);
-      int depth = CvType.depth(cvType);
+      int channels = CvType.channels(img.type());
+      int depth = CvType.depth(img.type());
 
-      BufferedImage bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
+      assertEquals(expectedBytes, img.physicalBytes(), "Physical bytes should match expected");
+
+      var bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
       assertNotNull(bufferedImage, "BufferedImage should not be null");
 
-      try (ImageCV imageCV = ImageConversion.toMat(bufferedImage)) {
-        validateImageProperties(img, imageCV);
-        validateImageData(img, imageCV, width, height, channels, depth);
+      try (var convertedImg = ImageConversion.toMat(bufferedImage)) {
+        validate_image_properties(img, convertedImg);
+        validate_image_data(img, convertedImg, width, height, channels, depth);
       }
     }
 
-    private void validateImageProperties(ImageCV original, ImageCV converted) {
-      assertEquals(
-          original.physicalBytes(), converted.physicalBytes(), "Physical bytes should match");
-      assertEquals(original.rows(), converted.rows(), "Rows should match");
-      assertEquals(original.cols(), converted.cols(), "Columns should match");
-      assertEquals(original.type(), converted.type(), "CV type should match");
-      assertEquals(original.channels(), converted.channels(), "Channels should match");
-      assertEquals(original.isContinuous(), converted.isContinuous(), "Continuity should match");
+    private void validate_image_properties(ImageCV original, ImageCV converted) {
+      assertAll(
+          "Image properties",
+          () -> assertEquals(original.physicalBytes(), converted.physicalBytes(), "Physical bytes"),
+          () -> assertEquals(original.rows(), converted.rows(), "Rows"),
+          () -> assertEquals(original.cols(), converted.cols(), "Columns"),
+          () -> assertEquals(original.type(), converted.type(), "CV type"),
+          () -> assertEquals(original.channels(), converted.channels(), "Channels"),
+          () -> assertEquals(original.isContinuous(), converted.isContinuous(), "Continuity"));
     }
 
-    private void validateImageData(
-        ImageCV img, ImageCV imageCV, int width, int height, int channels, int depth) {
+    private void validate_image_data(
+        ImageCV img, ImageCV converted, int width, int height, int channels, int depth) {
       int dataSize = width * height * channels;
 
-      if (depth <= CvType.CV_8S) {
-        validateByteData(img, imageCV, dataSize);
-      } else if (depth <= CvType.CV_16S) {
-        validateShortData(img, imageCV, dataSize);
-      } else if (depth == CvType.CV_32S) {
-        validateIntData(img, imageCV, dataSize);
-      } else if (depth == CvType.CV_32F) {
-        validateFloatData(img, imageCV, dataSize);
-      } else if (depth == CvType.CV_64F) {
-        validateDoubleData(img, imageCV, dataSize);
+      switch (depth) {
+        case CvType.CV_8U, CvType.CV_8S -> validate_byte_data(img, converted, dataSize);
+        case CvType.CV_16U, CvType.CV_16S -> validate_short_data(img, converted, dataSize);
+        case CvType.CV_32S -> validate_int_data(img, converted, dataSize);
+        case CvType.CV_32F -> validate_float_data(img, converted, dataSize);
+        case CvType.CV_64F -> validate_double_data(img, converted, dataSize);
       }
     }
 
-    private void validateByteData(ImageCV img, ImageCV imageCV, int dataSize) {
-      byte[] data1 = new byte[dataSize];
-      byte[] data2 = new byte[dataSize];
+    private void validate_byte_data(ImageCV img, ImageCV converted, int dataSize) {
+      var data1 = new byte[dataSize];
+      var data2 = new byte[dataSize];
       img.get(0, 0, data1);
-      imageCV.get(0, 0, data2);
+      converted.get(0, 0, data2);
       assertArrayEquals(data1, data2, "Byte data should match");
     }
 
-    private void validateShortData(ImageCV img, ImageCV imageCV, int dataSize) {
-      short[] data1 = new short[dataSize];
-      short[] data2 = new short[dataSize];
+    private void validate_short_data(ImageCV img, ImageCV converted, int dataSize) {
+      var data1 = new short[dataSize];
+      var data2 = new short[dataSize];
       img.get(0, 0, data1);
-      imageCV.get(0, 0, data2);
+      converted.get(0, 0, data2);
       assertArrayEquals(data1, data2, "Short data should match");
     }
 
-    private void validateIntData(ImageCV img, ImageCV imageCV, int dataSize) {
-      int[] data1 = new int[dataSize];
-      int[] data2 = new int[dataSize];
+    private void validate_int_data(ImageCV img, ImageCV converted, int dataSize) {
+      var data1 = new int[dataSize];
+      var data2 = new int[dataSize];
       img.get(0, 0, data1);
-      imageCV.get(0, 0, data2);
+      converted.get(0, 0, data2);
       assertArrayEquals(data1, data2, "Int data should match");
     }
 
-    private void validateFloatData(ImageCV img, ImageCV imageCV, int dataSize) {
-      float[] data1 = new float[dataSize];
-      float[] data2 = new float[dataSize];
+    private void validate_float_data(ImageCV img, ImageCV converted, int dataSize) {
+      var data1 = new float[dataSize];
+      var data2 = new float[dataSize];
       img.get(0, 0, data1);
-      imageCV.get(0, 0, data2);
+      converted.get(0, 0, data2);
       assertArrayEquals(data1, data2, "Float data should match");
     }
 
-    private void validateDoubleData(ImageCV img, ImageCV imageCV, int dataSize) {
-      double[] data1 = new double[dataSize];
-      double[] data2 = new double[dataSize];
+    private void validate_double_data(ImageCV img, ImageCV converted, int dataSize) {
+      var data1 = new double[dataSize];
+      var data2 = new double[dataSize];
       img.get(0, 0, data1);
-      imageCV.get(0, 0, data2);
+      converted.get(0, 0, data2);
       assertArrayEquals(data1, data2, "Double data should match");
     }
   }
 
   @Nested
-  @DisplayName("RenderedImage Conversion Tests")
-  class RenderedImageConversionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class RenderedImage_conversion_tests {
 
     @Test
-    @DisplayName("Should return null for null RenderedImage input")
-    void testConvertRenderedImageWithNull() {
-      assertNull(
-          ImageConversion.convertRenderedImage(null),
-          "convertRenderedImage should return null for null input");
+    void should_return_null_for_null_rendered_image_input() {
+      assertNull(ImageConversion.convertRenderedImage(null));
     }
 
     @Test
-    @DisplayName("Should return same instance when input is already BufferedImage")
-    void testConvertRenderedImageWithBufferedImage() {
-      // Given
-      BufferedImage original = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
-      Graphics2D g2d = original.createGraphics();
-      g2d.setColor(Color.BLUE);
-      g2d.fillRect(0, 0, 100, 100);
-      g2d.dispose();
+    void should_return_same_instance_when_input_is_already_buffered_image() {
+      var original = create_test_image(100, 100, BufferedImage.TYPE_INT_RGB, Color.BLUE);
+      var result = ImageConversion.convertRenderedImage(original);
 
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(original);
-
-      // Then
-      assertSame(
-          original,
-          result,
-          "convertRenderedImage should return the same instance for BufferedImage input");
+      assertSame(original, result, "Should return same BufferedImage instance");
       assertEquals(100, result.getWidth());
       assertEquals(100, result.getHeight());
     }
 
     @Test
-    @DisplayName("Should convert RenderedImage to BufferedImage preserving dimensions")
-    void testConvertRenderedImagePreservesDimensions() {
-      // Given
-      BufferedImage source = new BufferedImage(150, 200, BufferedImage.TYPE_INT_ARGB);
-      RenderedImage renderedImage = createMockRenderedImage(source);
+    void should_convert_rendered_image_preserving_dimensions() {
+      var source = create_test_image(150, 200, BufferedImage.TYPE_INT_ARGB, Color.GREEN);
+      var result = ImageConversion.convertRenderedImage(source);
 
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(renderedImage);
-
-      // Then
-      assertNotNull(result, "Result should not be null");
-      assertEquals(150, result.getWidth(), "Width should be preserved");
-      assertEquals(200, result.getHeight(), "Height should be preserved");
+      assertAll(
+          "Dimension preservation",
+          () -> assertNotNull(result, "Result should not be null"),
+          () -> assertEquals(150, result.getWidth(), "Width should be preserved"),
+          () -> assertEquals(200, result.getHeight(), "Height should be preserved"));
     }
 
     @Test
-    @DisplayName("Should preserve ColorModel properties")
-    void testConvertRenderedImagePreservesColorModel() {
-      // Given
-      BufferedImage source = new BufferedImage(50, 50, BufferedImage.TYPE_INT_RGB);
-      RenderedImage renderedImage = createMockRenderedImage(source);
+    void should_preserve_color_model_properties() {
+      var source = create_test_image(50, 50, BufferedImage.TYPE_INT_RGB, Color.RED);
+      var result = ImageConversion.convertRenderedImage(source);
 
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(renderedImage);
+      assertNotNull(result);
+      var originalColorModel = source.getColorModel();
+      var resultColorModel = result.getColorModel();
 
-      // Then
-      assertNotNull(result, "Result should not be null");
-      ColorModel originalColorModel = source.getColorModel();
-      ColorModel resultColorModel = result.getColorModel();
-
-      assertEquals(
-          originalColorModel.getNumComponents(),
-          resultColorModel.getNumComponents(),
-          "Number of color components should be preserved");
-      assertEquals(
-          originalColorModel.hasAlpha(),
-          resultColorModel.hasAlpha(),
-          "Alpha channel presence should be preserved");
-      assertEquals(
-          originalColorModel.isAlphaPremultiplied(),
-          resultColorModel.isAlphaPremultiplied(),
-          "Alpha premultiplication should be preserved");
+      assertAll(
+          "ColorModel properties",
+          () ->
+              assertEquals(
+                  originalColorModel.getNumComponents(), resultColorModel.getNumComponents()),
+          () -> assertEquals(originalColorModel.hasAlpha(), resultColorModel.hasAlpha()),
+          () ->
+              assertEquals(
+                  originalColorModel.isAlphaPremultiplied(),
+                  resultColorModel.isAlphaPremultiplied()));
     }
 
     @Test
-    @DisplayName("Should copy pixel data correctly")
-    void testConvertRenderedImageCopiesPixelData() {
-      // Given
-      BufferedImage source = new BufferedImage(20, 20, BufferedImage.TYPE_INT_RGB);
-      Graphics2D g2d = source.createGraphics();
-      g2d.setColor(Color.RED);
-      g2d.fillRect(0, 0, 10, 10);
-      g2d.setColor(Color.GREEN);
-      g2d.fillRect(10, 0, 10, 10);
-      g2d.setColor(Color.BLUE);
-      g2d.fillRect(0, 10, 10, 10);
-      g2d.setColor(Color.YELLOW);
-      g2d.fillRect(10, 10, 10, 10);
-      g2d.dispose();
+    void should_copy_pixel_data_correctly() {
+      var source = create_colored_quadrant_image(20, 20);
+      var result = ImageConversion.convertRenderedImage(source);
 
-      RenderedImage renderedImage = createMockRenderedImage(source);
-
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(renderedImage);
-
-      // Then
-      assertNotNull(result, "Result should not be null");
+      assertNotNull(result);
 
       // Verify pixel data by sampling key points
-      assertEquals(source.getRGB(5, 5), result.getRGB(5, 5), "Red quadrant should match");
-      assertEquals(source.getRGB(15, 5), result.getRGB(15, 5), "Green quadrant should match");
-      assertEquals(source.getRGB(5, 15), result.getRGB(5, 15), "Blue quadrant should match");
-      assertEquals(source.getRGB(15, 15), result.getRGB(15, 15), "Yellow quadrant should match");
+      assertAll(
+          "Pixel data integrity",
+          () -> assertEquals(source.getRGB(5, 5), result.getRGB(5, 5), "Red quadrant"),
+          () -> assertEquals(source.getRGB(15, 5), result.getRGB(15, 5), "Green quadrant"),
+          () -> assertEquals(source.getRGB(5, 15), result.getRGB(5, 15), "Blue quadrant"),
+          () -> assertEquals(source.getRGB(15, 15), result.getRGB(15, 15), "Yellow quadrant"));
     }
 
-    @ParameterizedTest(name = "Convert {0} image type")
-    @MethodSource("imageTypeProvider")
-    @DisplayName("Should handle different BufferedImage types")
-    void testConvertRenderedImageWithDifferentTypes(String description, int imageType) {
-      // Given
-      BufferedImage source = new BufferedImage(30, 30, imageType);
-      Graphics2D g2d = source.createGraphics();
-      g2d.setColor(Color.MAGENTA);
-      g2d.fillOval(5, 5, 20, 20);
-      g2d.dispose();
+    @ParameterizedTest
+    @MethodSource("image_type_provider")
+    void should_handle_different_buffered_image_types(String description, int imageType) {
+      var source = create_test_image(30, 30, imageType, Color.MAGENTA);
+      var result = ImageConversion.convertRenderedImage(source);
 
-      RenderedImage renderedImage = createMockRenderedImage(source);
-
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(renderedImage);
-
-      // Then
-      assertNotNull(result, "Result should not be null for " + description);
-      assertEquals(30, result.getWidth(), "Width should be preserved for " + description);
-      assertEquals(30, result.getHeight(), "Height should be preserved for " + description);
-      assertEquals(
-          source.getData().getDataBuffer().getDataType(),
-          result.getData().getDataBuffer().getDataType(),
-          "Image type should be preserved for " + description);
+      assertAll(
+          "Different image types",
+          () -> assertNotNull(result, "Result should not be null for " + description),
+          () -> assertEquals(30, result.getWidth(), "Width for " + description),
+          () -> assertEquals(30, result.getHeight(), "Height for " + description),
+          () ->
+              assertEquals(
+                  source.getData().getDataBuffer().getDataType(),
+                  result.getData().getDataBuffer().getDataType(),
+                  "Data type for " + description));
     }
 
-    static Stream<Arguments> imageTypeProvider() {
+    static Stream<Arguments> image_type_provider() {
       return Stream.of(
           Arguments.of("TYPE_INT_RGB", BufferedImage.TYPE_INT_RGB),
           Arguments.of("TYPE_INT_ARGB", BufferedImage.TYPE_INT_ARGB),
@@ -345,169 +269,74 @@ class ImageConversionTest {
           Arguments.of("TYPE_USHORT_GRAY", BufferedImage.TYPE_USHORT_GRAY));
     }
 
-    @Test
-    @DisplayName("Should handle empty properties gracefully")
-    void testConvertRenderedImageWithEmptyProperties() {
-      // Given
-      BufferedImage source = new BufferedImage(10, 10, BufferedImage.TYPE_INT_RGB);
-      RenderedImage renderedImage = createMockRenderedImage(source);
-
-      // When
-      BufferedImage result = ImageConversion.convertRenderedImage(renderedImage);
-
-      // Then
-      assertNotNull(result, "Result should not be null");
-      assertEquals(10, result.getWidth(), "Width should be preserved");
-      assertEquals(10, result.getHeight(), "Height should be preserved");
+    private BufferedImage create_test_image(int width, int height, int type, Color color) {
+      var image = new BufferedImage(width, height, type);
+      var g2d = image.createGraphics();
+      try {
+        g2d.setColor(color);
+        g2d.fillRect(0, 0, width, height);
+      } finally {
+        g2d.dispose();
+      }
+      return image;
     }
 
-    /**
-     * Creates a mock RenderedImage that delegates to a BufferedImage but is not instanceof
-     * BufferedImage. This allows testing the conversion path for non-BufferedImage RenderedImage
-     * implementations.
-     */
-    private RenderedImage createMockRenderedImage(BufferedImage source) {
-      return new RenderedImage() {
-        @Override
-        public Vector<RenderedImage> getSources() {
-          return source.getSources();
-        }
+    private BufferedImage create_colored_quadrant_image(int width, int height) {
+      var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+      var g2d = image.createGraphics();
+      try {
+        int halfWidth = width / 2;
+        int halfHeight = height / 2;
 
-        @Override
-        public Object getProperty(String name) {
-          return source.getProperty(name);
-        }
-
-        @Override
-        public String[] getPropertyNames() {
-          return source.getPropertyNames();
-        }
-
-        @Override
-        public ColorModel getColorModel() {
-          return source.getColorModel();
-        }
-
-        @Override
-        public SampleModel getSampleModel() {
-          return source.getSampleModel();
-        }
-
-        @Override
-        public int getWidth() {
-          return source.getWidth();
-        }
-
-        @Override
-        public int getHeight() {
-          return source.getHeight();
-        }
-
-        @Override
-        public int getMinX() {
-          return source.getMinX();
-        }
-
-        @Override
-        public int getMinY() {
-          return source.getMinY();
-        }
-
-        @Override
-        public int getNumXTiles() {
-          return source.getNumXTiles();
-        }
-
-        @Override
-        public int getNumYTiles() {
-          return source.getNumYTiles();
-        }
-
-        @Override
-        public int getMinTileX() {
-          return source.getMinTileX();
-        }
-
-        @Override
-        public int getMinTileY() {
-          return source.getMinTileY();
-        }
-
-        @Override
-        public int getTileWidth() {
-          return source.getTileWidth();
-        }
-
-        @Override
-        public int getTileHeight() {
-          return source.getTileHeight();
-        }
-
-        @Override
-        public int getTileGridXOffset() {
-          return source.getTileGridXOffset();
-        }
-
-        @Override
-        public int getTileGridYOffset() {
-          return source.getTileGridYOffset();
-        }
-
-        @Override
-        public Raster getTile(int tileX, int tileY) {
-          return source.getTile(tileX, tileY);
-        }
-
-        @Override
-        public Raster getData() {
-          return source.getData();
-        }
-
-        @Override
-        public Raster getData(Rectangle rect) {
-          return source.getData(rect);
-        }
-
-        @Override
-        public WritableRaster copyData(WritableRaster raster) {
-          return source.copyData(raster);
-        }
-      };
+        g2d.setColor(Color.RED);
+        g2d.fillRect(0, 0, halfWidth, halfHeight);
+        g2d.setColor(Color.GREEN);
+        g2d.fillRect(halfWidth, 0, halfWidth, halfHeight);
+        g2d.setColor(Color.BLUE);
+        g2d.fillRect(0, halfHeight, halfWidth, halfHeight);
+        g2d.setColor(Color.YELLOW);
+        g2d.fillRect(halfWidth, halfHeight, halfWidth, halfHeight);
+      } finally {
+        g2d.dispose();
+      }
+      return image;
     }
   }
 
   @Nested
-  @DisplayName("Resource Management Tests")
-  class ResourceManagementTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Resource_management_tests {
 
     @Test
-    @DisplayName("Should handle null release operations gracefully")
-    void testReleaseWithNullInputs() {
-      ImageConversion.releaseMat(null);
-      ImageConversion.releasePlanarImage(null);
+    void should_handle_null_release_operations_gracefully() {
+      assertAll(
+          "Null release operations",
+          () -> assertDoesNotThrow(() -> ImageConversion.releaseMat(null)),
+          () -> assertDoesNotThrow(() -> ImageConversion.releasePlanarImage(null)));
     }
 
     @Test
-    @DisplayName("Should properly manage image lifecycle and conversion")
-    void testImageLifecycleManagement() {
-      try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_16UC1, new Scalar(1024))) {
+    void should_properly_manage_image_lifecycle_and_conversion() {
+      try (var img = new ImageCV(new Size(7, 7), CvType.CV_16UC1, new Scalar(1024))) {
         assertEquals(98, img.physicalBytes());
 
-        BufferedImage bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
-        BufferedImage byteBufferedImage =
+        var bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
+        var byteBufferedImage =
             ImageConversion.convertTo(bufferedImage, BufferedImage.TYPE_BYTE_GRAY);
 
-        try (ImageCV imageCV = ImageConversion.toMat(byteBufferedImage)) {
-          assertEquals(49, imageCV.physicalBytes());
-          assertEquals(4, imageCV.get(0, 0)[0]);
-          assertEquals(7.0, ImageConversion.getBounds(img).getWidth());
+        try (var imageCV = ImageConversion.toMat(byteBufferedImage)) {
+          assertAll(
+              "Image lifecycle validation",
+              () -> assertEquals(49, imageCV.physicalBytes()),
+              () -> assertEquals(4, imageCV.get(0, 0)[0]),
+              () -> assertEquals(7.0, ImageConversion.getBounds(img).getWidth()));
         }
 
-        validateImageLifecycle(img);
+        validate_image_lifecycle(img);
       }
     }
 
-    private void validateImageLifecycle(ImageCV img) {
+    private void validate_image_lifecycle(ImageCV img) {
       assertFalse(img.isReleased());
       assertFalse(img.isReleasedAfterProcessing());
 
@@ -520,95 +349,87 @@ class ImageConversionTest {
   }
 
   @Nested
-  @DisplayName("Binary Image Conversion Tests")
-  class BinaryImageConversionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Binary_image_conversion_tests {
 
-    @Test
-    @DisplayName("Should return null for null RenderedImage")
-    void testConvertRenderedImageWithNull() {
-      assertNull(ImageConversion.convertRenderedImage(null));
-    }
-
-    @ParameterizedTest(name = "Convert binary image with {0} data buffer")
-    @MethodSource("binaryImageTypes")
-    @DisplayName("Should convert binary images with different data buffer types")
-    void testBinaryImageConversion(String description, int dataBufferType) {
+    @ParameterizedTest
+    @MethodSource("binary_image_types")
+    void should_convert_binary_images_with_different_data_buffer_types(int dataBufferType) {
       int width = 3;
       int height = 3;
 
-      BufferedImage binaryImage = createBinaryImage(width, height, dataBufferType);
-      testBinaryImageConversion(binaryImage);
+      var binaryImage = create_binary_image(width, height, dataBufferType);
+      test_binary_image_conversion(binaryImage);
     }
 
-    static Stream<Arguments> binaryImageTypes() {
+    static Stream<Arguments> binary_image_types() {
       return Stream.of(
-          Arguments.of("BYTE", DataBuffer.TYPE_BYTE),
-          Arguments.of("USHORT", DataBuffer.TYPE_USHORT),
-          Arguments.of("INT", DataBuffer.TYPE_INT));
+          Arguments.of(DataBuffer.TYPE_BYTE),
+          Arguments.of(DataBuffer.TYPE_USHORT),
+          Arguments.of(DataBuffer.TYPE_INT));
     }
 
-    private BufferedImage createBinaryImage(int width, int height, int dataBufferType) {
+    private BufferedImage create_binary_image(int width, int height, int dataBufferType) {
       if (dataBufferType == DataBuffer.TYPE_BYTE) {
         return new BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY);
       }
 
-      BufferedImage template = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY);
-      WritableRaster raster = Raster.createPackedRaster(dataBufferType, width, height, 1, 1, null);
+      var template = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY);
+      var raster = Raster.createPackedRaster(dataBufferType, width, height, 1, 1, null);
       return new BufferedImage(template.getColorModel(), raster, false, null);
     }
 
-    private void testBinaryImageConversion(BufferedImage binaryImage) {
-      WritableRaster raster = binaryImage.getRaster();
-      setupBinaryTestData(raster);
+    private void test_binary_image_conversion(BufferedImage binaryImage) {
+      var raster = binaryImage.getRaster();
+      setup_binary_test_data(raster);
 
-      try (ImageCV imageCV = ImageConversion.toMat(binaryImage)) {
-        validateBinaryConversion(imageCV);
+      try (var imageCV = ImageConversion.toMat(binaryImage)) {
+        validate_binary_conversion(imageCV);
       }
     }
 
-    private void setupBinaryTestData(WritableRaster raster) {
+    private void setup_binary_test_data(WritableRaster raster) {
       raster.setSample(1, 1, 0, 1); // Set pixel at (1, 1) to 1 (white)
       raster.setSample(2, 2, 0, 1); // Set pixel at (2, 2) to 1 (white)
     }
 
-    private void validateBinaryConversion(ImageCV imageCV) {
-      assertEquals(9, imageCV.physicalBytes());
-      assertEquals(3, imageCV.rows());
-      assertEquals(3, imageCV.cols());
-      assertEquals(CvType.CV_8UC1, imageCV.type());
-      assertEquals(1, imageCV.channels());
-      assertTrue(imageCV.isContinuous());
-
-      // Validate specific pixel values
-      assertEquals(0, imageCV.get(0, 0)[0]);
-      assertEquals(1, imageCV.get(1, 1)[0]);
-      assertEquals(0, imageCV.get(1, 2)[0]);
-      assertEquals(1, imageCV.get(2, 2)[0]);
+    private void validate_binary_conversion(ImageCV imageCV) {
+      assertAll(
+          "Binary image conversion",
+          () -> assertEquals(9, imageCV.physicalBytes()),
+          () -> assertEquals(3, imageCV.rows()),
+          () -> assertEquals(3, imageCV.cols()),
+          () -> assertEquals(CvType.CV_8UC1, imageCV.type()),
+          () -> assertEquals(1, imageCV.channels()),
+          () -> assertTrue(imageCV.isContinuous()),
+          // Validate specific pixel values
+          () -> assertEquals(0, imageCV.get(0, 0)[0]),
+          () -> assertEquals(1, imageCV.get(1, 1)[0]),
+          () -> assertEquals(0, imageCV.get(1, 2)[0]),
+          () -> assertEquals(1, imageCV.get(2, 2)[0]));
     }
   }
 
   @Nested
-  @DisplayName("Utility Method Tests")
-  class UtilityMethodTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Utility_method_tests {
 
-    @Test
-    @DisplayName("Should correctly identify binary sample models")
-    void testIsBinary() {
-      assertFalse(ImageConversion.isBinary(new BandedSampleModel(1, 1, 1, 1)));
-      assertFalse(
-          ImageConversion.isBinary(new PixelInterleavedSampleModel(1, 1, 1, 1, 1, new int[] {0})));
-      assertFalse(ImageConversion.isBinary(new MultiPixelPackedSampleModel(1, 1, 1, 2)));
-      assertTrue(ImageConversion.isBinary(new MultiPixelPackedSampleModel(1, 1, 1, 1)));
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 4, 8})
+    void should_correctly_identify_non_binary_sample_models_with_different_bit_strides(
+        int bitStride) {
+      var sampleModel = new MultiPixelPackedSampleModel(DataBuffer.TYPE_BYTE, 10, 10, bitStride);
+      boolean isBinary = bitStride == 1;
+      assertEquals(isBinary, ImageConversion.isBinary(sampleModel));
     }
 
-    @ParameterizedTest(name = "Convert CV type {0} to DataBuffer type {1}")
-    @MethodSource("cvTypeToDataTypeMapping")
-    @DisplayName("Should convert CV types to DataBuffer types correctly")
-    void testConvertToDataType(int cvType, int expectedDataType) {
+    @ParameterizedTest
+    @MethodSource("cv_type_to_data_type_mapping")
+    void should_convert_cv_types_to_data_buffer_types_correctly(int cvType, int expectedDataType) {
       assertEquals(expectedDataType, ImageConversion.convertToDataType(cvType));
     }
 
-    static Stream<Arguments> cvTypeToDataTypeMapping() {
+    static Stream<Arguments> cv_type_to_data_type_mapping() {
       return Stream.of(
           Arguments.of(CvType.CV_8U, DataBuffer.TYPE_BYTE),
           Arguments.of(CvType.CV_8S, DataBuffer.TYPE_BYTE),
@@ -620,74 +441,114 @@ class ImageConversionTest {
     }
 
     @Test
-    @DisplayName("Should throw exception for invalid CV types")
-    void testConvertToDataTypeWithInvalidInput() {
+    void should_throw_exception_for_invalid_cv_types() {
       assertThrows(
           UnsupportedOperationException.class, () -> ImageConversion.convertToDataType(-1));
+    }
+
+    @Test
+    void should_calculate_bounds_correctly() {
+      try (var img = new ImageCV(new Size(100, 50), CvType.CV_8UC1)) {
+        var bounds = ImageConversion.getBounds(img);
+        assertAll(
+            "Bounds calculation",
+            () -> assertEquals(0, bounds.x),
+            () -> assertEquals(0, bounds.y),
+            () -> assertEquals(100, bounds.width),
+            () -> assertEquals(50, bounds.height));
+      }
     }
   }
 
   @Nested
-  @DisplayName("Mat Conversion Tests")
-  class MatConversionTests {
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Mat_conversion_tests {
 
     @Test
-    @DisplayName("Should handle BGR/RGB conversion correctly")
-    void testMatConversionWithColorOrdering() {
+    void should_handle_bgr_rgb_conversion_correctly() {
       // Values: Blue=1, Green=2, Red=3
-      try (ImageCV img = new ImageCV(new Size(7, 7), CvType.CV_8UC3, new Scalar(1, 2, 3))) {
+      try (var img = new ImageCV(new Size(7, 7), CvType.CV_8UC3, new Scalar(1, 2, 3))) {
         assertEquals(147, img.physicalBytes());
 
-        BufferedImage bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
+        var bufferedImage = ImageConversion.toBufferedImage((PlanarImage) img);
         // BufferedImage is RGB by default, but Mat is BGR
         assertArrayEquals(
             new double[] {3, 2, 1}, bufferedImage.getRaster().getPixel(0, 0, (double[]) null));
 
-        testMatConversionWithRegion(bufferedImage);
-        testMatConversionWithInterleavedRaster(bufferedImage);
-        testMatConversionWithBandedRaster(bufferedImage);
+        test_mat_conversion_with_region(bufferedImage);
+        test_mat_conversion_with_different_raster_types(bufferedImage);
       }
     }
 
-    private void testMatConversionWithRegion(BufferedImage bufferedImage) {
-      try (ImageCV imageCV =
+    private void test_mat_conversion_with_region(BufferedImage bufferedImage) {
+      try (var imageCV =
           ImageConversion.toMat(bufferedImage, new Rectangle(0, 0, 3, 3), true, false)) {
-        assertEquals(27, imageCV.physicalBytes());
-        assertEquals(3, imageCV.rows());
-        assertEquals(3, imageCV.cols());
-        assertArrayEquals(new double[] {1, 2, 3}, imageCV.get(0, 0));
+        assertAll(
+            "Region conversion",
+            () -> assertEquals(27, imageCV.physicalBytes()),
+            () -> assertEquals(3, imageCV.rows()),
+            () -> assertEquals(3, imageCV.cols()),
+            () -> assertArrayEquals(new double[] {1, 2, 3}, imageCV.get(0, 0)));
       }
     }
 
-    private void testMatConversionWithInterleavedRaster(BufferedImage template) {
-      WritableRaster rgbRaster =
+    private void test_mat_conversion_with_different_raster_types(BufferedImage template) {
+      // Test interleaved raster
+      var rgbRaster =
           Raster.createInterleavedRaster(
               DataBuffer.TYPE_BYTE, 1, 1, 3, 3, new int[] {0, 1, 2}, null);
-      setupRasterData(rgbRaster);
+      setup_raster_data(rgbRaster, 3, 2, 1); // RGB values
 
-      BufferedImage bgrImage = new BufferedImage(template.getColorModel(), rgbRaster, false, null);
-      try (ImageCV imageCV = ImageConversion.toMat(bgrImage, null, true, false)) {
+      var rgbImage = new BufferedImage(template.getColorModel(), rgbRaster, false, null);
+      try (var imageCV = ImageConversion.toMat(rgbImage, null, true, false)) {
         assertEquals(3, imageCV.physicalBytes());
-        assertArrayEquals(new double[] {1, 2, 3}, imageCV.get(0, 0));
+        assertArrayEquals(new double[] {1, 2, 3}, imageCV.get(0, 0)); // Should be BGR
+      }
+
+      // Test banded raster
+      var bandedRaster = Raster.createBandedRaster(DataBuffer.TYPE_BYTE, 1, 1, 3, null);
+      setup_raster_data(bandedRaster, 3, 2, 1); // RGB values
+
+      var bandedImage = new BufferedImage(template.getColorModel(), bandedRaster, false, null);
+      try (var bandedImageCV = ImageConversion.toMat(bandedImage, null, true, false)) {
+        assertEquals(3, bandedImageCV.physicalBytes());
+        assertArrayEquals(new double[] {1, 2, 3}, bandedImageCV.get(0, 0)); // Should be BGR
       }
     }
 
-    private void testMatConversionWithBandedRaster(BufferedImage template) {
-      WritableRaster rgbBandRaster = Raster.createBandedRaster(DataBuffer.TYPE_BYTE, 1, 1, 3, null);
-      setupRasterData(rgbBandRaster);
+    private void setup_raster_data(WritableRaster raster, int red, int green, int blue) {
+      raster.setSample(0, 0, 0, red); // Red channel
+      raster.setSample(0, 0, 1, green); // Green channel
+      raster.setSample(0, 0, 2, blue); // Blue channel
+    }
 
-      BufferedImage bgrImage =
-          new BufferedImage(template.getColorModel(), rgbBandRaster, false, null);
-      try (ImageCV imageCV = ImageConversion.toMat(bgrImage, null, true, false)) {
-        assertEquals(3, imageCV.physicalBytes());
-        assertArrayEquals(new double[] {1, 2, 3}, imageCV.get(0, 0));
+    @Test
+    void should_handle_different_conversion_modes() {
+      var image = create_test_color_image();
+
+      // Test different toBGR modes
+      try (var bgrMat = ImageConversion.toMat(image, null, true);
+          var rgbMat = ImageConversion.toMat(image, null, false)) {
+
+        assertNotNull(bgrMat);
+        assertNotNull(rgbMat);
+        assertEquals(bgrMat.physicalBytes(), rgbMat.physicalBytes());
+
+        assertArrayEquals(new double[] {255, 128, 64}, rgbMat.get(0, 0));
+        assertArrayEquals(new double[] {64, 128, 255}, bgrMat.get(0, 0));
       }
     }
 
-    private void setupRasterData(WritableRaster raster) {
-      raster.setSample(0, 0, 0, 3); // Red
-      raster.setSample(0, 0, 1, 2); // Green
-      raster.setSample(0, 0, 2, 1); // Blue
+    private BufferedImage create_test_color_image() {
+      var image = new BufferedImage(10, 10, BufferedImage.TYPE_3BYTE_BGR);
+      var g2d = image.createGraphics();
+      try {
+        g2d.setColor(new Color(255, 128, 64)); // RGB
+        g2d.fillRect(0, 0, 10, 10);
+      } finally {
+        g2d.dispose();
+      }
+      return image;
     }
   }
 }

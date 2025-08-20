@@ -11,7 +11,6 @@ package org.weasis.opencv.seg;
 
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +24,14 @@ import org.opencv.imgproc.Imgproc;
 import org.weasis.core.util.StringUtil;
 import org.weasis.opencv.data.PlanarImage;
 
+/**
+ * Represents a segmentation region containing polygonal segments with hierarchical relationships.
+ * Each region has a unique identifier, a list of segments, and optional attributes for
+ * visualization.
+ *
+ * <p>The region can calculate its area using either pre-computed pixel counts or by calculating the
+ * area of its constituent segments using the shoelace formula.
+ */
 public class Region {
   private static final long UNINITIALIZED_PIXEL_COUNT = -1L;
   private static final int HIERARCHY_PARENT_INDEX = 3;
@@ -32,36 +39,33 @@ public class Region {
   private final String id;
   protected long numberOfPixels;
   protected List<Segment> segmentList;
-
   protected RegionAttributes attributes;
 
   /**
-   * Constructs a Region with a unique identifier. If the ID is null or empty, it generates a new
-   * UUID as the ID.
+   * Creates a new region with the specified identifier.
    *
-   * @param id the unique identifier for this region
+   * @param id the unique identifier, or null to generate a UUID
    */
   public Region(String id) {
     this(id, null);
   }
 
   /**
-   * Constructs a Region with a unique identifier and an empty segment list. If the ID is null or
-   * empty, it generates a new UUID as the ID.
+   * Creates a new region with the specified identifier and segments.
    *
-   * @param id the unique identifier for this region
+   * @param id the unique identifier, or null to generate a UUID
+   * @param segmentList the segments that make up this region
    */
   public Region(String id, List<Segment> segmentList) {
     this(id, segmentList, UNINITIALIZED_PIXEL_COUNT);
   }
 
   /**
-   * Constructs a Region with a unique identifier, a list of segments, and the number of pixels. If
-   * the ID is null or empty, it generates a new UUID as the ID.
+   * Creates a new region with the specified identifier, segments, and pixel count.
    *
-   * @param id the unique identifier for this region
-   * @param segmentList the list of segments that make up this region
-   * @param numberOfPixels the number of pixels in this region
+   * @param id the unique identifier, or null to generate a UUID
+   * @param segmentList the segments that make up this region
+   * @param numberOfPixels the pre-computed number of pixels in this region
    */
   public Region(String id, List<Segment> segmentList, long numberOfPixels) {
     this.id = generateOrValidateId(id);
@@ -72,112 +76,74 @@ public class Region {
     return StringUtil.hasText(id) ? id.trim() : UUID.randomUUID().toString();
   }
 
-  /**
-   * Returns the unique identifier for this region. If the ID is not set, it generates a new UUID.
-   *
-   * @return the unique identifier for this region
-   */
   public String getId() {
     return id;
   }
 
   /**
-   * Returns the list of segments for this region. If the segment list is not initialized, it
-   * returns an empty list.
+   * Returns an immutable view of the segments in this region.
    *
-   * @return the list of segments for this region
+   * @return the segments, never null
    */
   public List<Segment> getSegmentList() {
-    return segmentList != null ? segmentList : Collections.emptyList();
+    return segmentList != null ? List.copyOf(segmentList) : List.of();
   }
 
-  /**
-   * Sets the segment list for this region and initializes the number of pixels to
-   * UNINITIALIZED_PIXEL_COUNT.
-   *
-   * @param segmentList the list of segments to set for this region
-   */
   public void setSegmentList(List<Segment> segmentList) {
     setSegmentList(segmentList, UNINITIALIZED_PIXEL_COUNT);
   }
 
   /**
-   * Sets the segment list for this region and initializes the number of pixels. If the segment list
-   * is null, it initializes an empty list. If the number of pixels is less than or equal to zero,
-   * it sets it to UNINITIALIZED_PIXEL_COUNT.
+   * Sets the segments and pixel count for this region.
    *
-   * @param segmentList the list of segments to set for this region
-   * @param numberOfPixels the number of pixels in the region
+   * @param segmentList the segments to set
+   * @param numberOfPixels the pixel count, or negative to mark as uninitialized
    */
   public void setSegmentList(List<Segment> segmentList, long numberOfPixels) {
     this.segmentList = segmentList != null ? new ArrayList<>(segmentList) : new ArrayList<>();
     this.numberOfPixels = numberOfPixels > 0 ? numberOfPixels : UNINITIALIZED_PIXEL_COUNT;
   }
 
-  /**
-   * Returns the attributes of this region. If the attributes are not set, it returns null.
-   *
-   * @return the attributes of this region
-   */
   public RegionAttributes getAttributes() {
     return attributes;
   }
 
-  /**
-   * Sets the attributes for this region. If the attributes are null, it will not change the current
-   * attributes.
-   *
-   * @param attributes the attributes to set for this region
-   */
   public void setAttributes(RegionAttributes attributes) {
     this.attributes = attributes;
   }
 
-  /**
-   * Returns the number of pixels in the region. If the pixel count is initialized, it returns that
-   * value. Otherwise, it returns -1 to indicate that the pixel count is not set.
-   *
-   * @return the number of pixels in the region
-   */
   public long getNumberOfPixels() {
     return numberOfPixels;
   }
 
-  /**
-   * Checks if this region has a valid pixel count. A valid pixel count is any value greater than
-   * UNINITIALIZED_PIXEL_COUNT (-1).
-   *
-   * @return true if the region has a valid pixel count, false otherwise
-   */
   public boolean hasValidPixelCount() {
     return numberOfPixels > UNINITIALIZED_PIXEL_COUNT;
   }
 
   // Static factory methods for building segments from binary images
   /**
-   * Builds a segment list from a binary image. If the image is null, it returns an empty list.
+   * Extracts segments from a binary image using OpenCV contour detection.
    *
-   * @param binary the binary image from which to extract segments
-   * @return a list of segments extracted from the binary image
+   * @param binary the binary image to process
+   * @return list of extracted segments, empty if image is null
    */
   public static List<Segment> buildSegmentList(PlanarImage binary) {
     return buildSegmentList(binary, null);
   }
 
   /**
-   * Builds a segment list from a binary image. If the image is null, it returns an empty list.
-   * Optionally, an offset can be provided to adjust the contour coordinates.
+   * Extracts segments from a binary image with coordinate offset adjustment.
    *
-   * @param binary the binary image from which to extract segments
-   * @param offset an optional offset to apply to the contour coordinates
-   * @return a list of segments extracted from the binary image
+   * @param binary the binary image to process
+   * @param offset coordinate offset to apply to contours
+   * @return list of extracted segments, empty if image is null
    */
   public static List<Segment> buildSegmentList(PlanarImage binary, Point offset) {
     if (binary == null) {
-      return Collections.emptyList();
+      return List.of();
     }
-    List<MatOfPoint> contours = new ArrayList<>();
-    Mat hierarchy = new Mat();
+    var contours = new ArrayList<MatOfPoint>();
+    var hierarchy = new Mat();
     findContours(binary, contours, hierarchy, offset);
     return buildSegmentList(contours, hierarchy);
   }
@@ -198,44 +164,33 @@ public class Region {
     }
   }
 
-  /**
-   * Builds a segment list from contours with hierarchical relationships. This method handles both
-   * MatOfPoint and MatOfPoint2f contours.
-   */
+  /** Builds segments from MatOfPoint2f contours with hierarchical relationships. */
   public static List<Segment> buildSegmentListFromFloat(
       List<MatOfPoint2f> contours, Mat hierarchy) {
     return buildSegmentListFromContours(contours, hierarchy);
   }
 
-  /**
-   * Builds a segment list from contours with hierarchical relationships. This method handles both
-   * MatOfPoint and MatOfPoint2f contours.
-   */
+  /** Builds segments from MatOfPoint contours with hierarchical relationships. */
   public static List<Segment> buildSegmentList(List<MatOfPoint> contours, Mat hierarchy) {
     return buildSegmentListFromContours(contours, hierarchy);
   }
 
-  /**
-   * Builds a segment list from contours with hierarchical relationships. This method handles both
-   * MatOfPoint and MatOfPoint2f contours.
-   */
   private static List<Segment> buildSegmentListFromContours(
       List<? extends Mat> contours, Mat hierarchy) {
     if (contours == null || hierarchy == null || contours.isEmpty()) {
-      return Collections.emptyList();
+      return List.of();
     }
-    Map<Integer, ContourTopology> contourMap = createContourTopologyMap(contours, hierarchy);
+    var contourMap = createContourTopologyMap(contours, hierarchy);
     return extractRootSegments(contourMap, contours.size());
   }
 
   private static Map<Integer, ContourTopology> createContourTopologyMap(
       List<? extends Mat> contours, Mat hierarchy) {
-    Map<Integer, ContourTopology> contourMap = new HashMap<>();
-    int[] hierarchyData = new int[4];
+    var contourMap = new HashMap<Integer, ContourTopology>();
+    var hierarchyData = new int[4];
     for (int i = 0; i < contours.size(); i++) {
       hierarchy.get(0, i, hierarchyData);
-      ContourTopology topology =
-          createContourTopology(contours.get(i), hierarchyData[HIERARCHY_PARENT_INDEX]);
+      var topology = createContourTopology(contours.get(i), hierarchyData[HIERARCHY_PARENT_INDEX]);
       if (topology != null) {
         contourMap.put(i, topology);
       }
@@ -254,10 +209,9 @@ public class Region {
 
   private static List<Segment> extractRootSegments(
       Map<Integer, ContourTopology> contourMap, int contourCount) {
-    List<Segment> segmentList = new ArrayList<>();
-    // Build parent-child relationships and collect root segments
+    var segmentList = new ArrayList<Segment>();
     for (int i = 0; i < contourCount; i++) {
-      Segment segment = buildSegmentWithChildren(contourMap, i);
+      var segment = buildSegmentWithChildren(contourMap, i);
       if (segment != null) {
         segmentList.add(segment);
       }
@@ -267,64 +221,47 @@ public class Region {
 
   private static Segment buildSegmentWithChildren(
       Map<Integer, ContourTopology> contourMap, int index) {
-    ContourTopology contourTopology = contourMap.get(index);
+    var contourTopology = contourMap.get(index);
     if (contourTopology == null) {
       return null;
     }
     int parentIndex = contourTopology.getParent();
 
-    // If this contour has a parent, add it as a child and return null (not a root)
     if (parentIndex >= 0) {
-      ContourTopology parent = contourMap.get(parentIndex);
+      var parent = contourMap.get(parentIndex);
       if (parent != null) {
         parent.getSegment().addChild(contourTopology.getSegment());
       }
-      return null;
+      return null; // Not a root segment
     }
-    // This is a root segment
-    return contourTopology.getSegment();
+    return contourTopology.getSegment(); // Root segment
   }
 
   /**
-   * Returns the area of the region. If the pixel count is initialized, it returns that value.
-   * Otherwise, it calculates the area based on the segments.
+   * Calculates the area of this region. Uses pre-computed pixel count if available, otherwise
+   * computes area from segments using the shoelace formula.
    *
-   * @return the area of the region
+   * @return the area in pixels
    */
   public double getArea() {
-    if (hasValidPixelCount()) {
-      return numberOfPixels;
-    }
-    return Math.round(calculateSegmentListArea(getSegmentList()));
-  }
-
-  private static double calculateSegmentListArea(List<Segment> segments) {
-    return calculateArea(segments, 0);
+    return hasValidPixelCount() ? numberOfPixels : Math.round(calculateArea(segmentList, 0));
   }
 
   private static double calculateArea(List<Segment> segments, int level) {
-    if (segments == null || segments.isEmpty()) {
+    if (segments.isEmpty()) {
       return 0.0;
     }
 
     double totalArea = 0.0;
-    for (Segment segment : segments) {
-      // Alternating signs for holes (even levels are positive, odd levels are negative)
+    for (var segment : segments) {
       double segmentArea = polygonArea(segment);
+      // Alternate signs for holes: positive for even levels, negative for odd levels
       totalArea += (level % 2 == 0) ? segmentArea : -segmentArea;
-
-      // Recursively calculate area of children
-      totalArea += calculateArea(segment.getChildren(), level + 1);
+      totalArea += calculateArea(segment.children, level + 1);
     }
     return totalArea;
   }
 
-  /**
-   * Calculate the area of a polygon using the shoelace formula.
-   *
-   * @param segment the polygon segment
-   * @return the area which approximates the number of pixels inside the polygon
-   */
   private static double polygonArea(Segment segment) {
     if (segment == null || segment.size() < 3) {
       return 0.0;
@@ -333,24 +270,23 @@ public class Region {
     int vertexCount = segment.size();
 
     for (int i = 0; i < vertexCount; i++) {
-      Point2D currentPoint = segment.get(i);
-      Point2D nextPoint = segment.get((i + 1) % vertexCount);
+      Point2D current = segment.get(i);
+      Point2D next = segment.get((i + 1) % vertexCount);
 
       // Shoelace formula: sum of (x_i * y_{i+1} - x_{i+1} * y_i)
-      area += currentPoint.getX() * nextPoint.getY() - nextPoint.getX() * currentPoint.getY();
+      area += current.getX() * next.getY() - next.getX() * current.getY();
     }
     return Math.abs(area) / 2.0;
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (this == obj) return true;
-    if (!(obj instanceof Region other)) return false;
-
-    return Objects.equals(id, other.id)
-        && numberOfPixels == other.numberOfPixels
-        && Objects.equals(segmentList, other.segmentList)
-        && Objects.equals(attributes, other.attributes);
+    return this == obj
+        || (obj instanceof Region other
+            && Objects.equals(id, other.id)
+            && numberOfPixels == other.numberOfPixels
+            && Objects.equals(segmentList, other.segmentList)
+            && Objects.equals(attributes, other.attributes));
   }
 
   @Override
@@ -360,8 +296,7 @@ public class Region {
 
   @Override
   public String toString() {
-    return String.format(
-        "Region{id='%s', segments=%d, pixels=%d, hasAttributes=%s}",
-        id, getSegmentList().size(), numberOfPixels, attributes != null);
+    return "Region{id='%s', segments=%d, pixels=%d, hasAttributes=%s}"
+        .formatted(id, segmentList.size(), numberOfPixels, attributes != null);
   }
 }

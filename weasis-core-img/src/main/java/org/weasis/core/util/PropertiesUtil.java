@@ -9,8 +9,6 @@
  */
 package org.weasis.core.util;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -24,9 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Utility class for handling Java Properties files with modern NIO.2 APIs and enhanced
- * functionality. Provides methods for loading, storing, and manipulating properties with better
- * error handling and charset support.
+ * Utility class for handling Java Properties files with modern NIO.2 APIs. Provides methods for
+ * loading, storing, and manipulating properties with UTF-8 encoding by default and enhanced error
+ * handling.
  *
  * @author Nicolas Roduit
  */
@@ -36,11 +34,10 @@ public final class PropertiesUtil {
   private PropertiesUtil() {}
 
   /**
-   * Loads properties from a file using UTF-8 encoding. If the file doesn't exist, returns an empty
-   * Properties object.
+   * Loads properties from a file using UTF-8 encoding.
    *
    * @param path the path to the properties file
-   * @return the loaded properties, never null
+   * @return the loaded properties, never null (empty if file doesn't exist)
    */
   public static Properties loadProperties(Path path) {
     return loadProperties(path, null, StandardCharsets.UTF_8);
@@ -58,35 +55,36 @@ public final class PropertiesUtil {
   }
 
   /**
-   * Loads properties from a file with specified charset encoding. If the file doesn't exist,
-   * returns an empty Properties object.
+   * Loads properties from a file with specified charset encoding.
    *
    * @param path the path to the properties file
+   * @param target the properties object to merge into (if null, creates a new one)
    * @param charset the charset to use for reading
-   * @return the loaded properties, never null
+   * @return the loaded properties, never null (empty if file doesn't exist)
    */
   public static Properties loadProperties(Path path, Properties target, Charset charset) {
     Objects.requireNonNull(path, "Path cannot be null");
     Objects.requireNonNull(charset, "Charset cannot be null");
 
-    Properties properties = target != null ? target : new Properties();
+    var properties = Objects.requireNonNullElseGet(target, Properties::new);
 
-    if (Files.exists(path) && Files.isReadable(path)) {
-      try (BufferedReader reader = Files.newBufferedReader(path, charset)) {
-        properties.load(reader);
-        LOGGER.trace("Loaded {} properties from: {}", properties.size(), path);
-      } catch (IOException e) {
-        LOGGER.error("Failed to load properties from file: {}", path, e);
-      }
-    } else {
+    if (!isReadableFile(path)) {
       LOGGER.debug("Properties file not found or not readable: {}", path);
+      return properties;
+    }
+
+    try (var reader = Files.newBufferedReader(path, charset)) {
+      properties.load(reader);
+      LOGGER.trace("Loaded {} properties from: {}", properties.size(), path);
+    } catch (IOException e) {
+      LOGGER.error("Failed to load properties from file: {}", path, e);
     }
 
     return properties;
   }
 
   /**
-   * Stores properties to a file using UTF-8 encoding with automatic parent directory creation.
+   * Stores properties to a file using UTF-8 encoding.
    *
    * @param path the path to the properties file
    * @param properties the properties to store
@@ -110,15 +108,11 @@ public final class PropertiesUtil {
     Objects.requireNonNull(properties, "Properties cannot be null");
     Objects.requireNonNull(charset, "Charset cannot be null");
 
-    try {
-      // Create parent directories if they don't exist
-      FileUtil.prepareToWriteFile(path);
-    } catch (IOException e) {
-      LOGGER.error("Failed to create parent directories for: {}", path, e);
+    if (!createParentDirectories(path)) {
       return;
     }
 
-    try (BufferedWriter writer =
+    try (var writer =
         Files.newBufferedWriter(
             path,
             charset,
@@ -132,8 +126,6 @@ public final class PropertiesUtil {
     }
   }
 
-  // ================= Utility Methods =================
-
   /**
    * Creates a Properties object from a Map.
    *
@@ -141,7 +133,7 @@ public final class PropertiesUtil {
    * @return a new Properties object containing the map entries
    */
   public static Properties fromMap(Map<String, String> map) {
-    Properties properties = new Properties();
+    var properties = new Properties();
     if (map != null) {
       properties.putAll(map);
     }
@@ -156,14 +148,28 @@ public final class PropertiesUtil {
    * @return a new Properties object containing merged properties
    */
   public static Properties merge(Properties... propertiesArray) {
-    Properties merged = new Properties();
+    var merged = new Properties();
     if (propertiesArray != null) {
-      for (Properties props : propertiesArray) {
+      for (var props : propertiesArray) {
         if (props != null) {
           merged.putAll(props);
         }
       }
     }
     return merged;
+  }
+
+  private static boolean isReadableFile(Path path) {
+    return Files.exists(path) && Files.isReadable(path);
+  }
+
+  private static boolean createParentDirectories(Path path) {
+    try {
+      FileUtil.prepareToWriteFile(path);
+      return true;
+    } catch (IOException e) {
+      LOGGER.error("Failed to create parent directories for: {}", path, e);
+      return false;
+    }
   }
 }

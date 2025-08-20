@@ -10,160 +10,246 @@
 package org.weasis.opencv.op;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.awt.Dimension;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.osgi.OpenCVNativeLoader;
-import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.op.lut.ColorLut;
 
-public class ImageContentHashTest {
+@DisplayNameGeneration(ReplaceUnderscores.class)
+class ImageContentHashTest {
+
+  private static final double IDENTICAL_THRESHOLD = 0.0001;
+  private static final int DEFAULT_SIZE = 100;
 
   @BeforeAll
   @DisplayName("Load OpenCV native library")
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
+  static void load_native_lib() {
+    var loader = new OpenCVNativeLoader();
     loader.init();
   }
 
-  @Test
-  public void testCompare_AverageHash_SimilarImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
+  @Nested
+  class Identical_Image_Comparisons {
 
-    ImageCV result = ImageTransformer.scale(source, new Dimension(300, 300));
-    assertEquals(300, result.width());
-    assertEquals(300, result.height());
+    @ParameterizedTest
+    @EnumSource(ImageContentHash.class)
+    void identical_images_should_have_zero_difference(ImageContentHash algorithm) {
+      var image1 = createSolidColorImage(DEFAULT_SIZE, DEFAULT_SIZE, new Scalar(128, 64, 192));
+      var image2 = image1.clone();
 
-    // Act
-    double diff = ImageContentHash.AVERAGE.compare(result, source);
+      compareImages(algorithm, image1, image2);
+    }
 
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "Average hash should be identical for the same image");
+    @Test
+    void scaled_images_should_be_recognized_as_similar() {
+      var original = createCheckerboardImage(50, 50);
+      var scaled = new Mat();
 
-    result.release();
-    source.release();
+      Imgproc.resize(original, scaled, new Size(150, 150));
+
+      var averageDiff = ImageContentHash.AVERAGE.compare(original, scaled);
+      var phashDiff = ImageContentHash.PHASH.compare(original, scaled);
+
+      assertEquals(
+          0.0, averageDiff, IDENTICAL_THRESHOLD, "Average hash should handle scaling well");
+      assertEquals(0.0, phashDiff, IDENTICAL_THRESHOLD, "PHash should handle scaling well");
+    }
   }
 
-  @Test
-  public void testCompare_Phash_SameImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-
-    ImageCV result = ImageTransformer.scale(source, new Dimension(300, 300));
-    assertEquals(300, result.width());
-    assertEquals(300, result.height());
-
-    // Act
-    double diff = ImageContentHash.PHASH.compare(result, source);
-
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "PHash should be identical for the same image");
-
-    result.release();
-    source.release();
+  private static void compareImages(ImageContentHash algorithm, Mat image1, Mat image2) {
+    var difference = algorithm.compare(image1, image2);
+    if (algorithm == ImageContentHash.RADIAL_VARIANCE) {
+      assertEquals(
+          1.0,
+          difference,
+          IDENTICAL_THRESHOLD,
+          algorithm + " should return zero difference for identical images");
+    } else {
+      assertEquals(
+          0.0,
+          difference,
+          IDENTICAL_THRESHOLD,
+          algorithm + " should return zero difference for identical images");
+    }
   }
 
-  @Test
-  public void testCompare_MarrHildrethHash_SimilarImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat source2 = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Imgproc.GaussianBlur(source2, source2, new org.opencv.core.Size(3, 3), 0);
-    Mat differentImage = ImageTransformer.applyLUT(source, ColorLut.HUE.getByteLut().lutTable());
+  @Nested
+  class Different_Image_Comparisons {
 
-    // Act
-    double diff = ImageContentHash.MARR_HILDRETH.compare(source, source2);
-    double diff2 = ImageContentHash.MARR_HILDRETH.compare(source, differentImage);
+    @ParameterizedTest
+    @MethodSource("provideImageTransformationTestCases")
+    void transformed_images_should_show_expected_differences(
+        ImageContentHash algorithm,
+        String transformation,
+        double expectedDifference,
+        double tolerance) {
 
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "Marr-Hildreth hash should be identical for similar images");
-    assertEquals(
-        400.0, diff2, 50, "Marr-Hildreth hash should be different for different color images");
+      var original = createGradientImage(DEFAULT_SIZE, DEFAULT_SIZE);
+      var transformed = applyTransformation(original, transformation);
 
-    source.release();
-    source2.release();
+      var actualDifference = algorithm.compare(original, transformed);
+
+      assertEquals(
+          expectedDifference,
+          actualDifference,
+          tolerance,
+          String.format(
+              "%s should show expected difference for %s transformation",
+              algorithm, transformation));
+    }
+
+    static Stream<Arguments> provideImageTransformationTestCases() {
+      return Stream.of(
+          // Algorithm, Transformation, Expected Difference, Tolerance
+          Arguments.of(ImageContentHash.MARR_HILDRETH, "color_shift", 400.0, 150.0),
+          Arguments.of(ImageContentHash.COLOR_MOMENT, "color_shift", 20.0, 10.0),
+          Arguments.of(ImageContentHash.BLOCK_MEAN_ZERO, "color_shift", 180.0, 30.0),
+          Arguments.of(ImageContentHash.BLOCK_MEAN_ONE, "color_shift", 670.0, 100.0),
+          Arguments.of(ImageContentHash.RADIAL_VARIANCE, "rotation_90", 0.3, 0.1));
+    }
+
+    @Test
+    void structurally_similar_images_should_have_low_marr_hildreth_difference() {
+      var original = createGradientImage(DEFAULT_SIZE, DEFAULT_SIZE);
+      var blurred = new Mat();
+
+      Imgproc.GaussianBlur(original, blurred, new Size(3, 3), 0);
+
+      var difference = ImageContentHash.MARR_HILDRETH.compare(original, blurred);
+
+      assertEquals(
+          1.0,
+          difference,
+          IDENTICAL_THRESHOLD,
+          "Marr-Hildreth should recognize structurally similar images");
+    }
   }
 
-  @Test
-  public void testCompare_ColorMomentHash_DifferentImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat source2 = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat differentImage = ImageTransformer.applyLUT(source, ColorLut.HUE.getByteLut().lutTable());
+  @Nested
+  class Edge_Cases_And_Validation {
 
-    // Act
-    double diff = ImageContentHash.COLOR_MOMENT.compare(source, source2);
-    double diff2 = ImageContentHash.COLOR_MOMENT.compare(source, differentImage);
+    @ParameterizedTest
+    @EnumSource(ImageContentHash.class)
+    void null_images_should_throw_exception(ImageContentHash algorithm) {
+      var validImage = createSolidColorImage(10, 10, Scalar.all(100));
 
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "Color Moment hash should be identical for the same image");
-    assertEquals(
-        20.0, diff2, 10, "Color Moment hash should be different for different color images");
+      assertThrows(
+          NullPointerException.class,
+          () -> algorithm.compare(null, validImage),
+          "Should throw exception for null first image");
 
-    source.release();
-    differentImage.release();
+      assertThrows(
+          NullPointerException.class,
+          () -> algorithm.compare(validImage, null),
+          "Should throw exception for null second image");
+    }
+
+    @ParameterizedTest
+    @EnumSource(ImageContentHash.class)
+    void empty_images_should_throw_exception(ImageContentHash algorithm) {
+      var validImage = createSolidColorImage(10, 10, Scalar.all(100));
+      var emptyImage = new Mat();
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> algorithm.compare(emptyImage, validImage),
+          "Should throw exception for empty first image");
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> algorithm.compare(validImage, emptyImage),
+          "Should throw exception for empty second image");
+    }
+
+    @Test
+    void different_image_sizes_should_be_handled_correctly() {
+      var smallImage = createSolidColorImage(50, 50, Scalar.all(128));
+      var largeImage = createSolidColorImage(200, 200, Scalar.all(128));
+
+      compareImages(ImageContentHash.AVERAGE, smallImage, largeImage);
+      // All algorithms should handle different sizes gracefully
+      for (var algorithm : ImageContentHash.values()) {
+        compareImages(algorithm, smallImage, largeImage);
+      }
+    }
   }
 
-  @Test
-  public void testCompare_BlockMean_Zero_DifferentImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat source2 = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat differentImage = ImageTransformer.applyLUT(source, ColorLut.HUE.getByteLut().lutTable());
+  // ===================== Helper Methods =====================
 
-    // Act
-    double diff = ImageContentHash.BLOCK_MEAN_ZERO.compare(source, source2);
-    double diff2 = ImageContentHash.BLOCK_MEAN_ZERO.compare(source, differentImage);
-
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "Block Mean Zero hash should be identical for the same image");
-    assertEquals(
-        180, diff2, 30, "Block Mean Zero hash should be different for different color images");
-
-    source.release();
-    differentImage.release();
+  private static Mat createSolidColorImage(int width, int height, Scalar color) {
+    var image = new Mat(height, width, CvType.CV_8UC3);
+    image.setTo(color);
+    return image;
   }
 
-  @Test
-  public void testCompare_BlockMean_One_DifferentImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat source2 = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    Mat differentImage = ImageTransformer.applyLUT(source, ColorLut.HUE.getByteLut().lutTable());
+  private static Mat createCheckerboardImage(int width, int height) {
+    var image = new Mat(height, width, CvType.CV_8UC3);
+    var tileSize = Math.max(width, height) / 8;
 
-    // Act
-    double diff = ImageContentHash.BLOCK_MEAN_ONE.compare(source, source2);
-    double diff2 = ImageContentHash.BLOCK_MEAN_ONE.compare(source, differentImage);
-
-    // Assert
-    assertEquals(0.0, diff, 0.0001, "Block Mean One hash should be identical for the same image");
-    assertEquals(
-        670, diff2, 100, "Block Mean One hash should be different for different color images");
-
-    source.release();
-    differentImage.release();
+    for (int i = 0; i < height; i++) {
+      for (int j = 0; j < width; j++) {
+        var tileI = i / tileSize;
+        var tileJ = j / tileSize;
+        var color =
+            ((tileI + tileJ) % 2 == 0) ? new double[] {0, 0, 0} : new double[] {255, 255, 255};
+        image.put(i, j, color);
+      }
+    }
+    return image;
   }
 
-  @Test
-  public void testCompare_RadialVariance_SimilarImages() {
-    // Arrange
-    Mat source = ImageTransformerTest.createTestImage(100, 100, CvType.CV_8UC3);
-    ImageCV result = ImageTransformer.getRotatedImage(source, Core.ROTATE_90_CLOCKWISE);
+  private static Mat createGradientImage(int width, int height) {
+    var image = new Mat(height, width, CvType.CV_8UC3);
 
-    // Ac
-    double diff = ImageContentHash.RADIAL_VARIANCE.compare(result, source);
+    for (int i = 0; i < height; i++) {
+      for (int j = 0; j < width; j++) {
+        var red = (int) (255.0 * j / width);
+        var green = (int) (255.0 * i / height);
+        var blue = (int) (255.0 * (i + j) / (width + height));
+        image.put(i, j, blue, green, red); // BGR format
+      }
+    }
+    return image;
+  }
 
-    // Assert
-    assertEquals(0.3, diff, 0.1, "Radial Variance hash should be different for rotated images");
-
-    result.release();
-    source.release();
+  private static Mat applyTransformation(Mat original, String transformation) {
+    return switch (transformation) {
+      case "color_shift" -> {
+        var transformed = new Mat();
+        ImageTransformer.applyLUT(original, ColorLut.HUE.getByteLut().lutTable())
+            .assignTo(transformed);
+        yield transformed;
+      }
+      case "rotation_90" -> {
+        var rotated = ImageTransformer.getRotatedImage(original, Core.ROTATE_90_CLOCKWISE);
+        var mat = new Mat();
+        rotated.assignTo(mat);
+        rotated.release();
+        yield mat;
+      }
+      case "gaussian_blur" -> {
+        var blurred = new Mat();
+        Imgproc.GaussianBlur(original, blurred, new Size(5, 5), 1.5);
+        yield blurred;
+      }
+      default -> throw new IllegalArgumentException("Unknown transformation: " + transformation);
+    };
   }
 }

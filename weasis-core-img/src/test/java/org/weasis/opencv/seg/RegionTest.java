@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Weasis Team and other contributors.
+ * Copyright (c) 2025 Weasis Team and other contributors.
  *
  * This program and the accompanying materials are made available under the terms of the Eclipse
  * Public License 2.0 which is available at https://www.eclipse.org/legal/epl-2.0, or the Apache
@@ -12,14 +12,16 @@ package org.weasis.opencv.seg;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.geom.Point2D;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -33,223 +35,271 @@ import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
-@DisplayName("Region Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class RegionTest {
 
-  // Test constants for better maintainability
-  private static final String TEST_ID = "testId";
-  private static final String EXPECTED_AREA_MESSAGE =
-      "Area calculation should match expected value";
-  private static final double DELTA = 0.001; // For floating point comparisons
+  private static final String TEST_ID = "test-region-123";
+  private static final double AREA_TOLERANCE = 0.001;
 
   @BeforeAll
-  static void loadNativeLib() {
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
-    loader.init();
+  static void setUp() {
+    new OpenCVNativeLoader().init();
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_Tests {
 
     @Test
-    @DisplayName("Should generate random ID when ID is null")
-    void createsRegionWithRandomIdWhenIdIsNull() {
-      Region region = new Region(null);
-
-      assertNotNull(region.getId(), "ID should not be null");
-      assertFalse(region.getId().trim().isEmpty(), "ID should not be empty");
-    }
-
-    @Test
-    @DisplayName("Should generate random ID when ID is empty")
-    void createsRegionWithRandomIdWhenIdIsEmpty() {
-      Region region = new Region("  ");
+    void should_generate_uuid_when_id_is_null() {
+      var region = new Region(null);
 
       assertNotNull(region.getId());
-      assertFalse(region.getId().trim().isEmpty());
+      assertTrue(region.getId().length() > 10); // UUID format check
     }
 
     @Test
-    @DisplayName("Should use provided ID when valid")
-    void createsRegionWithProvidedId() {
-      Region region = new Region(TEST_ID);
+    void should_generate_uuid_when_id_is_blank() {
+      var region = new Region("   ");
+
+      assertNotNull(region.getId());
+      assertTrue(region.getId().length() > 10);
+    }
+
+    @Test
+    void should_use_provided_id_when_valid() {
+      var region = new Region(TEST_ID);
 
       assertEquals(TEST_ID, region.getId());
     }
 
     @Test
-    @DisplayName("Should create region with empty segment list when null provided")
-    void createsRegionWithEmptySegmentListWhenNull() {
-      Region region = new Region(TEST_ID, null);
+    void should_trim_whitespace_from_id() {
+      var region = new Region("  " + TEST_ID + "  ");
 
       assertEquals(TEST_ID, region.getId());
-      assertTrue(region.getSegmentList().isEmpty());
-      assertEquals(0.0, region.getArea(), DELTA);
-      assertNull(region.getAttributes());
-      assertFalse(region.hasValidPixelCount());
-    }
-
-    @Test
-    @DisplayName("Should create region with specified pixel count")
-    void createsRegionWithPixelCount() {
-      long expectedPixels = 100L;
-      Region region = new Region(TEST_ID, null, expectedPixels);
-
-      assertEquals(expectedPixels, region.getNumberOfPixels());
-      assertEquals(expectedPixels, region.getArea(), DELTA);
-      assertTrue(region.hasValidPixelCount());
     }
 
     @ParameterizedTest
     @ValueSource(longs = {-1, 0, -100})
-    @DisplayName("Should not set invalid pixel counts")
-    void doesNotSetInvalidPixelCounts(long invalidPixelCount) {
-      Region region = new Region(TEST_ID, null, invalidPixelCount);
+    void should_mark_invalid_pixel_counts_as_uninitialized(long invalidPixelCount) {
+      var region = new Region(TEST_ID, null, invalidPixelCount);
 
       assertFalse(region.hasValidPixelCount());
       assertEquals(-1L, region.getNumberOfPixels());
     }
+
+    @Test
+    void should_initialize_with_valid_pixel_count() {
+      var region = new Region(TEST_ID, List.of(), 150L);
+
+      assertTrue(region.hasValidPixelCount());
+      assertEquals(150L, region.getNumberOfPixels());
+      assertEquals(150.0, region.getArea());
+    }
   }
 
   @Nested
-  @DisplayName("Segment Management Tests")
-  class SegmentManagementTests {
+  class Segment_Management_Tests {
 
     @Test
-    @DisplayName("Should set and get segment list correctly")
-    void setsAndGetsSegmentList() {
-      List<Segment> segments = createTestSegments();
-      Region region = new Region(TEST_ID);
+    void should_return_immutable_copy_of_segments() {
+      var segments = createRectangleSegment(0, 0, 10, 10);
+      var region = new Region(TEST_ID, segments);
 
-      region.setSegmentList(segments);
+      var retrievedSegments = region.getSegmentList();
 
-      assertEquals(segments, region.getSegmentList());
-      assertNotSame(segments, region.getSegmentList(), "Should create defensive copy");
+      assertEquals(segments.size(), retrievedSegments.size());
+      assertThrows(UnsupportedOperationException.class, () -> retrievedSegments.add(new Segment()));
     }
 
     @Test
-    @DisplayName("Should handle null segment list gracefully")
-    void handlesNullSegmentList() {
-      Region region = new Region(TEST_ID);
-
-      region.setSegmentList(null);
+    void should_return_empty_list_when_segments_null() {
+      var region = new Region(TEST_ID, null);
 
       assertTrue(region.getSegmentList().isEmpty());
-      assertEquals(0.0, region.getArea(), DELTA);
     }
 
     @Test
-    @DisplayName("Should set segment list with pixel count")
-    void setsSegmentListWithPixelCount() {
-      List<Segment> segments = createTestSegments();
-      long pixelCount = 140L;
-      Region region = new Region(TEST_ID);
+    void should_reset_pixel_count_when_setting_segments_without_count() {
+      var region = new Region(TEST_ID, List.of(), 100L);
+      var newSegments = createRectangleSegment(0, 0, 5, 5);
 
-      region.setSegmentList(segments, pixelCount);
+      region.setSegmentList(newSegments);
 
-      assertEquals(segments, region.getSegmentList());
-      assertEquals(pixelCount, region.getNumberOfPixels());
-      assertEquals(pixelCount, region.getArea(), DELTA);
-    }
-
-    private List<Segment> createTestSegments() {
-      return Arrays.asList(
-          new Segment(
-              Arrays.asList(
-                  new Point2D.Double(1, 2),
-                  new Point2D.Double(21, 2),
-                  new Point2D.Double(21, 12),
-                  new Point2D.Double(1, 12))));
+      assertFalse(region.hasValidPixelCount());
     }
   }
 
   @Nested
-  @DisplayName("Area Calculation Tests")
-  class AreaCalculationTests {
+  class Area_Calculation_Tests {
 
     @Test
-    @DisplayName("Should calculate area with hierarchical segments")
-    void calculatesAreaWithHierarchicalSegments() {
-      // Create parent segment (outer rectangle): area = 200
-      Segment parentSegment =
-          new Segment(
-              Arrays.asList(
-                  new Point2D.Double(1, 2), // (1,2)
-                  new Point2D.Double(21, 2), // (21,2)
-                  new Point2D.Double(21, 12), // (21,12)
-                  new Point2D.Double(1, 12) // (1,12)
-                  )); // Area: 20 * 10 = 200
+    void should_return_pixel_count_when_available() {
+      var segments = createRectangleSegment(0, 0, 10, 10);
+      var region = new Region(TEST_ID, segments, 250L);
 
-      // Create first child segment (hole): area = 60
-      Segment child1 =
-          new Segment(
-              Arrays.asList(
-                  new Point2D.Double(5, 4), // (5,4)
-                  new Point2D.Double(15, 4), // (15,4)
-                  new Point2D.Double(15, 10), // (15,10)
-                  new Point2D.Double(5, 10) // (5,10)
-                  )); // Area: 10 * 6 = 60
-
-      // Create second child segment (island within hole): area = 10
-      Segment child2 =
-          new Segment(
-              Arrays.asList(
-                  new Point2D.Double(7, 6), // (7,6)
-                  new Point2D.Double(12, 6), // (12,6)
-                  new Point2D.Double(12, 8), // (12,8)
-                  new Point2D.Double(7, 8) // (7,8)
-                  )); // Area: 5 * 2 = 10
-
-      // Build hierarchy: parent -> child1 -> child2
-      parentSegment.addChild(child1);
-      child1.addChild(child2);
-
-      List<Segment> segments = Collections.singletonList(parentSegment);
-      Region region = new Region(TEST_ID, segments);
-
-      // Expected area: parent (200) - child1 (60) + child2 (10) = 150
-      assertEquals(150.0, region.getArea(), DELTA, EXPECTED_AREA_MESSAGE);
+      assertEquals(250.0, region.getArea());
     }
 
     @Test
-    @DisplayName("Should return pixel count when available")
-    void returnsPixelCountWhenAvailable() {
-      List<Segment> segments = createSimpleSegment();
-      long pixelCount = 140L;
-      Region region = new Region(TEST_ID, segments, pixelCount);
+    void should_calculate_area_from_segments_when_no_pixel_count() {
+      var segments = createRectangleSegment(0, 0, 10, 10);
+      var region = new Region(TEST_ID, segments);
 
-      assertEquals(pixelCount, region.getArea(), DELTA);
+      assertEquals(100.0, region.getArea(), AREA_TOLERANCE);
     }
 
     @Test
-    @DisplayName("Should calculate area for empty segments")
-    void calculatesAreaForEmptySegments() {
-      Region region = new Region(TEST_ID, Collections.emptyList());
+    void should_calculate_zero_area_for_empty_segments() {
+      var region = new Region(TEST_ID, List.of());
 
-      assertEquals(0.0, region.getArea(), DELTA);
+      assertEquals(0.0, region.getArea());
     }
 
-    private List<Segment> createSimpleSegment() {
-      return Arrays.asList(
+    @ParameterizedTest
+    @MethodSource("providePolygonTestCases")
+    void should_calculate_correct_area_for_various_polygons(
+        List<Point2D> points, double expectedArea) {
+      var segment = new Segment(points);
+      var region = new Region(TEST_ID, List.of(segment));
+
+      assertEquals(expectedArea, region.getArea(), AREA_TOLERANCE);
+    }
+
+    static Stream<Arguments> providePolygonTestCases() {
+      return Stream.of(
+          // Unit square
+          Arguments.of(
+              List.of(
+                  new Point2D.Double(0, 0),
+                  new Point2D.Double(1, 0),
+                  new Point2D.Double(1, 1),
+                  new Point2D.Double(0, 1)),
+              1.0),
+
+          // Rectangle 5x3
+          Arguments.of(
+              List.of(
+                  new Point2D.Double(0, 0),
+                  new Point2D.Double(5, 0),
+                  new Point2D.Double(5, 3),
+                  new Point2D.Double(0, 3)),
+              15.0),
+
+          // Triangle
+          Arguments.of(
+              List.of(new Point2D.Double(0, 0), new Point2D.Double(4, 0), new Point2D.Double(2, 3)),
+              6.0));
+    }
+
+    @Test
+    void should_handle_hierarchical_segments_with_holes() {
+      // Outer rectangle: 10x10 = 100
+      var outerSegment =
           new Segment(
-              Arrays.asList(
+              List.of(
                   new Point2D.Double(0, 0),
                   new Point2D.Double(10, 0),
                   new Point2D.Double(10, 10),
-                  new Point2D.Double(0, 10))));
+                  new Point2D.Double(0, 10)));
+
+      // Inner hole: 4x4 = 16 (subtracted)
+      var holeSegment =
+          new Segment(
+              List.of(
+                  new Point2D.Double(3, 3),
+                  new Point2D.Double(7, 3),
+                  new Point2D.Double(7, 7),
+                  new Point2D.Double(3, 7)));
+
+      // Island in hole: 2x2 = 4 (added back)
+      var islandSegment =
+          new Segment(
+              List.of(
+                  new Point2D.Double(4, 4),
+                  new Point2D.Double(6, 4),
+                  new Point2D.Double(6, 6),
+                  new Point2D.Double(4, 6)));
+
+      outerSegment.addChild(holeSegment);
+      holeSegment.addChild(islandSegment);
+
+      var region = new Region(TEST_ID, List.of(outerSegment));
+
+      // Expected: 100 - 16 + 4 = 88
+      assertEquals(88.0, region.getArea(), AREA_TOLERANCE);
     }
   }
 
   @Nested
-  @DisplayName("Attributes Management Tests")
-  class AttributesManagementTests {
+  class Static_Factory_Method_Tests {
 
     @Test
-    @DisplayName("Should set and get attributes")
-    void setsAndGetsAttributes() {
-      Region region = new Region(TEST_ID);
-      RegionAttributes attributes = new RegionAttributes(1, "TestLabel");
+    void should_return_empty_list_for_null_planar_image() {
+      var segments = Region.buildSegmentList((PlanarImage) null);
+
+      assertTrue(segments.isEmpty());
+    }
+
+    @Test
+    void should_build_segments_from_binary_image() {
+      var binaryImage = createSimpleBinaryImage();
+
+      var segments = Region.buildSegmentList(binaryImage);
+
+      assertFalse(segments.isEmpty());
+      assertTrue(segments.get(0).size() >= 3);
+    }
+
+    @Test
+    void should_apply_offset_to_contour_coordinates() {
+      var binaryImage = createSimpleBinaryImage();
+      var offset = new Point(10, 5);
+
+      var segments = Region.buildSegmentList(binaryImage, offset);
+      var firstPoint = segments.get(0).get(0);
+
+      assertTrue(firstPoint.getX() >= offset.x);
+      assertTrue(firstPoint.getY() >= offset.y);
+    }
+
+    @Test
+    void should_build_segments_from_mat_of_point2f() {
+      var contours = List.of(createMatOfPoint2f());
+      var hierarchy = createBasicHierarchy();
+
+      var segments = Region.buildSegmentListFromFloat(contours, hierarchy);
+
+      assertFalse(segments.isEmpty());
+      assertEquals(4, segments.get(0).size());
+    }
+
+    @Test
+    void should_handle_empty_contour_lists_gracefully() {
+      var hierarchy = createBasicHierarchy();
+
+      var segments = Region.buildSegmentList(List.<MatOfPoint>of(), hierarchy);
+
+      assertTrue(segments.isEmpty());
+    }
+
+    @Test
+    void should_handle_null_hierarchy_gracefully() {
+      var contours = List.of(createMatOfPoint());
+
+      var segments = Region.buildSegmentList(contours, null);
+
+      assertTrue(segments.isEmpty());
+    }
+  }
+
+  @Nested
+  class Attributes_Management_Tests {
+
+    @Test
+    void should_set_and_retrieve_attributes() {
+      var region = new Region(TEST_ID);
+      var attributes = new RegionAttributes(1, "Test Label");
 
       region.setAttributes(attributes);
 
@@ -257,9 +307,8 @@ class RegionTest {
     }
 
     @Test
-    @DisplayName("Should handle null attributes")
-    void handlesNullAttributes() {
-      Region region = new Region(TEST_ID);
+    void should_accept_null_attributes() {
+      var region = new Region(TEST_ID);
 
       region.setAttributes(null);
 
@@ -268,231 +317,158 @@ class RegionTest {
   }
 
   @Nested
-  @DisplayName("Static Factory Methods Tests")
-  class StaticFactoryMethodsTests {
+  class Object_Behavior_Tests {
 
     @Test
-    @DisplayName("Should return empty list for null PlanarImage")
-    void returnsEmptyListForNullPlanarImage() {
-      List<Segment> segments = Region.buildSegmentList((PlanarImage) null, null);
+    void should_implement_equals_correctly() {
+      var segments = createRectangleSegment(0, 0, 5, 5);
+      var attributes = new RegionAttributes(1, "Test");
 
-      assertTrue(segments.isEmpty());
-    }
+      var region1 = new Region(TEST_ID, segments, 100L);
+      region1.setAttributes(attributes);
 
-    @Test
-    @DisplayName("Should build segment list from binary image")
-    void buildsSegmentListFromBinaryImage() {
-      Mat source = createTestBinaryImage();
+      var region2 = new Region(TEST_ID, segments, 100L);
+      region2.setAttributes(attributes);
 
-      List<Segment> segments = Region.buildSegmentList(ImageCV.toImageCV(source));
-      Region region = new Region(TEST_ID, segments);
+      var region3 = new Region("different-id", segments, 100L);
 
-      assertFalse(segments.isEmpty(), "Should create segments from binary image");
-      assertTrue(region.getArea() > 0, "Region should have positive area");
+      assertEquals(region1, region2);
+      assertNotEquals(region1, region3);
+      assertNotEquals(region1, null);
+      assertEquals(region1, region1);
     }
 
     @Test
-    @DisplayName("Should build segment list with offset")
-    void buildsSegmentListWithOffset() {
-      Mat source = createTestBinaryImage();
-      Point offset = new Point(4, 3);
+    void should_implement_hash_code_consistently() {
+      var segments = createRectangleSegment(0, 0, 5, 5);
+      var region1 = new Region(TEST_ID, segments, 100L);
+      var region2 = new Region(TEST_ID, segments, 100L);
 
-      List<Segment> segments = Region.buildSegmentList(ImageCV.toImageCV(source), offset);
-      Region region = new Region(TEST_ID, segments);
-
-      assertFalse(segments.isEmpty());
-      // Verify offset was applied by checking point coordinates
-      Point2D firstPoint = region.getSegmentList().get(0).get(0);
-      assertTrue(firstPoint.getX() >= offset.x, "X coordinate should be offset");
-      assertTrue(firstPoint.getY() >= offset.y, "Y coordinate should be offset");
+      assertEquals(region1.hashCode(), region2.hashCode());
     }
 
     @Test
-    @DisplayName("Should build segment list from MatOfPoint2f")
-    void buildsSegmentListFromMatOfPoint2f() {
-      Point[] points = createTestPoints();
-      MatOfPoint2f pt2f = new MatOfPoint2f(points);
-      Mat hierarchy = createTestHierarchy();
+    void should_provide_meaningful_string_representation() {
+      var segments = createRectangleSegment(0, 0, 5, 5);
+      var region = new Region(TEST_ID, segments, 100L);
+      region.setAttributes(new RegionAttributes(1, "Test Label"));
 
-      List<Segment> segments = Region.buildSegmentListFromFloat(List.of(pt2f), hierarchy);
-
-      assertFalse(segments.isEmpty(), "Should create segments from MatOfPoint2f");
-      assertEquals(points[0].x, segments.get(0).get(0).getX(), DELTA);
-      assertEquals(points[0].y, segments.get(0).get(0).getY(), DELTA);
-    }
-
-    @Test
-    @DisplayName("Should handle empty contour list")
-    void handlesEmptyContourList() {
-      Mat hierarchy = createTestHierarchy();
-
-      List<Segment> segments = Region.buildSegmentList(Collections.emptyList(), hierarchy);
-
-      assertTrue(segments.isEmpty());
-    }
-
-    @Test
-    @DisplayName("Should handle null hierarchy")
-    void handlesNullHierarchy() {
-      MatOfPoint contour = new MatOfPoint(createTestPoints());
-
-      List<Segment> segments = Region.buildSegmentList(List.of(contour), null);
-
-      assertTrue(segments.isEmpty());
-    }
-
-    private Mat createTestBinaryImage() {
-      Mat source = Mat.zeros(10, 20, CvType.CV_8UC1);
-
-      // Create outer rectangle
-      Point[] outerPoints = {
-        new Point(4, 3), new Point(13, 3), new Point(13, 8), new Point(4, 8), new Point(4, 3)
-      };
-      Imgproc.fillPoly(
-          source, Collections.singletonList(new MatOfPoint(outerPoints)), new Scalar(255));
-
-      // Create inner rectangle (hole)
-      Point[] innerPoints = {
-        new Point(6, 5), new Point(10, 5), new Point(10, 6), new Point(6, 6), new Point(6, 5)
-      };
-      Imgproc.fillPoly(
-          source, Collections.singletonList(new MatOfPoint(innerPoints)), new Scalar(0));
-
-      return source;
-    }
-
-    private Point[] createTestPoints() {
-      return new Point[] {
-        new Point(6, 5), new Point(10, 5), new Point(10, 6), new Point(6, 6), new Point(6, 5)
-      };
-    }
-
-    private Point[] createDoubleTestPoints() {
-      return new Point[] {
-        new Point(6.3, 5.2), new Point(10.7, 5.9), new Point(10.99, 6.1), new Point(6.5, 6.8)
-      };
-    }
-
-    private Mat createTestHierarchy() {
-      Mat hierarchy = new Mat(1, 4, CvType.CV_32SC1);
-      int[] hierarchyData = {-1, -1, -1, -1}; // No parent, no siblings
-      hierarchy.put(0, 0, hierarchyData);
-      return hierarchy;
-    }
-  }
-
-  @Nested
-  @DisplayName("Object Behavior Tests")
-  class ObjectBehaviorTests {
-
-    @Test
-    @DisplayName("Should implement equals correctly")
-    void implementsEqualsCorrectly() {
-      List<Segment> segments = createSimpleSegment();
-      Region region1 = new Region(TEST_ID, segments, 100);
-      Region region2 = new Region(TEST_ID, segments, 100);
-      Region region3 = new Region("different", segments, 100);
-
-      assertEquals(region1, region2, "Regions with same properties should be equal");
-      assertNotEquals(region1, region3, "Regions with different IDs should not be equal");
-      assertNotEquals(region1, null, "Region should not equal null");
-      assertEquals(region1, region1, "Region should equal itself");
-    }
-
-    @Test
-    @DisplayName("Should implement hashCode correctly")
-    void implementsHashCodeCorrectly() {
-      List<Segment> segments = createSimpleSegment();
-      Region region1 = new Region(TEST_ID, segments, 100);
-      Region region2 = new Region(TEST_ID, segments, 100);
-
-      assertEquals(
-          region1.hashCode(), region2.hashCode(), "Equal regions should have same hash code");
-    }
-
-    @Test
-    @DisplayName("Should implement toString meaningfully")
-    void implementsToStringMeaningfully() {
-      Region region = new Region(TEST_ID, createSimpleSegment(), 100);
-      region.setAttributes(new RegionAttributes(1, "TestLabel"));
-
-      String toString = region.toString();
+      var toString = region.toString();
 
       assertAll(
-          "toString should contain key information",
-          () -> assertTrue(toString.contains(TEST_ID), "Should contain ID"),
-          () -> assertTrue(toString.contains("100"), "Should contain pixel count"),
-          () -> assertTrue(toString.contains("true"), "Should indicate attributes presence"));
-    }
-
-    private List<Segment> createSimpleSegment() {
-      return Arrays.asList(
-          new Segment(
-              Arrays.asList(
-                  new Point2D.Double(0, 0),
-                  new Point2D.Double(1, 0),
-                  new Point2D.Double(1, 1),
-                  new Point2D.Double(0, 1))));
+          () -> assertTrue(toString.contains(TEST_ID)),
+          () -> assertTrue(toString.contains("100")),
+          () -> assertTrue(toString.contains("segments=1")),
+          () -> assertTrue(toString.contains("hasAttributes=true")));
     }
   }
 
   @Nested
-  @DisplayName("Integration Tests")
-  class IntegrationTests {
+  class Integration_Tests {
 
     @Test
-    @DisplayName("Should handle complex real-world scenario")
-    void handlesComplexRealWorldScenario() {
-      // Create a complex binary image with multiple regions and holes
-      Mat source = Mat.zeros(50, 50, CvType.CV_8UC1);
+    void should_handle_complete_workflow() {
+      // Create complex binary image
+      var binaryImage = createComplexBinaryImage();
 
-      // Large outer region
-      Point[] outer = {
-        new Point(5, 5), new Point(45, 5), new Point(45, 45), new Point(5, 45), new Point(5, 5)
-      };
-      Imgproc.fillPoly(source, Collections.singletonList(new MatOfPoint(outer)), new Scalar(255));
+      // Extract segments
+      var segments = Region.buildSegmentList(binaryImage);
 
-      // Inner hole
-      Point[] hole = {
-        new Point(15, 15),
-        new Point(35, 15),
-        new Point(35, 35),
-        new Point(15, 35),
-        new Point(15, 15)
-      };
-      Imgproc.fillPoly(source, Collections.singletonList(new MatOfPoint(hole)), new Scalar(0));
-
-      // Small island in the hole
-      Point[] island = {
-        new Point(22, 22),
-        new Point(28, 22),
-        new Point(28, 28),
-        new Point(22, 28),
-        new Point(22, 22)
-      };
-      Imgproc.fillPoly(source, Collections.singletonList(new MatOfPoint(island)), new Scalar(255));
-
-      List<Segment> segments = Region.buildSegmentList(ImageCV.toImageCV(source));
-      Region region = new Region("complexRegion", segments);
-      RegionAttributes attributes = new RegionAttributes(1, "ComplexRegion");
+      // Create region with attributes
+      var region = new Region("workflow-test", segments);
+      var attributes = new RegionAttributes(1, "Complex Region");
       region.setAttributes(attributes);
 
       assertAll(
-          "Complex region should be handled correctly",
-          () -> assertFalse(segments.isEmpty(), "Should detect segments"),
-          () -> assertTrue(region.getArea() > 0, "Should have positive area"),
-          () -> assertNotNull(region.getAttributes(), "Should have attributes"),
-          () -> assertEquals("ComplexRegion", region.getAttributes().getLabel()));
-
-      // Verify pixel count vs calculated area difference
-      int actualPixels = Core.countNonZero(source);
-      double calculatedArea = region.getArea();
-
-      // The difference should be reasonable (polygonal approximation vs pixel count)
-      double difference = Math.abs(actualPixels - calculatedArea);
-      assertTrue(
-          difference < actualPixels * 0.2, // Allow 20% difference
-          "Calculated area should be reasonably close to actual pixel count");
+          () -> assertFalse(segments.isEmpty()),
+          () -> assertTrue(region.getArea() > 0),
+          () -> assertEquals("Complex Region", region.getAttributes().getLabel()),
+          () -> assertTrue(region.getId().startsWith("workflow")));
     }
+
+    @Test
+    void should_calculate_area_close_to_actual_pixel_count() {
+      var binaryImage = createKnownAreaBinaryImage();
+      var actualPixelCount = Core.countNonZero(binaryImage.toMat());
+
+      var segments = Region.buildSegmentList(binaryImage);
+      var region = new Region("pixel-test", segments);
+
+      var calculatedArea = region.getArea();
+      var difference = Math.abs(actualPixelCount - calculatedArea);
+
+      // Allow reasonable approximation error (polygonal vs pixel)
+      assertTrue(
+          difference < actualPixelCount * 0.15,
+          "Calculated area should approximate pixel count within 15%");
+    }
+  }
+
+  // Helper methods for creating test data
+
+  private static List<Segment> createRectangleSegment(
+      double x, double y, double width, double height) {
+    var segment =
+        new Segment(
+            List.of(
+                new Point2D.Double(x, y),
+                new Point2D.Double(x + width, y),
+                new Point2D.Double(x + width, y + height),
+                new Point2D.Double(x, y + height)));
+    return List.of(segment);
+  }
+
+  private static PlanarImage createSimpleBinaryImage() {
+    var mat = Mat.zeros(20, 20, CvType.CV_8UC1);
+    var rectangle = new org.opencv.core.Rect(5, 5, 10, 8);
+    Imgproc.rectangle(mat, rectangle, new Scalar(255), -1);
+    return ImageCV.fromMat(mat);
+  }
+
+  private static PlanarImage createComplexBinaryImage() {
+    var mat = Mat.zeros(50, 50, CvType.CV_8UC1);
+
+    // Outer shape
+    var outerPoints =
+        new Point[] {
+          new Point(10, 10), new Point(40, 10),
+          new Point(40, 40), new Point(10, 40)
+        };
+    Imgproc.fillPoly(mat, List.of(new MatOfPoint(outerPoints)), new Scalar(255));
+
+    // Inner hole
+    var holePoints =
+        new Point[] {
+          new Point(20, 20), new Point(30, 20),
+          new Point(30, 30), new Point(20, 30)
+        };
+    Imgproc.fillPoly(mat, List.of(new MatOfPoint(holePoints)), new Scalar(0));
+
+    return ImageCV.fromMat(mat);
+  }
+
+  private static PlanarImage createKnownAreaBinaryImage() {
+    var mat = Mat.zeros(30, 30, CvType.CV_8UC1);
+    // Create a filled circle with known approximate area
+    Imgproc.circle(mat, new Point(15, 15), 10, new Scalar(255), -1);
+    return ImageCV.fromMat(mat);
+  }
+
+  private static MatOfPoint createMatOfPoint() {
+    return new MatOfPoint(
+        new Point(0, 0), new Point(10, 0),
+        new Point(10, 10), new Point(0, 10));
+  }
+
+  private static MatOfPoint2f createMatOfPoint2f() {
+    return new MatOfPoint2f(
+        new Point(0.5, 0.5), new Point(10.5, 0.5),
+        new Point(10.5, 10.5), new Point(0.5, 10.5));
+  }
+
+  private static Mat createBasicHierarchy() {
+    var hierarchy = new Mat(1, 4, CvType.CV_32SC1);
+    hierarchy.put(0, 0, new int[] {-1, -1, -1, -1});
+    return hierarchy;
   }
 }

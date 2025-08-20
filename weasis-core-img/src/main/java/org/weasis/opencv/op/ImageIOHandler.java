@@ -11,6 +11,7 @@ package org.weasis.opencv.op;
 
 import java.awt.Dimension;
 import java.awt.image.RenderedImage;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -28,20 +29,10 @@ import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
 
 /**
- * Provides comprehensive image input/output operations for medical imaging applications.
+ * Provides image I/O operations for medical imaging applications.
  *
- * <p>This class handles all file-based image operations including:
- *
- * <ul>
- *   <li>Reading various image formats with metadata extraction
- *   <li>Writing images with format-specific optimization
- *   <li>Thumbnail generation with aspect ratio preservation
- *   <li>Format conversion and quality control
- * </ul>
- *
- * <p>The implementation leverages OpenCV's optimized codecs for superior performance and supports
- * medical imaging formats commonly used in DICOM workflows. All operations include comprehensive
- * error handling and logging for production environments.
+ * <p>Handles reading, writing, and thumbnail generation with OpenCV optimized codecs. Supports
+ * various image formats including JPEG, PNG, TIFF, BMP, and medical imaging formats.
  *
  * @author Weasis Team
  * @since 1.0
@@ -50,50 +41,43 @@ public final class ImageIOHandler {
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageIOHandler.class);
 
   private static final int PNG_COMPRESSION_LEVEL = 9;
+  private static final int THUMBNAIL_JPEG_QUALITY = 85;
 
   private ImageIOHandler() {
     // Utility class - prevent instantiation
   }
 
   /**
-   * Reads an image from file with optional exif tag extraction.
-   *
-   * <p>Loads an image using OpenCV's optimized codecs with support for various formats including
-   * JPEG, PNG, TIFF, BMP, and medical imaging formats.
+   * Reads an image from file with optional metadata extraction from EXIF.
    *
    * @param path the image file path to read - must exist and be readable
-   * @param tags optional list to populate with extracted metadata tags. Common exif tags are
-   *     defined in OpenCV imread function.
-   * @return a new {@link ImageCV} containing the loaded image data, or {@code null} if the image
-   *     cannot be read due to format incompatibility or file corruption
-   * @throws IllegalArgumentException if path is null or does not point to a readable file
+   * @param tags optional list to populate with extracted metadata tags
+   * @return a new {@link ImageCV} containing the loaded image data, or {@code null} if failed
+   * @throws IllegalArgumentException if path is null or not readable
    */
   public static ImageCV readImage(Path path, List<String> tags) {
     try {
       return readImageWithCvException(path, tags);
     } catch (OutOfMemoryError | CvException e) {
-      LOGGER.error("Reading image", e);
+      LOGGER.error("Reading image failed", e);
       return null;
     }
   }
 
   /**
-   * Reads an image from file with exception throwing for error handling.
-   *
-   * <p>Similar to {@link #readImage(Path, List)} but throws exceptions instead of returning null,
-   * providing more detailed error information for debugging and error handling in calling code.
+   * Reads an image from file with exception propagation.
    *
    * @param path the image file path to read
    * @param tags optional metadata tag list
    * @return a new {@link ImageCV} with the loaded image
    * @throws CvException if the image cannot be read or is corrupted
-   * @throws NullPointerException if path is null or does not point to a readable file
+   * @throws IllegalArgumentException if path is null or not readable
    */
   public static ImageCV readImageWithCvException(Path path, List<String> tags) {
-    validateSourcePath(path);
+    validateReadablePath(path);
 
-    List<String> exifs = tags != null ? tags : new ArrayList<>();
-    Mat mat = Imgcodecs.imread(path.toAbsolutePath().toString(), exifs);
+    var exifs = tags != null ? tags : new ArrayList<String>();
+    var mat = Imgcodecs.imread(path.toAbsolutePath().toString(), exifs);
 
     if (mat.empty()) {
       throw new CvException("Failed to load image from: " + path.toAbsolutePath());
@@ -104,38 +88,29 @@ public final class ImageIOHandler {
   /**
    * Writes an OpenCV Mat image to file with automatic format detection.
    *
-   * <p>Saves the image using the format determined by the file extension. The method automatically
-   * selects appropriate encoding parameters for optimal quality and file size based on the detected
-   * format.
-   *
    * @param source the Mat image to write - must not be empty
    * @param path the output file path - parent directories will be created if needed
-   * @return {@code true} if the image was successfully written, {@code false} otherwise
-   * @throws NullPointerException if source or path is null
-   * @throws IllegalArgumentException if source is empty
+   * @return {@code true} if successfully written
+   * @throws IllegalArgumentException if source is null/empty or path is null
    */
   public static boolean writeImage(Mat source, Path path) {
-    validateParameters(source, path);
+    validateWriteParameters(source, path);
     return writeImageInternal(source, path, null);
   }
 
   /**
    * Writes a Java RenderedImage to file with format conversion.
    *
-   * <p>Converts the Java image to OpenCV format before writing, enabling the use of OpenCV's
-   * optimized codecs for better performance and broader format support compared to standard Java
-   * ImageIO.
-   *
    * @param source the RenderedImage to write
    * @param path the output file path
-   * @return {@code true} if the image was successfully written, {@code false} otherwise
-   * @throws IllegalArgumentException if source is null or path is null
+   * @return {@code true} if successfully written
+   * @throws IllegalArgumentException if source or path is null
    */
   public static boolean writeImage(RenderedImage source, Path path) {
     Objects.requireNonNull(source, "RenderedImage cannot be null");
-    validateOutputParameters(path);
+    Objects.requireNonNull(path, "Output path cannot be null");
     try {
-      Mat mat = ImageConversion.toMat(Objects.requireNonNull(source));
+      var mat = ImageConversion.toMat(source);
       return writeImageInternal(mat, path, null);
     } catch (Exception e) {
       LOGGER.error("Error converting RenderedImage to Mat for path: {}", path.toAbsolutePath(), e);
@@ -145,9 +120,6 @@ public final class ImageIOHandler {
 
   /**
    * Writes an image with custom encoding parameters.
-   *
-   * <p>Provides full control over the encoding process by accepting format-specific parameters.
-   * This allows fine-tuning of compression levels, quality settings, and other encoding options.
    *
    * @param source the Mat image to write
    * @param path the output file path
@@ -164,87 +136,53 @@ public final class ImageIOHandler {
    * @throws IllegalArgumentException if source is null/empty or path is null
    */
   public static boolean writeImage(Mat source, Path path, MatOfInt params) {
-    validateParameters(source, path);
+    validateWriteParameters(source, path);
     return writeImageInternal(source, path, params);
   }
 
   /**
    * Writes an image in PNG format with maximum compression.
    *
-   * <p>Specialized method for PNG output with optimized compression settings for minimal file size
-   * while maintaining lossless quality. Ideal for medical images where compression artifacts are
-   * unacceptable.
-   *
    * @param source the Mat image to write
-   * @param path the output PNG file path - extension will be enforced as .png
-   * @return {@code true} if the PNG was successfully written, {@code false} otherwise
+   * @param path the output file path - extension will be enforced as .png
+   * @return {@code true} if successfully written
    * @throws IllegalArgumentException if source is null/empty or path is null
    */
   public static boolean writePNG(Mat source, Path path) {
-    validateParameters(source, path);
+    validateWriteParameters(source, path);
 
-    // Ensure PNG extension
-    String fileName = path.getFileName().toString();
-    if (!fileName.toLowerCase().endsWith(".png")) {
-      path = path.resolveSibling(FileUtil.nameWithoutExtension(fileName) + ".png");
-    }
-
-    Mat dstImg = null;
-    int type = source.type();
-    int elemSize = CvType.ELEM_SIZE(type);
-    int channels = CvType.channels(type);
-    int bpp = (elemSize * 8) / channels;
-    if (bpp > 16 || !CvType.isInteger(type)) {
-      dstImg = new Mat();
-      source.convertTo(dstImg, CvType.CV_16SC(channels));
-      source = dstImg;
-    }
+    var pngPath = ensurePngExtension(path);
+    var convertedSource = convertForPngIfNeeded(source);
 
     try {
-      MatOfInt params = new MatOfInt(Imgcodecs.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION_LEVEL);
-      return writeImageInternal(source, path, params);
+      var params = new MatOfInt(Imgcodecs.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION_LEVEL);
+      return writeImageInternal(convertedSource, pngPath, params);
     } finally {
-      ImageConversion.releaseMat(dstImg);
+      if (convertedSource != source) {
+        ImageConversion.releaseMat(convertedSource);
+      }
     }
   }
 
   /**
    * Creates and writes a thumbnail image with automatic size optimization.
    *
-   * <p>Generates a thumbnail by scaling the source image while preserving aspect ratio. The
-   * thumbnail size is automatically calculated to fit within the specified maximum dimension while
-   * maintaining the original proportions.
-   *
    * @param source the source Mat image
    * @param path the output thumbnail file path
-   * @param maxSize the maximum dimension (width or height) for the thumbnail. The actual size will
-   *     be calculated to preserve aspect ratio while ensuring no dimension exceeds this value
-   * @return {@code true} if the thumbnail was successfully created and written, {@code false}
-   *     otherwise
-   * @throws IllegalArgumentException if source is null/empty, path is null, or maxSize is not
-   *     positive
+   * @param maxSize the maximum dimension for the thumbnail
+   * @return {@code true} if successfully created and written
+   * @throws IllegalArgumentException if parameters are invalid
    */
   public static boolean writeThumbnail(Mat source, Path path, int maxSize) {
-    validateParameters(source, path);
+    validateWriteParameters(source, path);
     if (maxSize <= 0) {
       throw new IllegalArgumentException("Maximum size must be positive: " + maxSize);
     }
 
     try {
-      // Calculate thumbnail dimensions preserving aspect ratio
-      Dimension thumbSize = calculateThumbnailSize(source.cols(), source.rows(), maxSize);
-
-      ImageCV thumbnail;
-      // Scale the image
-      if (thumbSize.width >= source.cols() && thumbSize.height >= source.rows()) {
-        thumbnail = ImageCV.fromMat(source);
-      } else {
-        thumbnail = ImageTransformer.scale(source, thumbSize);
-      }
-
-      // Write with JPEG optimization for thumbnails
-      MatOfInt params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 85);
-      boolean success = writeImageInternal(thumbnail, path, params);
+      var thumbnail = createThumbnail(source, maxSize);
+      var params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, THUMBNAIL_JPEG_QUALITY);
+      var success = writeImageInternal(thumbnail, path, params);
 
       thumbnail.release();
       return success;
@@ -258,20 +196,11 @@ public final class ImageIOHandler {
   /**
    * Creates a thumbnail image with aspect ratio preservation.
    *
-   * <p>Generates a thumbnail version of the source image by scaling it to fit within the specified
-   * dimensions. The scaling preserves aspect ratio to prevent distortion and ensures the result is
-   * never larger than the original image.
-   *
    * @param source the source PlanarImage to thumbnail
-   * @param iconDim the target thumbnail dimensions. If keepRatio is true, the smaller dimension is
-   *     used as the maximum size constraint
-   * @param keepRatio if {@code true}, preserves aspect ratio and uses the minimum of iconDim
-   *     width/height as the size constraint. If {@code false}, scales to exact dimensions
-   *     potentially distorting the image
-   * @return a new {@link ImageCV} containing the thumbnail. Will not be larger than the original
-   *     image dimensions even if iconDim is larger
-   * @throws IllegalArgumentException if source is null, iconDim is null, or dimensions are not
-   *     positive
+   * @param iconDim the target thumbnail dimensions
+   * @param keepRatio if {@code true}, preserves aspect ratio
+   * @return a new {@link ImageCV} containing the thumbnail
+   * @throws IllegalArgumentException if parameters are invalid
    */
   public static ImageCV buildThumbnail(PlanarImage source, Dimension iconDim, boolean keepRatio) {
     Objects.requireNonNull(source, "Source image cannot be null");
@@ -281,49 +210,25 @@ public final class ImageIOHandler {
       throw new IllegalArgumentException("Icon dimensions must be positive: " + iconDim);
     }
 
-    Mat sourceMat = source.toMat();
+    var sourceMat = source.toMat();
     if (sourceMat.empty()) {
       throw new IllegalArgumentException("Source image cannot be empty");
     }
-    int originalWidth = sourceMat.cols();
-    int originalHeight = sourceMat.rows();
 
-    Dimension targetSize;
-    if (keepRatio) {
-      int maxSize = Math.min(iconDim.width, iconDim.height);
-      targetSize = calculateThumbnailSize(originalWidth, originalHeight, maxSize);
-    } else {
-      targetSize = new Dimension(iconDim.width, iconDim.height);
-    }
-
-    ImageCV thumbnail;
-    // Scale the image only if the target size is smaller than the original
-    if (targetSize.width >= originalWidth && targetSize.height >= originalHeight) {
-      thumbnail = ImageCV.fromMat(sourceMat);
-    } else {
-      thumbnail = ImageTransformer.scale(sourceMat, targetSize);
-    }
-    return thumbnail;
+    var targetSize = calculateTargetSize(sourceMat, iconDim, keepRatio);
+    return createThumbnailFromSize(sourceMat, targetSize);
   }
+
+  // Private helper methods with minimal or no documentation
 
   private static boolean writeImageInternal(Mat source, Path path, MatOfInt params) {
     try {
-      FileUtil.prepareToWriteFile(path);
-      if (!Files.exists(path)) {
-        Files.createFile(path);
-      }
-      if (!Files.isWritable(path)) {
-        LOGGER.warn("Path is not writable: {}", path);
-        return false;
-      }
-
-      boolean success;
-      String filename = path.toAbsolutePath().toString();
-      if (params != null) {
-        success = Imgcodecs.imwrite(filename, source, params);
-      } else {
-        success = Imgcodecs.imwrite(filename, source);
-      }
+      prepareOutputPath(path);
+      var filename = path.toAbsolutePath().toString();
+      var success =
+          params != null
+              ? Imgcodecs.imwrite(filename, source, params)
+              : Imgcodecs.imwrite(filename, source);
 
       if (!success) {
         LOGGER.warn("Failed to write image to: {}", path);
@@ -338,17 +243,75 @@ public final class ImageIOHandler {
     }
   }
 
-  private static Dimension calculateThumbnailSize(
-      int originalWidth, int originalHeight, int maxSize) {
-    final double scale =
-        Math.min(maxSize / (double) originalHeight, (double) maxSize / originalWidth);
-    if (scale < 1.0) {
-      return new Dimension((int) (scale * originalWidth), (int) (scale * originalHeight));
+  private static void prepareOutputPath(Path path) throws IOException {
+    FileUtil.prepareToWriteFile(path);
+    if (!Files.exists(path)) {
+      Files.createFile(path);
     }
-    return new Dimension(originalWidth, originalHeight);
+    if (!Files.isWritable(path)) {
+      throw new IOException("Path is not writable: " + path);
+    }
   }
 
-  public static void validateSourcePath(Path path) {
+  private static Path ensurePngExtension(Path path) {
+    var fileName = path.getFileName().toString();
+    if (!fileName.toLowerCase().endsWith(".png")) {
+      return path.resolveSibling(FileUtil.nameWithoutExtension(fileName) + ".png");
+    }
+    return path;
+  }
+
+  private static Mat convertForPngIfNeeded(Mat source) {
+    var type = source.type();
+    var elemSize = CvType.ELEM_SIZE(type);
+    var channels = CvType.channels(type);
+    var bpp = (elemSize * 8) / channels;
+
+    if (bpp > 16 || !CvType.isInteger(type)) {
+      var dstImg = new Mat();
+      source.convertTo(dstImg, CvType.CV_16SC(channels));
+      return dstImg;
+    }
+    return source;
+  }
+
+  private static ImageCV createThumbnail(Mat source, int maxSize) {
+    var thumbSize = calculateThumbnailSize(source.cols(), source.rows(), maxSize);
+    return shouldScale(source, thumbSize)
+        ? ImageTransformer.scale(source, thumbSize)
+        : ImageCV.fromMat(source);
+  }
+
+  private static Dimension calculateTargetSize(
+      Mat sourceMat, Dimension iconDim, boolean keepRatio) {
+    if (keepRatio) {
+      var maxSize = Math.min(iconDim.width, iconDim.height);
+      return calculateThumbnailSize(sourceMat.cols(), sourceMat.rows(), maxSize);
+    }
+    return new Dimension(iconDim.width, iconDim.height);
+  }
+
+  private static ImageCV createThumbnailFromSize(Mat sourceMat, Dimension targetSize) {
+    return shouldScale(sourceMat, targetSize)
+        ? ImageTransformer.scale(sourceMat, targetSize)
+        : ImageCV.fromMat(sourceMat);
+  }
+
+  private static boolean shouldScale(Mat source, Dimension targetSize) {
+    return targetSize.width < source.cols() || targetSize.height < source.rows();
+  }
+
+  private static Dimension calculateThumbnailSize(
+      int originalWidth, int originalHeight, int maxSize) {
+    var scale = Math.min(maxSize / (double) originalHeight, (double) maxSize / originalWidth);
+    return scale < 1.0
+        ? new Dimension((int) (scale * originalWidth), (int) (scale * originalHeight))
+        : new Dimension(originalWidth, originalHeight);
+  }
+
+  // ======= Validation methods =======
+
+  public static void validateReadablePath(Path path) {
     Objects.requireNonNull(path, "File path cannot be null");
 
     if (!Files.isReadable(path)) {
@@ -363,12 +326,11 @@ public final class ImageIOHandler {
     }
   }
 
-  private static void validateOutputParameters(Path path) {
+  private static void validateWriteParameters(Mat source, Path path) {
+    Objects.requireNonNull(source, "Source image cannot be null");
     Objects.requireNonNull(path, "Output path cannot be null");
-  }
-
-  private static void validateParameters(Mat source, Path path) {
-    validateSource(source);
-    validateOutputParameters(path);
+    if (source.empty()) {
+      throw new IllegalArgumentException("Source image cannot be empty");
+    }
   }
 }

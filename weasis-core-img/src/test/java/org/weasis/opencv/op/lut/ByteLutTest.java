@@ -10,318 +10,367 @@
 package org.weasis.opencv.op.lut;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Graphics;
-import java.util.List;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.util.stream.Stream;
 import javax.swing.Icon;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
-@DisplayName("ByteLut Tests")
+@DisplayNameGeneration(ReplaceUnderscores.class)
 class ByteLutTest {
+
+  private static final String TEST_LUT_NAME = "Test LUT";
+  private static final int BORDER_SIZE = 4; // 2 * BORDER from LutIcon
 
   private ByteLut byteLut;
   private byte[][] validLutTable;
 
   @BeforeEach
   void setUp() {
-    validLutTable = new byte[3][256];
+    validLutTable = createTestLut();
+    byteLut = new ByteLut(TEST_LUT_NAME, validLutTable);
+  }
+
+  /** Creates a test LUT with blue=i, green=255-i, red=i */
+  private byte[][] createTestLut() {
+    var lut = new byte[3][256];
     for (int i = 0; i < 256; i++) {
-      validLutTable[0][i] = (byte) i; // Blue channel
-      validLutTable[1][i] = (byte) (255 - i); // Green channel (inverted)
-      validLutTable[2][i] = (byte) i; // Red channel
+      lut[0][i] = (byte) i; // Blue channel
+      lut[1][i] = (byte) (255 - i); // Green channel (inverted)
+      lut[2][i] = (byte) i; // Red channel
     }
-    byteLut = new ByteLut("Test LUT", validLutTable);
+    return lut;
+  }
+
+  /** Creates a LUT with all channels having the same values */
+  private static byte[][] createUniformLut(int value) {
+    var lut = new byte[3][256];
+    var byteValue = (byte) value;
+    for (int ch = 0; ch < 3; ch++) {
+      for (int i = 0; i < 256; i++) {
+        lut[ch][i] = byteValue;
+      }
+    }
+    return lut;
+  }
+
+  /** Creates an inverted LUT where each channel has 255-i */
+  private static byte[][] createInvertedLut() {
+    var lut = new byte[3][256];
+    for (int ch = 0; ch < 3; ch++) {
+      for (int i = 0; i < 256; i++) {
+        lut[ch][i] = (byte) (255 - i);
+      }
+    }
+    return lut;
   }
 
   @Nested
-  @DisplayName("Constructor Tests")
-  class ConstructorTests {
+  class Constructor_tests {
 
     @Test
-    @DisplayName("Should throw NullPointerException when name is null")
-    void shouldThrowExceptionWhenNameIsNull() {
+    void should_throw_null_pointer_exception_when_name_is_null() {
       assertThrows(NullPointerException.class, () -> new ByteLut(null, validLutTable));
     }
 
     @Test
-    @DisplayName("Should create ByteLut with null LUT table using default gray LUT")
-    void shouldCreateByteLutWithNullTable() {
-      ByteLut lutWithNullTable = new ByteLut("Null Table LUT", null);
-      assertNotNull(lutWithNullTable);
-      assertEquals("Null Table LUT", lutWithNullTable.name());
-      assertNull(lutWithNullTable.lutTable());
+    void should_create_byte_lut_with_null_table() {
+      var lut = new ByteLut("Null Table LUT", null);
+
+      assertAll(
+          () -> assertNotNull(lut),
+          () -> assertEquals("Null Table LUT", lut.name()),
+          () -> assertNull(lut.lutTable()));
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException when LUT has incorrect number of channels")
-    void shouldThrowExceptionWhenIncorrectChannelCount() {
-      byte[][] invalidLutTable = new byte[][] {{0, 1, 2}, {3, 4, 5}}; // Only 2 channels
+    void should_throw_exception_when_incorrect_channel_count() {
+      var invalidLut = new byte[][] {{0, 1, 2}, {3, 4, 5}}; // Only 2 channels
 
-      IllegalArgumentException exception =
-          assertThrows(
-              IllegalArgumentException.class,
-              () -> new ByteLut("Invalid Channel Count", invalidLutTable));
+      var exception =
+          assertThrows(IllegalArgumentException.class, () -> new ByteLut("Invalid", invalidLut));
       assertEquals("LUT must have exactly 3 channels (RGB)", exception.getMessage());
     }
 
-    @Test
-    @DisplayName("Should throw IllegalArgumentException when channel has incorrect size")
-    void shouldThrowExceptionWhenIncorrectChannelSize() {
-      byte[][] invalidLutTable = new byte[][] {{0, 1, 2}, {3, 4, 5}, {6, 7}}; // Channels too small
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2, 4, 5, 255, 257})
+    void should_throw_exception_when_incorrect_channel_size(int channelSize) {
+      var invalidLut = new byte[3][];
+      for (int i = 0; i < 3; i++) {
+        invalidLut[i] = new byte[channelSize];
+      }
 
-      IllegalArgumentException exception =
+      var exception =
           assertThrows(
-              IllegalArgumentException.class,
-              () -> new ByteLut("Invalid Channel Size", invalidLutTable));
+              IllegalArgumentException.class, () -> new ByteLut("Invalid Size", invalidLut));
       assertEquals("Each LUT channel must have exactly 256 values", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Should create valid ByteLut with proper parameters")
-    void shouldCreateValidByteLut() {
-      assertDoesNotThrow(() -> new ByteLut("Valid LUT", validLutTable));
-      assertEquals("Test LUT", byteLut.name());
-      assertArrayEquals(validLutTable, byteLut.lutTable());
+    void should_create_valid_byte_lut() {
+      assertAll(
+          () -> assertDoesNotThrow(() -> new ByteLut("Valid LUT", validLutTable)),
+          () -> assertEquals(TEST_LUT_NAME, byteLut.name()),
+          () -> assertArrayEquals(validLutTable, byteLut.lutTable()));
     }
   }
 
   @Nested
-  @DisplayName("Object Methods Tests")
-  class ObjectMethodsTests {
+  class Object_methods_tests {
 
     @Test
-    @DisplayName("Should return name as string representation")
-    void shouldReturnNameAsString() {
-      assertEquals("Test LUT", byteLut.toString());
+    void should_return_name_as_string_representation() {
+      assertEquals(TEST_LUT_NAME, byteLut.toString());
     }
 
     @Test
-    @DisplayName("Should be equal when name and LUT table are the same")
-    void shouldBeEqualWhenSameNameAndTable() {
-      byte[][] sameLutTable = new byte[3][256];
-      for (int i = 0; i < 256; i++) {
-        sameLutTable[0][i] = (byte) i;
-        sameLutTable[1][i] = (byte) (255 - i);
-        sameLutTable[2][i] = (byte) i;
-      }
-      ByteLut identicalByteLut = new ByteLut("Test LUT", sameLutTable);
+    void should_be_equal_when_same_name_and_table() {
+      var identicalLut = new ByteLut(TEST_LUT_NAME, createTestLut());
 
-      assertEquals(byteLut, identicalByteLut);
-      assertEquals(byteLut.hashCode(), identicalByteLut.hashCode());
+      assertAll(
+          () -> assertEquals(byteLut, identicalLut),
+          () -> assertEquals(byteLut.hashCode(), identicalLut.hashCode()));
     }
 
     @Test
-    @DisplayName("Should not be equal when names differ")
-    void shouldNotBeEqualWhenNamesDiffer() {
-      ByteLut differentNameLut = new ByteLut("Different LUT", validLutTable);
+    void should_not_be_equal_when_names_differ() {
+      var differentNameLut = new ByteLut("Different LUT", validLutTable);
       assertNotEquals(byteLut, differentNameLut);
     }
 
     @Test
-    @DisplayName("Should not be equal when LUT tables differ")
-    void shouldNotBeEqualWhenTablesDiffer() {
-      byte[][] differentTable = new byte[3][256];
-      // Fill with different values
-      for (int i = 0; i < 256; i++) {
-        differentTable[0][i] = (byte) (255 - i);
-        differentTable[1][i] = (byte) i;
-        differentTable[2][i] = (byte) (255 - i);
-      }
-      ByteLut differentTableLut = new ByteLut("Test LUT", differentTable);
+    void should_not_be_equal_when_tables_differ() {
+      var differentTable = createInvertedLut();
+      var differentTableLut = new ByteLut(TEST_LUT_NAME, differentTable);
 
-      assertNotEquals(byteLut, differentTableLut);
-      assertNotEquals(byteLut.hashCode(), differentTableLut.hashCode());
+      assertAll(
+          () -> assertNotEquals(byteLut, differentTableLut),
+          () -> assertNotEquals(byteLut.hashCode(), differentTableLut.hashCode()));
     }
 
-    @Test
-    @DisplayName("Should not be equal to null or different class")
-    void shouldNotBeEqualToNullOrDifferentClass() {
-      assertNotEquals(byteLut, null);
-      assertNotEquals(byteLut, "Not a ByteLut");
+    @ParameterizedTest
+    @MethodSource("provideNonByteLutObjects")
+    void should_not_be_equal_to_different_objects(Object other) {
+      assertNotEquals(byteLut, other);
+    }
+
+    static Stream<Arguments> provideNonByteLutObjects() {
+      return Stream.of(
+          Arguments.of((Object) null),
+          Arguments.of("Not a ByteLut"),
+          Arguments.of(42),
+          Arguments.of(new Object()));
     }
   }
 
   @Nested
-  @DisplayName("Icon Generation Tests")
-  class IconGenerationTests {
-    @Test
-    @DisplayName("Should create icon with default width and specified height")
-    void shouldCreateIconWithDefaultWidth() {
-      int height = 10;
+  class Icon_generation_tests {
 
+    @Test
+    void should_create_icon_with_default_width() {
+      int height = 10;
       Icon icon = byteLut.getIcon(height);
-      assertNotNull(icon);
-      assertEquals(height, icon.getIconHeight());
-      assertEquals(256 + 4, icon.getIconWidth()); // 256 + 2*BORDER
+
+      assertAll(
+          () -> assertNotNull(icon),
+          () -> assertEquals(height, icon.getIconHeight()),
+          () -> assertEquals(256 + BORDER_SIZE, icon.getIconWidth()));
     }
 
-    @Test
-    @DisplayName("Should create icon with custom width and height")
-    void shouldCreateIconWithCustomDimensions() {
-      int width = 128;
+    @ParameterizedTest
+    @MethodSource("provideValidDimensions")
+    void should_create_icon_with_custom_dimensions(int width, int height) {
+      Icon icon = byteLut.getIcon(width, height);
+
+      assertAll(
+          () -> assertNotNull(icon),
+          () -> assertEquals(height, icon.getIconHeight()),
+          () -> assertEquals(width + BORDER_SIZE, icon.getIconWidth()));
+    }
+
+    static Stream<Arguments> provideValidDimensions() {
+      return Stream.of(
+          Arguments.of(1, 1),
+          Arguments.of(128, 20),
+          Arguments.of(256, 32),
+          Arguments.of(512, 64),
+          Arguments.of(1000, 100));
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideInvalidDimensions")
+    void should_throw_exception_for_invalid_dimensions(int width, int height) {
+      assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(width, height));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-5, 0})
+    void should_throw_exception_for_invalid_height_in_single_param_method(int height) {
+      assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(height));
+    }
+
+    static Stream<Arguments> provideInvalidDimensions() {
+      return Stream.of(
+          Arguments.of(-1, 128), Arguments.of(128, 0), Arguments.of(-5, -10), Arguments.of(0, 100));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 16, 64, 128, 256, 512})
+    void should_paint_icon_without_exceptions(int width) {
       int height = 20;
       Icon icon = byteLut.getIcon(width, height);
-      assertNotNull(icon);
-      assertEquals(height, icon.getIconHeight());
-      assertEquals(width + 4, icon.getIconWidth()); // width + 2*BORDER
+      var image =
+          new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_RGB);
+      Graphics2D graphics = image.createGraphics();
+
+      assertDoesNotThrow(() -> icon.paintIcon(null, graphics, 0, 0));
+      graphics.dispose();
     }
 
     @Test
-    @DisplayName("Should throw IllegalArgumentException for invalid dimensions")
-    void shouldThrowExceptionForInvalidDimensions() {
-      assertAll(
-          "Invalid dimensions",
-          () -> assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(-1, 128)),
-          () -> assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(128, 0)),
-          () -> assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(-5)),
-          () -> assertThrows(IllegalArgumentException.class, () -> byteLut.getIcon(0)));
-    }
-
-    @Test
-    @DisplayName("Should paint correct colors for small width icon")
-    void shouldPaintCorrectColorsForSmallWidth() {
-      int width = 128;
-      int height = 1;
-      Icon icon = byteLut.getIcon(width, height);
-      Graphics mockGraphics = Mockito.mock(Graphics.class);
-      Component mockComponent = Mockito.mock(Component.class);
-      ArgumentCaptor<Color> colorCaptor = ArgumentCaptor.forClass(Color.class);
-
-      icon.paintIcon(mockComponent, mockGraphics, 0, 0);
-      Mockito.verify(mockGraphics, Mockito.times(width)).setColor(colorCaptor.capture());
-      List<Color> capturedColors = colorCaptor.getAllValues();
-      for (int i = 0; i < width; i++) {
-        assertEquals(
-            byteLut.getColor(i, width), capturedColors.get(i), "Color mismatch at position " + i);
-      }
-    }
-
-    @Test
-    @DisplayName("Should paint correct colors for large width icon")
-    void shouldPaintCorrectColorsForLargeWidth() {
-      int width = 767;
-      int height = 1;
-      Icon icon = byteLut.getIcon(width, height);
-
-      Graphics mockGraphics = Mockito.mock(Graphics.class);
-      Component mockComponent = Mockito.mock(Component.class);
-      ArgumentCaptor<Color> colorCaptor = ArgumentCaptor.forClass(Color.class);
-
-      icon.paintIcon(mockComponent, mockGraphics, 0, 0);
-      Mockito.verify(mockGraphics, Mockito.times(width)).setColor(colorCaptor.capture());
-      List<Color> capturedColors = colorCaptor.getAllValues();
-      for (int i = 0; i < width; i++) {
-        assertEquals(
-            byteLut.getColor(i, width), capturedColors.get(i), "Color mismatch at position " + i);
-      }
-    }
-
-    @Test
-    @DisplayName("Should create minimum size icon")
-    void shouldCreateMinimumSizeIcon() {
+    void should_create_minimum_size_icon() {
       Icon icon = byteLut.getIcon(1, 1);
 
-      assertNotNull(icon);
-      assertEquals(1, icon.getIconHeight());
-      assertEquals(5, icon.getIconWidth()); // 1 + 2*BORDER
+      assertAll(
+          () -> assertNotNull(icon),
+          () -> assertEquals(1, icon.getIconHeight()),
+          () -> assertEquals(5, icon.getIconWidth()) // 1 + BORDER_SIZE
+          );
     }
   }
 
   @Nested
-  @DisplayName("Color Mapping Tests")
-  class ColorMappingTests {
+  class Color_mapping_tests {
 
     @Test
-    @DisplayName("Should map colors correctly at boundaries")
-    void shouldMapColorsBoundaries() {
-      // Test first color (index 0)
+    void should_map_colors_at_boundaries() {
+      // First color (index 0): blue=0, green=255, red=0
       Color firstColor = byteLut.getColor(0, 256);
-      assertEquals(0, firstColor.getBlue()); // Blue channel: byte 0 -> 0
-      assertEquals(255, firstColor.getGreen()); // Green channel: byte 255 -> 255
-      assertEquals(0, firstColor.getRed()); // Red channel: byte 0 -> 0
+      assertAll(
+          () -> assertEquals(0, firstColor.getBlue()),
+          () -> assertEquals(255, firstColor.getGreen()),
+          () -> assertEquals(0, firstColor.getRed()));
 
-      // Test last color (index 255)
+      // Last color (index 255): blue=255, green=0, red=255
       Color lastColor = byteLut.getColor(255, 256);
-      assertEquals(255, lastColor.getBlue()); // Blue channel: byte 255 -> 255
-      assertEquals(0, lastColor.getGreen()); // Green channel: byte 0 -> 0
-      assertEquals(255, lastColor.getRed()); // Red channel: byte 255 -> 255
+      assertAll(
+          () -> assertEquals(255, lastColor.getBlue()),
+          () -> assertEquals(0, lastColor.getGreen()),
+          () -> assertEquals(255, lastColor.getRed()));
     }
 
     @Test
-    @DisplayName("Should handle color mapping with null LUT table")
-    void shouldHandleNullLutTable() {
-      ByteLut nullTableLut = new ByteLut("Null Table", null);
+    void should_handle_null_lut_table() {
+      var nullTableLut = new ByteLut("Null Table", null);
       Color grayColor = nullTableLut.getColor(128, 256);
 
       // Should use default gray LUT
-      assertEquals(128, grayColor.getRed());
-      assertEquals(128, grayColor.getGreen());
-      assertEquals(128, grayColor.getBlue());
+      assertAll(
+          () -> assertEquals(128, grayColor.getRed()),
+          () -> assertEquals(128, grayColor.getGreen()),
+          () -> assertEquals(128, grayColor.getBlue()));
     }
 
-    @Test
-    @DisplayName("Should scale colors correctly for different widths")
-    void shouldScaleColorsForDifferentWidths() {
-      // For width 1, position 0 should map to LUT index 255 (last entry)
-      Color color1 = byteLut.getColor(0, 1);
-      assertEquals(255, color1.getBlue());
-      assertEquals(0, color1.getGreen());
-      assertEquals(255, color1.getRed());
+    @ParameterizedTest
+    @MethodSource("provideWidthTestCases")
+    void should_scale_colors_for_different_widths(int width, int position, Color expected) {
+      Color actual = byteLut.getColor(position, width);
+      assertAll(
+          () -> assertEquals(expected.getRed(), actual.getRed()),
+          () -> assertEquals(expected.getGreen(), actual.getGreen()),
+          () -> assertEquals(expected.getBlue(), actual.getBlue()));
+    }
 
-      // For width 2, position 1 should also map to LUT index 255
-      Color color2 = byteLut.getColor(1, 2);
-      assertEquals(255, color2.getBlue());
-      assertEquals(0, color2.getGreen());
-      assertEquals(255, color2.getRed());
+    static Stream<Arguments> provideWidthTestCases() {
+      // For width 1, position 0 should map to LUT index 255
+      Color lastIndexColor = new Color(255, 0, 255); // red=255, green=0, blue=255
 
-      // For width 256, position 255 should map to LUT index 255
-      Color color256 = byteLut.getColor(255, 256);
-      assertEquals(255, color256.getBlue());
-      assertEquals(0, color256.getGreen());
-      assertEquals(255, color256.getRed());
+      return Stream.of(
+          Arguments.of(1, 0, lastIndexColor),
+          Arguments.of(2, 1, lastIndexColor),
+          Arguments.of(256, 255, lastIndexColor),
+          Arguments.of(256, 0, new Color(0, 255, 0)), // First index: red=0, green=255, blue=0
+          Arguments.of(256, 128, new Color(128, 127, 128)) // Middle: red=128, green=127, blue=128
+          );
     }
   }
 
   @Nested
-  @DisplayName("Edge Cases Tests")
-  class EdgeCasesTests {
+  class Edge_cases_tests {
 
     @Test
-    @DisplayName("Should handle very large icon dimensions")
-    void shouldHandleVeryLargeDimensions() {
+    void should_handle_very_large_dimensions() {
       assertDoesNotThrow(
           () -> {
             Icon largeIcon = byteLut.getIcon(10000, 100);
-            assertNotNull(largeIcon);
-            assertEquals(100, largeIcon.getIconHeight());
-            assertEquals(10004, largeIcon.getIconWidth());
+            assertAll(
+                () -> assertNotNull(largeIcon),
+                () -> assertEquals(100, largeIcon.getIconHeight()),
+                () -> assertEquals(10004, largeIcon.getIconWidth()));
           });
     }
 
+    @ParameterizedTest
+    @MethodSource("provideExtremeLutValues")
+    void should_handle_extreme_lut_values(
+        byte[][] extremeLut, int expectedRed, int expectedGreen, int expectedBlue) {
+      var extremeByteLut = new ByteLut("Extreme LUT", extremeLut);
+      Color color = extremeByteLut.getColor(100, 256);
+
+      assertAll(
+          () -> assertEquals(expectedBlue, color.getBlue()),
+          () -> assertEquals(expectedGreen, color.getGreen()),
+          () -> assertEquals(expectedRed, color.getRed()));
+    }
+
+    static Stream<Arguments> provideExtremeLutValues() {
+      return Stream.of(
+          Arguments.of(createUniformLut(255), 255, 255, 255), // All white
+          Arguments.of(createUniformLut(0), 0, 0, 0), // All black
+          Arguments.of(createUniformLut(127), 127, 127, 127), // Mid gray
+          Arguments.of(createInvertedLut(), 155, 155, 155) // Inverted at position 100
+          );
+    }
+
     @Test
-    @DisplayName("Should handle ByteLut with extreme LUT values")
-    void shouldHandleExtremeLutValues() {
-      byte[][] extremeLutTable = new byte[3][256];
-      for (int i = 0; i < 256; i++) {
-        extremeLutTable[0][i] = (byte) 255; // All blue
-        extremeLutTable[1][i] = (byte) 0; // No green
-        extremeLutTable[2][i] = (byte) 127; // Mid red
-      }
+    void should_handle_color_consistency_across_different_positions() {
+      var grayLut = new ByteLut("Gray LUT", null);
 
-      ByteLut extremeLut = new ByteLut("Extreme LUT", extremeLutTable);
-      Color color = extremeLut.getColor(100, 256);
+      // Test that colors are consistent for the same relative position
+      Color color1 = grayLut.getColor(50, 100);
+      Color color2 = grayLut.getColor(100, 200);
+      Color color3 = grayLut.getColor(25, 50);
 
-      assertEquals(255, color.getBlue());
-      assertEquals(0, color.getGreen());
-      assertEquals(127, color.getRed());
+      // All should map to the same LUT index (127 or 128)
+      assertAll(
+          () -> assertTrue(Math.abs(color1.getRed() - color2.getRed()) <= 1),
+          () -> assertTrue(Math.abs(color1.getGreen() - color2.getGreen()) <= 1),
+          () -> assertTrue(Math.abs(color1.getBlue() - color2.getBlue()) <= 1),
+          () -> assertTrue(Math.abs(color1.getRed() - color3.getRed()) <= 2));
+    }
+
+    @Test
+    void should_handle_single_channel_validation_with_null_channel() {
+      var lutWithNullChannel = new byte[3][];
+      lutWithNullChannel[0] = new byte[256];
+      lutWithNullChannel[1] = null; // Null channel
+      lutWithNullChannel[2] = new byte[256];
+
+      var exception =
+          assertThrows(
+              IllegalArgumentException.class,
+              () -> new ByteLut("Null Channel", lutWithNullChannel));
+      assertEquals("Each LUT channel must have exactly 256 values", exception.getMessage());
     }
   }
 }

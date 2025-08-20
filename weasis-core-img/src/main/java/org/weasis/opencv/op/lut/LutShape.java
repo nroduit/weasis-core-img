@@ -76,11 +76,6 @@ public final class LutShape {
       this.description = description;
     }
 
-    /**
-     * Gets the human-readable description of this function.
-     *
-     * @return the function description
-     */
     public String getDescription() {
       return description;
     }
@@ -102,15 +97,11 @@ public final class LutShape {
    * @param lookup the custom lookup table for pixel transformation
    * @param explanation human-readable description of this transformation
    * @throws IllegalArgumentException if lookup is null
-   * @throws IllegalArgumentException if explanation is null or empty
    */
   public LutShape(LookupTableCV lookup, String explanation) {
-    if (lookup == null) {
-      throw new IllegalArgumentException("Lookup table cannot be null");
-    }
     this.function = null;
-    this.explanation = StringUtil.getEmptyStringIfNull(explanation);
-    this.lookup = lookup;
+    this.explanation = normalizeExplanation(explanation);
+    this.lookup = Objects.requireNonNull(lookup, "Lookup table cannot be null");
   }
 
   /**
@@ -129,40 +120,25 @@ public final class LutShape {
    * @param function the predefined transformation function
    * @param explanation human-readable description of this transformation
    * @throws IllegalArgumentException if function is null
-   * @throws IllegalArgumentException if explanation is null or empty
    */
   public LutShape(Function function, String explanation) {
-    if (function == null) {
-      throw new IllegalArgumentException("Function cannot be null");
-    }
-    this.function = function;
-    this.explanation = StringUtil.getEmptyStringIfNull(explanation);
+    this.function = Objects.requireNonNull(function, "Function cannot be null");
+    this.explanation = normalizeExplanation(explanation);
     this.lookup = null;
   }
 
-  /**
-   * Gets the predefined function type, if this LutShape uses a mathematical function.
-   *
-   * @return the function type, or {@code null} if this uses a custom lookup table
-   */
+  private static String normalizeExplanation(String explanation) {
+    return StringUtil.getEmptyStringIfNull(explanation);
+  }
+
   public Function getFunctionType() {
     return function;
   }
 
-  /**
-   * Gets the custom lookup table, if this LutShape uses tabulated values.
-   *
-   * @return the lookup table, or {@code null} if this uses a predefined function
-   */
   public LookupTableCV getLookup() {
     return lookup;
   }
 
-  /**
-   * Gets the explanation describing this transformation.
-   *
-   * @return the human-readable explanation
-   */
   public String getExplanation() {
     return explanation;
   }
@@ -172,29 +148,22 @@ public final class LutShape {
     return explanation;
   }
 
-  /**
-   * Checks if this LutShape uses a predefined mathematical function.
-   *
-   * @return {@code true} if this uses a function, {@code false} if using a lookup table
-   */
   public boolean isFunction() {
     return function != null;
   }
 
   @Override
   public boolean equals(Object o) {
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    LutShape lutShape = (LutShape) o;
-    return isFunction() == lutShape.isFunction()
-        && Objects.equals(getExplanation(), lutShape.getExplanation())
-        && Objects.equals(getLookup(), lutShape.getLookup());
+    return this == o
+        || (o instanceof LutShape other
+            && isFunction() == other.isFunction()
+            && Objects.equals(explanation, other.explanation)
+            && Objects.equals(lookup, other.lookup));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(isFunction(), getExplanation(), getLookup());
+    return Objects.hash(isFunction(), explanation, lookup);
   }
 
   /**
@@ -214,11 +183,10 @@ public final class LutShape {
    * @return the corresponding LutShape, or {@code null} if not found
    */
   public static LutShape getLutShape(String shape) {
-    if (shape == null || shape.trim().isEmpty()) {
+    if (!StringUtil.hasText(shape)) {
       return null;
     }
-    String normalizedShape = shape.trim().toUpperCase();
-    return switch (normalizedShape) {
+    return switch (shape.trim().toUpperCase()) {
       case "LINEAR" -> LINEAR;
       case "SIGMOID" -> SIGMOID;
       case "SIGMOID_NORM" -> SIGMOID_NORM;

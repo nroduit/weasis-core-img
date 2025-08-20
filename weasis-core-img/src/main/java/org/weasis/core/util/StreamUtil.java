@@ -50,12 +50,11 @@ public final class StreamUtil {
    * @param resource the resource to close (can be null)
    */
   public static void safeClose(AutoCloseable resource) {
-    if (resource != null) {
-      try {
-        resource.close();
-      } catch (Exception e) {
-        LOGGER.warn("Failed to close resource: {}", resource.getClass().getSimpleName(), e);
-      }
+    if (resource == null) return;
+    try {
+      resource.close();
+    } catch (Exception e) {
+      LOGGER.warn("Failed to close resource: {}", resource.getClass().getSimpleName(), e);
     }
   }
 
@@ -66,10 +65,9 @@ public final class StreamUtil {
    * @param resources the resources to close (can contain null values)
    */
   public static void safeClose(AutoCloseable... resources) {
-    if (resources != null) {
-      for (AutoCloseable resource : resources) {
-        safeClose(resource);
-      }
+    if (resources == null) return;
+    for (AutoCloseable resource : resources) {
+      safeClose(resource);
     }
   }
 
@@ -80,12 +78,11 @@ public final class StreamUtil {
    * @param writer the XMLStreamWriter to close (can be null)
    */
   public static void safeClose(XMLStreamWriter writer) {
-    if (writer != null) {
-      try {
-        writer.close();
-      } catch (XMLStreamException e) {
-        LOGGER.warn("Failed to close XMLStreamWriter", e);
-      }
+    if (writer == null) return;
+    try {
+      writer.close();
+    } catch (XMLStreamException e) {
+      LOGGER.warn("Failed to close XMLStreamWriter", e);
     }
   }
 
@@ -96,12 +93,11 @@ public final class StreamUtil {
    * @param reader the XMLStreamReader to close (can be null)
    */
   public static void safeClose(XMLStreamReader reader) {
-    if (reader != null) {
-      try {
-        reader.close();
-      } catch (XMLStreamException e) {
-        LOGGER.warn("Failed to close XMLStreamReader", e);
-      }
+    if (reader == null) return;
+    try {
+      reader.close();
+    } catch (XMLStreamException e) {
+      LOGGER.warn("Failed to close XMLStreamReader", e);
     }
   }
 
@@ -137,7 +133,7 @@ public final class StreamUtil {
       bufferSize = DEFAULT_BUFFER_SIZE;
     }
 
-    byte[] buffer = new byte[bufferSize];
+    var buffer = new byte[bufferSize];
     long totalBytes = 0;
     int bytesRead;
 
@@ -166,7 +162,7 @@ public final class StreamUtil {
       Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
       return true;
     } catch (Exception e) {
-      LOGGER.error("Copy file", e);
+      LOGGER.error("Failed to copy file from {} to {}", source, destination, e);
       return false;
     }
   }
@@ -223,23 +219,27 @@ public final class StreamUtil {
       LOGGER.warn("Input stream or target path is null");
       return false;
     }
-
     try {
-      FileUtil.prepareToWriteFile(target);
-      try (OutputStream output = Files.newOutputStream(target)) {
-        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
-        int bytesRead;
-        while ((bytesRead = input.read(buffer)) != -1) {
-          output.write(buffer, 0, bytesRead);
-        }
-        output.flush();
-        return true;
-      }
+      return copyImageInputStream(input, target);
     } catch (Exception e) {
       LOGGER.error("Failed to copy ImageInputStream to file: {}", target, e);
       return false;
     } finally {
       safeClose(input);
+    }
+  }
+
+  // Extract the ImageInputStream copying logic
+  private static boolean copyImageInputStream(ImageInputStream input, Path target)
+      throws IOException {
+    FileUtil.prepareToWriteFile(target);
+    try (var output = Files.newOutputStream(target)) {
+      var buffer = new byte[DEFAULT_BUFFER_SIZE];
+      int bytesRead;
+      while ((bytesRead = input.read(buffer)) != -1) {
+        output.write(buffer, 0, bytesRead);
+      }
+      return true;
     }
   }
 
@@ -292,27 +292,27 @@ public final class StreamUtil {
       bufferSize = DEFAULT_BUFFER_SIZE;
     }
 
-    ReadableByteChannel readChannel = null;
-    WritableByteChannel writeChannel = null;
-    try {
-      readChannel = Channels.newChannel(input);
-      writeChannel = Channels.newChannel(output);
+    try (var readChannel = Channels.newChannel(input);
+        var writeChannel = Channels.newChannel(output)) {
 
-      ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-      while (readChannel.read(buffer) != -1) {
-        buffer.flip();
-        writeChannel.write(buffer);
-        buffer.clear();
-      }
-      return true;
+      return copyWithChannels(readChannel, writeChannel, bufferSize);
     } catch (Exception e) {
       LOGGER.error("Failed to copy streams using NIO", e);
       return false;
-    } finally {
-      // Close channels independently to ensure both are closed even if one fails
-      safeClose(readChannel);
-      safeClose(writeChannel);
     }
+  }
+
+  // Extract the NIO channel copying logic
+  private static boolean copyWithChannels(
+      ReadableByteChannel readChannel, WritableByteChannel writeChannel, int bufferSize)
+      throws IOException {
+    var buffer = ByteBuffer.allocate(bufferSize);
+    while (readChannel.read(buffer) != -1) {
+      buffer.flip();
+      writeChannel.write(buffer);
+      buffer.clear();
+    }
+    return true;
   }
 
   /**

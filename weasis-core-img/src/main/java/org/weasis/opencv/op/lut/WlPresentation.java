@@ -10,10 +10,10 @@
 package org.weasis.opencv.op.lut;
 
 /**
- * Interface representing window/level presentation parameters.
+ * Interface representing window/level presentation parameters for medical image processing.
  *
  * <p>This interface defines the core presentation state for image display, including pixel padding
- * behavior and presentation state LUT information.
+ * behavior and presentation state LUT information used in DICOM image transformations.
  *
  * @author Weasis Team
  */
