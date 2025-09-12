@@ -335,7 +335,8 @@ public final class EscapeChars {
     return buf.toString();
   }
 
-  private static StringBuilder appendSegment(char[] chars, StringBuilder buf, int lastIdx, int currIdx, String encoded) {
+  private static StringBuilder appendSegment(
+      char[] chars, StringBuilder buf, int lastIdx, int currIdx, String encoded) {
     if (buf == null) {
       buf = new StringBuilder(chars.length);
     }
@@ -348,7 +349,6 @@ public final class EscapeChars {
     }
     return buf;
   }
-
 
   private EscapeChars() {}
 

@@ -361,7 +361,6 @@ public final class FileUtil {
     return fExt.equalsIgnoreCase(nExt);
   }
 
-
   /**
    * Write inputStream content into a file
    *
@@ -638,7 +637,8 @@ public final class FileUtil {
     }
   }
 
-  private static void processFile(File file, URI base, Deque<File> dirQ, ZipOutputStream zipOut) throws IOException {
+  private static void processFile(File file, URI base, Deque<File> dirQ, ZipOutputStream zipOut)
+      throws IOException {
     String name = base.relativize(file.toURI()).getPath();
     if (file.isDirectory()) {
       dirQ.push(file); // Add a subdirectory to the queue
@@ -654,7 +654,6 @@ public final class FileUtil {
       zipOut.closeEntry();
     }
   }
-
 
   /**
    * Unzip a zip inputStream into a directory
