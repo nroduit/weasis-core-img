@@ -10,11 +10,11 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.core.version}.3</revision>
+    <revision>${weasis.core.version}.7</revision>
     <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
-    <weasis.opencv.version>4.11.0</weasis.opencv.version>
+    <weasis.opencv.version>4.12.1</weasis.opencv.version>
     <weasis.core.version>${weasis.opencv.version}</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
@@ -47,7 +47,7 @@
     </repository>
     <repository>
       <id>mvn-repo-master</id>
-      <url>https://raw.github.com/nroduit/mvn-repo/master/</url>
+      <url>https://raw.githubusercontent.com/nroduit/mvn-repo/master/</url>
       <snapshots>
         <enabled>false</enabled>
       </snapshots>

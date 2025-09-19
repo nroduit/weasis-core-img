@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.data.MetadataParser;
 import org.weasis.opencv.data.PlanarImage;
 
 /**
@@ -76,13 +77,21 @@ public final class ImageIOHandler {
   public static ImageCV readImageWithCvException(Path path, List<String> tags) {
     validateReadablePath(path);
 
-    var exifs = tags != null ? tags : new ArrayList<String>();
-    var mat = Imgcodecs.imread(path.toAbsolutePath().toString(), exifs);
-
-    if (mat.empty()) {
-      throw new CvException("Failed to load image from: " + path.toAbsolutePath());
+    Mat mat;
+    if (tags == null) {
+      mat = Imgcodecs.imread(path.toAbsolutePath().toString());
+      return handleImageConversion(path, mat);
     }
-    return ImageCV.fromMat(mat);
+    MatOfInt metadataTypes = new MatOfInt();
+    List<Mat> metadataList = new ArrayList<>();
+    mat =
+        Imgcodecs.imreadWithMetadata(path.toAbsolutePath().toString(), metadataTypes, metadataList);
+
+    List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
+    tags.clear();
+    tags.addAll(exifTags);
+
+    return handleImageConversion(path, mat);
   }
 
   /**
@@ -220,6 +229,13 @@ public final class ImageIOHandler {
   }
 
   // Private helper methods with minimal or no documentation
+
+  private static ImageCV handleImageConversion(Path path, Mat mat) {
+    if (mat.empty()) {
+      throw new CvException("Failed to read image or unsupported format: " + path);
+    }
+    return ImageCV.fromMat(mat);
+  }
 
   private static boolean writeImageInternal(Mat source, Path path, MatOfInt params) {
     try {
