@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.data.MetadataParser;
 import org.weasis.opencv.data.PlanarImage;
 
 public class ImageProcessor {
@@ -938,25 +939,42 @@ public class ImageProcessor {
   }
 
   /**
-   * Read image with OpenCV and throw CvException if the image cannot be read.
+   * Reads an image from file with exception throwing for error handling.
+   *
+   * <p>Similar to {@link #readImage(File, List)} but throws exceptions instead of returning null,
+   * providing more detailed error information for debugging and error handling in calling code.
    *
    * @param file the image file
-   * @param tags the list of basic tags to fill. Can be null.
-   * @return the image or null if the image cannot be read
-   * @throws CvException if the image cannot be read
+   * @param tags optional metadata tag list
+   * @return a new {@link ImageCV} with the loaded image
+   * @throws CvException if the image cannot be read or is corrupted
+   * @throws NullPointerException if path is null or does not point to a readable file
    */
   public static ImageCV readImageWithCvException(File file, List<String> tags) {
     if (!file.canRead()) {
       return null;
     }
-    List<String> exifs = tags;
-    if (exifs == null) {
-      exifs = new ArrayList<>();
+
+    Mat mat;
+    if (tags == null) {
+      mat = Imgcodecs.imread(file.getPath());
+      return handleImageConversion(file, mat);
     }
-    Mat img = Imgcodecs.imread(file.getPath(), exifs);
-    if (img.width() < 1 || img.height() < 1) {
-      throw new CvException("OpenCV cannot read " + file.getPath());
+    MatOfInt metadataTypes = new MatOfInt();
+    List<Mat> metadataList = new ArrayList<>();
+    mat = Imgcodecs.imreadWithMetadata(file.getPath(), metadataTypes, metadataList);
+
+    List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
+    tags.clear();
+    tags.addAll(exifTags);
+
+    return handleImageConversion(file, mat);
+  }
+
+  private static ImageCV handleImageConversion(File path, Mat mat) {
+    if (mat.empty()) {
+      throw new CvException("Failed to read image or unsupported format: " + path);
     }
-    return ImageCV.toImageCV(img);
+    return ImageCV.toImageCV(mat);
   }
 }
