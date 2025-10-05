@@ -14,7 +14,7 @@
     <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
-    <weasis.opencv.version>4.12.1</weasis.opencv.version>
+    <weasis.opencv.version>4.12.2</weasis.opencv.version>
     <weasis.core.version>${weasis.opencv.version}</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
