@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.core.version}</revision>
+    <revision>${weasis.core.version}.7</revision>
     <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
@@ -70,13 +70,6 @@
         <artifactId>libopencv_java</artifactId>
         <version>${weasis.opencv.native.version}</version>
         <type>so</type>
-        <classifier>linux-armv7a</classifier>
-      </dependency>
-      <dependency>
-        <groupId>org.weasis.thirdparty.org.opencv</groupId>
-        <artifactId>libopencv_java</artifactId>
-        <version>${weasis.opencv.native.version}</version>
-        <type>so</type>
         <classifier>linux-x86-64</classifier>
       </dependency>
       <dependency>
@@ -92,13 +85,6 @@
         <version>${weasis.opencv.native.version}</version>
         <type>dylib</type>
         <classifier>macosx-x86-64</classifier>
-      </dependency>
-      <dependency>
-        <groupId>org.weasis.thirdparty.org.opencv</groupId>
-        <artifactId>opencv_java</artifactId>
-        <version>${weasis.opencv.native.version}</version>
-        <type>dll</type>
-        <classifier>windows-x86</classifier>
       </dependency>
       <dependency>
         <groupId>org.weasis.thirdparty.org.opencv</groupId>
@@ -245,21 +231,6 @@
       </properties>
     </profile>
     <profile>
-      <id>linux-arm32</id>
-      <activation>
-        <os>
-          <name>linux</name>
-          <arch>arm</arch>
-        </os>
-      </activation>
-      <properties>
-        <os-name>linux</os-name>
-        <cpu-name>armv7a</cpu-name>
-        <lib-file-name>libopencv_java</lib-file-name>
-        <lib-file-ext>so</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
       <id>linux-x86_64</id>
       <activation>
         <os>
@@ -302,21 +273,6 @@
         <cpu-name>x86-64</cpu-name>
         <lib-file-name>libopencv_java</lib-file-name>
         <lib-file-ext>dylib</lib-file-ext>
-      </properties>
-    </profile>
-    <profile>
-      <id>windows-x86</id>
-      <activation>
-        <os>
-          <family>windows</family>
-          <arch>x86</arch>
-        </os>
-      </activation>
-      <properties>
-        <os-name>windows</os-name>
-        <cpu-name>x86</cpu-name>
-        <lib-file-name>opencv_java</lib-file-name>
-        <lib-file-ext>dll</lib-file-ext>
       </properties>
     </profile>
     <profile>

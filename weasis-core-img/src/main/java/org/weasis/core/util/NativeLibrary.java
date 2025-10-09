@@ -9,48 +9,151 @@
  */
 package org.weasis.core.util;
 
-public class NativeLibrary {
+import java.util.Map;
+
+/**
+ * Utility class for determining native library specifications based on the current operating system
+ * and architecture. This class follows OSGi naming conventions as defined by <a
+ * href="https://docs.osgi.org/reference/osnames.html">OSGI</a>
+ *
+ * <p>The class provides thread-safe caching of the native library specification to avoid repeated
+ * system property lookups.
+ */
+public final class NativeLibrary {
+
+  // OS Name Constants
+  private static final String OS_WINDOWS = "windows";
+  private static final String OS_MACOSX = "macosx";
+  private static final String OS_LINUX = "linux";
+  private static final String OS_EPOC32 = "epoc32";
+  private static final String OS_HPUX = "hpux";
+  private static final String OS_OS2 = "os2";
+  private static final String OS_QNX = "qnx";
+
+  // Architecture Constants
+  private static final String ARCH_X86_64 = "x86-64";
+  private static final String ARCH_AARCH64 = "aarch64";
+  private static final String ARCH_ARMV7A = "armv7a";
+  private static final String ARCH_X86 = "x86";
+  private static final String ARCH_POWERPC = "powerpc";
+  private static final String ARCH_IGNITE = "ignite";
+
+  // System Property Keys
+  private static final String PROP_OS_NAME = "os.name";
+  private static final String PROP_OS_ARCH = "os.arch";
+
+  // OS Name Mappings
+  private static final Map<String, String> OS_NAME_MAPPINGS =
+      Map.of(
+          "symbianos", OS_EPOC32,
+          "hp-ux", OS_HPUX,
+          "os/2", OS_OS2,
+          "procnto", OS_QNX);
+
+  // Architecture Mappings - Using Map.of for immutability
+  private static final Map<String, String> ARCH_MAPPINGS =
+      Map.ofEntries(
+          // x86-64 variants
+          Map.entry(ARCH_X86_64, ARCH_X86_64),
+          Map.entry("amd64", ARCH_X86_64),
+          Map.entry("em64t", ARCH_X86_64),
+          Map.entry("x86_64", ARCH_X86_64),
+          // ARM64 variants
+          Map.entry(ARCH_AARCH64, ARCH_AARCH64),
+          Map.entry("arm64", ARCH_AARCH64),
+          // ARM variants
+          Map.entry("arm", ARCH_ARMV7A),
+          // x86 variants
+          Map.entry("pentium", ARCH_X86),
+          Map.entry("i386", ARCH_X86),
+          Map.entry("i486", ARCH_X86),
+          Map.entry("i586", ARCH_X86),
+          Map.entry("i686", ARCH_X86),
+          // Other architectures
+          Map.entry("power ppc", ARCH_POWERPC),
+          Map.entry("psc1k", ARCH_IGNITE));
+
+  private static volatile String cachedSpecification;
 
   private NativeLibrary() {}
 
+  /**
+   * Gets the native library specification string in the format "osname-architecture". This method
+   * is thread-safe and caches the result for improved performance.
+   *
+   * @return the native library specification string (e.g., "windows-x86-64", "linux-aarch64")
+   * @throws IllegalStateException if system properties cannot be determined
+   */
   public static String getNativeLibSpecification() {
-    // See naming conventions at https://docs.osgi.org/reference/osnames.html
-    String osName = System.getProperty("os.name").toLowerCase();
-    String osArch = System.getProperty("os.arch").toLowerCase();
-
-    if (osName.startsWith("win")) {
-      // All Windows versions with a specific processor architecture (x86 or x86-64) are grouped
-      // under windows. If you need to make different native libraries for the Windows versions,
-      // define it in the Bundle-NativeCode tag of the bundle fragment.
-      osName = "windows";
-    } else if (osName.startsWith("mac")) {
-      osName = "macosx";
-    } else if (osName.startsWith("linux")) {
-      osName = "linux";
-    } else {
-      switch (osName) {
-        case "symbianos" -> osName = "epoc32";
-        case "hp-ux" -> osName = "hpux";
-        case "os/2" -> osName = "os2";
-        case "procnto" -> osName = "qnx";
-        default -> osName = osName.toLowerCase();
+    // Double-checked locking pattern with volatile field
+    var result = cachedSpecification;
+    if (result == null) {
+      synchronized (NativeLibrary.class) {
+        result = cachedSpecification;
+        if (result == null) {
+          cachedSpecification = result = buildNativeLibSpecification();
+        }
       }
     }
-
-    osArch =
-        switch (osArch) {
-          case "x86-64", "amd64", "em64t", "x86_64" -> "x86-64";
-          case "aarch64", "arm64" -> "aarch64";
-          case "arm" -> "armv7a";
-          case "pentium", "i386", "i486", "i586", "i686" -> "x86";
-          case "power ppc" -> "powerpc";
-          case "psc1k" -> "ignite";
-          default -> osArch;
-        };
-    return osName + "-" + osArch;
+    return result;
   }
 
+  private static String buildNativeLibSpecification() {
+    var rawOsName = System.getProperty(PROP_OS_NAME);
+    var rawOsArch = System.getProperty(PROP_OS_ARCH);
+
+    var normalizedOsName = normalizeOsName(rawOsName);
+    var normalizedOsArch = normalizeArchitecture(rawOsArch);
+
+    return normalizedOsName + "-" + normalizedOsArch;
+  }
+
+  private static String normalizeOsName(String rawOsName) {
+    if (!StringUtil.hasText(rawOsName)) {
+      throw new IllegalStateException("OS name system property is null or empty");
+    }
+
+    var osName = rawOsName.toLowerCase();
+
+    // Handle common OS prefixes
+    if (osName.startsWith("win")) {
+      return OS_WINDOWS;
+    } else if (osName.startsWith("mac")) {
+      return OS_MACOSX;
+    } else if (osName.startsWith(OS_LINUX)) {
+      return OS_LINUX;
+    }
+
+    // Handle specific OS mappings
+    return OS_NAME_MAPPINGS.getOrDefault(osName, osName);
+  }
+
+  private static String normalizeArchitecture(String rawOsArch) {
+    if (!StringUtil.hasText(rawOsArch)) {
+      throw new IllegalStateException("OS architecture system property is null or empty");
+    }
+
+    return ARCH_MAPPINGS.getOrDefault(rawOsArch.toLowerCase(), rawOsArch.toLowerCase());
+  }
+
+  /** Clears the cached native library specification for testing purposes. */
+  static void clearCache() {
+    synchronized (NativeLibrary.class) {
+      cachedSpecification = null;
+    }
+  }
+
+  /**
+   * Main method for testing the native library specification determination.
+   *
+   * @param args command line arguments (not used)
+   */
   public static void main(String[] args) {
-    System.out.println(getNativeLibSpecification());
+    try {
+      System.out.println(getNativeLibSpecification());
+    } catch (Exception e) {
+      System.err.println("Error determining native library specification: " + e.getMessage());
+      System.exit(1);
+    }
   }
 }

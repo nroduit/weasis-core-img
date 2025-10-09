@@ -9,119 +9,59 @@
  */
 package org.weasis.opencv.op.lut;
 
-import java.util.Objects;
 import org.weasis.core.util.annotations.Generated;
 
 /**
- * Implementation of the LUT parameters.
+ * Immutable record representing comprehensive lookup table transformation parameters.
  *
+ * <p>This record encapsulates all parameters required for DICOM-compliant image pixel value
+ * transformations, including:
+ *
+ * <ul>
+ *   <li>Linear transformation coefficients (intercept and slope)
+ *   <li>Pixel padding configuration and values
+ *   <li>Bit depth and signedness specifications for input and output
+ *   <li>Modality LUT padding inversion settings
+ * </ul>
+ *
+ * <p>The transformation follows the DICOM standard formula: {@code output = input * slope +
+ * intercept}
+ *
+ * <p>Padding values are handled according to DICOM PS3.3 specifications, where pixels matching the
+ * padding range are excluded from display calculations.
+ *
+ * @param intercept the intercept value for linear transformation (DICOM tag 0028,1052)
+ * @param slope the slope value for linear transformation (DICOM tag 0028,1053)
+ * @param applyPadding whether pixel padding should be applied during transformation
+ * @param paddingMinValue the minimum padding value, or {@code null} if not specified
+ * @param paddingMaxValue the maximum padding value, or {@code null} if not specified
+ * @param bitsStored the number of bits used to store each pixel value (1-32)
+ * @param signed whether the input pixel values are signed
+ * @param outputSigned whether the output pixel values should be signed
+ * @param bitsOutput the number of bits in the output pixel values (1-32)
+ * @param inversePaddingMLUT whether to inverse padding for modality LUT
  * @author Nicolas Roduit
  */
 @Generated
-public class LutParameters {
-  private final double intercept;
-  private final double slope;
-  private final Integer paddingMinValue;
-  private final Integer paddingMaxValue;
-  private final int bitsStored;
-  private final boolean signed;
-  private final boolean applyPadding;
-  private final boolean outputSigned;
-  private final int bitsOutput;
-  private final boolean inversePaddingMLUT;
+public record LutParameters(
+    double intercept,
+    double slope,
+    boolean applyPadding,
+    Integer paddingMinValue,
+    Integer paddingMaxValue,
+    int bitsStored,
+    boolean signed,
+    boolean outputSigned,
+    int bitsOutput,
+    boolean inversePaddingMLUT) {
 
-  public LutParameters(
-      double intercept,
-      double slope,
-      boolean applyPadding,
-      Integer paddingMinValue,
-      Integer paddingMaxValue,
-      int bitsStored,
-      boolean signed,
-      boolean outputSigned,
-      int bitsOutput,
-      boolean inversePaddingMLUT) {
-    this.intercept = intercept;
-    this.slope = slope;
-    this.paddingMinValue = paddingMinValue;
-    this.paddingMaxValue = paddingMaxValue;
-    this.bitsStored = bitsStored;
-    this.signed = signed;
-    this.applyPadding = applyPadding;
-    this.outputSigned = outputSigned;
-    this.bitsOutput = bitsOutput;
-    this.inversePaddingMLUT = inversePaddingMLUT;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    LutParameters that = (LutParameters) o;
-    return Double.compare(that.intercept, intercept) == 0
-        && Double.compare(that.slope, slope) == 0
-        && bitsStored == that.bitsStored
-        && signed == that.signed
-        && applyPadding == that.applyPadding
-        && outputSigned == that.outputSigned
-        && bitsOutput == that.bitsOutput
-        && inversePaddingMLUT == that.inversePaddingMLUT
-        && Objects.equals(paddingMinValue, that.paddingMinValue)
-        && Objects.equals(paddingMaxValue, that.paddingMaxValue);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        intercept,
-        slope,
-        paddingMinValue,
-        paddingMaxValue,
-        bitsStored,
-        signed,
-        applyPadding,
-        outputSigned,
-        bitsOutput,
-        inversePaddingMLUT);
-  }
-
-  public double getIntercept() {
-    return intercept;
-  }
-
-  public double getSlope() {
-    return slope;
-  }
-
-  public Integer getPaddingMinValue() {
-    return paddingMinValue;
-  }
-
-  public Integer getPaddingMaxValue() {
-    return paddingMaxValue;
-  }
-
-  public int getBitsStored() {
-    return bitsStored;
-  }
-
-  public boolean isSigned() {
-    return signed;
-  }
-
-  public boolean isApplyPadding() {
-    return applyPadding;
-  }
-
-  public boolean isOutputSigned() {
-    return outputSigned;
-  }
-
-  public int getBitsOutput() {
-    return bitsOutput;
-  }
-
-  public boolean isInversePaddingMLUT() {
-    return inversePaddingMLUT;
+  /** Compact constructor with validation. */
+  public LutParameters {
+    if (bitsStored < 1 || bitsStored > 32) {
+      throw new IllegalArgumentException("bitsStored must be between 1 and 32, got: " + bitsStored);
+    }
+    if (bitsOutput < 1 || bitsOutput > 32) {
+      throw new IllegalArgumentException("bitsOutput must be between 1 and 32, got: " + bitsOutput);
+    }
   }
 }
