@@ -37,7 +37,7 @@
     <sonar.test.exclusions>src/test/**/*</sonar.test.exclusions>
 
     <!-- Tests require the native library and can only be run on Linux, Windows and macOS-->
-    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name} -Djdk.attach.allowAttachSelf=true</argLine>
+    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
   </properties>
 
   <build>
@@ -343,6 +343,12 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>${mockito-core.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.bytebuddy</groupId>
+      <artifactId>byte-buddy-agent</artifactId>
+      <version>1.17.7</version>
       <scope>test</scope>
     </dependency>
     <dependency>
