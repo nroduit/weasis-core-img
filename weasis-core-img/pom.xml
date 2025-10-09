@@ -37,7 +37,7 @@
     <sonar.test.exclusions>src/test/**/*</sonar.test.exclusions>
 
     <!-- Tests require the native library and can only be run on Linux, Windows and macOS-->
-    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
+    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name} -Djdk.attach.allowAttachSelf=true</argLine>
   </properties>
 
   <build>
