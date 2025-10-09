@@ -346,12 +346,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>net.bytebuddy</groupId>
-      <artifactId>byte-buddy-agent</artifactId>
-      <version>1.17.7</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.junit-pioneer</groupId>
       <artifactId>junit-pioneer</artifactId>
       <version>${junit-pioneer.version}</version>
