@@ -240,6 +240,16 @@ public class LookupTableCV {
           Arrays.deepHashCode(byteData()),
           Arrays.deepHashCode(shortData()));
     }
+
+    @Override
+    public String toString() {
+      return "LookupContext{" +
+          "numBands=" + numBands +
+          ", offsets=" + Arrays.toString(offsets) +
+          ", byteData=" + Arrays.deepToString(byteData) +
+          ", shortData=" + Arrays.deepToString(shortData) +
+          '}';
+    }
   }
 
   private ImageInfo extractImageInfo(Mat src) {
