@@ -84,9 +84,20 @@ public final class ZipUtil {
       var entries = zFile.entries();
       while (entries.hasMoreElements()) {
         var entry = entries.nextElement();
+        checkEntry(entry);
         try (var entryStream = zFile.getInputStream(entry)) {
           extractEntry(entryStream, entry, targetDir);
         }
+      }
+    }
+  }
+
+  private static void checkEntry(ZipEntry entry) throws IOException {
+    // Verify compression ratio to prevent zip bomb attacks
+    if (entry.getSize() > 0 && entry.getCompressedSize() > 0) {
+      long ratio = entry.getSize() / entry.getCompressedSize();
+      if (ratio > 5000) { // Suspicious compression ratio threshold
+        throw new IOException("Entry has suspicious compression ratio: " + entry.getName());
       }
     }
   }
@@ -113,6 +124,9 @@ public final class ZipUtil {
 
       ZipEntry entry;
       while ((entry = zis.getNextEntry()) != null) {
+
+        // Verify compression ratio to prevent zip bomb attacks
+        checkEntry(entry);
         extractEntry(zis, entry, targetDir);
       }
 

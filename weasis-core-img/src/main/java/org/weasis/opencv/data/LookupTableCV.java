@@ -218,7 +218,29 @@ public class LookupTableCV {
 
   /** Encapsulates lookup table context for processing. */
   private record LookupContext(
-      int numBands, int[] offsets, byte[][] byteData, short[][] shortData) {}
+      int numBands, int[] offsets, byte[][] byteData, short[][] shortData) {
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      LookupContext that = (LookupContext) o;
+      return numBands() == that.numBands()
+          && Objects.deepEquals(offsets(), that.offsets())
+          && Objects.deepEquals(byteData(), that.byteData())
+          && Objects.deepEquals(shortData(), that.shortData());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          numBands(),
+          Arrays.hashCode(offsets()),
+          Arrays.deepHashCode(byteData()),
+          Arrays.deepHashCode(shortData()));
+    }
+  }
 
   private ImageInfo extractImageInfo(Mat src) {
     int width = src.width();

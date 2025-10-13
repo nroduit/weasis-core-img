@@ -52,7 +52,6 @@ import org.weasis.core.util.annotations.Generated;
 public final class FileUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileUtil.class);
   public static final int FILE_BUFFER = 4096;
-  private static final String CANNOT_DELETE = "Cannot delete";
 
   // Optimized with Set for O(1) lookups instead of binary search
   private static final Set<Integer> ILLEGAL_CHARS =
@@ -189,9 +188,13 @@ public final class FileUtil {
         return deleteQuietly(path);
       }
     } catch (Exception e) {
-      LOGGER.error("{}: {}", CANNOT_DELETE, path, e);
+      logDelete(e, path.toString());
       return false;
     }
+  }
+
+  private static void logDelete(Exception e, String message) {
+    LOGGER.error("Cannot delete: {}", message, e);
   }
 
   private static boolean deleteDirectory(Path directory) {
@@ -199,7 +202,7 @@ public final class FileUtil {
       walk.sorted(Comparator.reverseOrder()).forEach(FileUtil::deleteQuietly);
       return !Files.exists(directory);
     } catch (IOException e) {
-      LOGGER.error("{}: {}", CANNOT_DELETE, directory, e);
+      logDelete(e, directory.toString());
       return false;
     }
   }
@@ -275,7 +278,7 @@ public final class FileUtil {
     try {
       return Files.deleteIfExists(path);
     } catch (IOException e) {
-      LOGGER.error("{}: {}", CANNOT_DELETE, path, e);
+      logDelete(e, path.toString());
       return false;
     }
   }
@@ -537,9 +540,22 @@ public final class FileUtil {
     if (indexSize < 1) {
       return path;
     }
-    var pattern = String.format("$1-%%0%dd$2", indexSize);
-    var replacement = String.format(pattern, index);
-    var newName = path.getFileName().toString().replaceFirst("(.*?)(\\.[^.]+)?$", replacement);
+    var fileName = path.getFileName().toString();
+    var lastDotIndex = fileName.lastIndexOf('.');
+
+    String nameWithoutExt;
+    String extension;
+
+    if (lastDotIndex > 0) {
+      nameWithoutExt = fileName.substring(0, lastDotIndex);
+      extension = fileName.substring(lastDotIndex);
+    } else {
+      nameWithoutExt = fileName;
+      extension = "";
+    }
+
+    var indexStr = String.format("-%0" + indexSize + "d", index);
+    var newName = nameWithoutExt + indexStr + extension;
     return path.resolveSibling(newName);
   }
 
