@@ -31,6 +31,8 @@ import org.weasis.opencv.op.ImageConversion;
  */
 public final class LookupTableCV {
 
+  public static final String NULL_DATA_ARRAY_MESSAGE = "Data array must not be null";
+
   private final int[] offsets;
   private final DataBuffer data;
   private final boolean forceReadingUnsigned;
@@ -51,7 +53,7 @@ public final class LookupTableCV {
    * @param forceReadingUnsigned if true, forces reading values as unsigned
    */
   public LookupTableCV(byte[] data, int offset, boolean forceReadingUnsigned) {
-    Objects.requireNonNull(data, "Data array must not be null");
+    Objects.requireNonNull(data, NULL_DATA_ARRAY_MESSAGE);
     if (data.length == 0) {
       throw new IllegalArgumentException("Data array must not be empty");
     }
@@ -100,7 +102,7 @@ public final class LookupTableCV {
    *     that do not handle signed short correctly
    */
   public LookupTableCV(short[] data, int offset, boolean isUShort, boolean forceReadingUnsigned) {
-    Objects.requireNonNull(data, "Data array must not be null");
+    Objects.requireNonNull(data, NULL_DATA_ARRAY_MESSAGE);
     if (data.length == 0) {
       throw new IllegalArgumentException("Data array must not be empty");
     }
@@ -111,7 +113,7 @@ public final class LookupTableCV {
   }
 
   private static void validateByteArrayInput(byte[][] data, int[] offsets) {
-    Objects.requireNonNull(data, "Data array must not be null");
+    Objects.requireNonNull(data, NULL_DATA_ARRAY_MESSAGE);
     Objects.requireNonNull(offsets, "Offsets array must not be null");
 
     if (data.length == 0 || data[0].length == 0) {
@@ -457,6 +459,45 @@ public final class LookupTableCV {
 
     boolean isTableDataByte() {
       return byteData != null;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      LutContext that = (LutContext) o;
+      return numBands() == that.numBands()
+          && channels() == that.channels()
+          && Objects.deepEquals(offsets(), that.offsets())
+          && Objects.deepEquals(byteData(), that.byteData())
+          && Objects.deepEquals(shortData(), that.shortData());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          numBands(),
+          channels(),
+          Arrays.hashCode(offsets()),
+          Arrays.deepHashCode(byteData()),
+          Arrays.deepHashCode(shortData()));
+    }
+
+    @Override
+    public String toString() {
+      return "LutContext{"
+          + "numBands="
+          + numBands
+          + ", channels="
+          + channels
+          + ", offsets="
+          + Arrays.toString(offsets)
+          + ", byteData="
+          + Arrays.deepToString(byteData)
+          + ", shortData="
+          + Arrays.deepToString(shortData)
+          + '}';
     }
   }
 }

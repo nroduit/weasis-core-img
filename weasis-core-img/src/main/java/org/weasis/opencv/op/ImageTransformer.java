@@ -9,6 +9,8 @@
  */
 package org.weasis.opencv.op;
 
+import static org.weasis.opencv.op.ImageIOHandler.NULL_SOURCE_IMAGE_ERROR;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Rectangle;
@@ -426,7 +428,7 @@ public final class ImageTransformer {
    * @throws IllegalArgumentException if any parameter is null
    */
   public static BufferedImage drawShape(RenderedImage source, Shape shape, Color color) {
-    Objects.requireNonNull(source, "Source image cannot be null");
+    Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
     Objects.requireNonNull(shape, "Shape cannot be null");
     Objects.requireNonNull(color, "Color cannot be null");
 

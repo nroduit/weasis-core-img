@@ -9,6 +9,8 @@
  */
 package org.weasis.opencv.op;
 
+import static org.weasis.opencv.op.ImageIOHandler.NULL_SOURCE_IMAGE_ERROR;
+
 import java.awt.Rectangle;
 import java.awt.Shape;
 import java.awt.geom.FlatteningPathIterator;
@@ -103,7 +105,7 @@ public final class ImageAnalyzer {
       int segType = pathIterator.currentSegment(coords);
       switch (segType) {
         case PathIterator.SEG_MOVETO -> {
-          currentContour = finalizePreviousSegment(currentContour, currentPoints, contours);
+          finalizePreviousSegment(currentContour, currentPoints, contours);
           currentContour = new MatOfPoint();
           currentPoints.add(new Point(coords[0] - bounds.x, coords[1] - bounds.y));
         }
@@ -177,7 +179,7 @@ public final class ImageAnalyzer {
    * @throws IllegalArgumentException if source is null
    */
   public static MinMaxLocResult minMaxLoc(RenderedImage source, Rectangle area) {
-    Objects.requireNonNull(source, "Source image cannot be null");
+    Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
 
     var mat = ImageConversion.toMat(source);
     if (area != null) {
@@ -285,7 +287,7 @@ public final class ImageAnalyzer {
     return new MaskData(croppedSrc, mask);
   }
 
-  private static MatOfPoint finalizePreviousSegment(
+  private static void finalizePreviousSegment(
       MatOfPoint currentContour, List<Point> points, List<MatOfPoint> contours) {
     if (currentContour != null && !points.isEmpty()) {
       removeDuplicateLastPoint(points);
@@ -293,7 +295,6 @@ public final class ImageAnalyzer {
       contours.add(currentContour);
       points.clear();
     }
-    return currentContour;
   }
 
   private static void removeDuplicateLastPoint(List<Point> points) {

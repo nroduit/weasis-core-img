@@ -39,10 +39,13 @@ import org.weasis.opencv.data.PlanarImage;
  * @since 1.0
  */
 public final class ImageIOHandler {
+
   private static final Logger LOGGER = LoggerFactory.getLogger(ImageIOHandler.class);
 
   private static final int PNG_COMPRESSION_LEVEL = 9;
   private static final int THUMBNAIL_JPEG_QUALITY = 85;
+
+  public static final String NULL_SOURCE_IMAGE_ERROR = "Source image cannot be null";
 
   private ImageIOHandler() {
     // Utility class - prevent instantiation
@@ -212,7 +215,7 @@ public final class ImageIOHandler {
    * @throws IllegalArgumentException if parameters are invalid
    */
   public static ImageCV buildThumbnail(PlanarImage source, Dimension iconDim, boolean keepRatio) {
-    Objects.requireNonNull(source, "Source image cannot be null");
+    Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
     Objects.requireNonNull(iconDim, "Icon dimensions cannot be null");
 
     if (iconDim.width <= 0 || iconDim.height <= 0) {
@@ -336,14 +339,14 @@ public final class ImageIOHandler {
   }
 
   public static void validateSource(Mat source) {
-    Objects.requireNonNull(source, "Source image cannot be null");
+    Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
     if (source.empty()) {
       throw new IllegalArgumentException("Source image cannot be empty");
     }
   }
 
   private static void validateWriteParameters(Mat source, Path path) {
-    Objects.requireNonNull(source, "Source image cannot be null");
+    Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
     Objects.requireNonNull(path, "Output path cannot be null");
     if (source.empty()) {
       throw new IllegalArgumentException("Source image cannot be empty");
