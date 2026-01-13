@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.Stream;
@@ -60,6 +61,47 @@ class NativeLibraryTest {
     System.setOut(originalOut);
     NativeLibrary.clearCache();
   }
+
+  @Nested
+  @DisplayNameGeneration(ReplaceUnderscores.class)
+  class Library_loading {
+
+    @Test
+    void should_load_library_only_once_from_library_name() {
+      // Library is already loaded in @BeforeAll, so this should be idempotent
+      assertDoesNotThrow(NativeLibrary::loadLibraryFromLibraryName);
+    }
+
+    @Test
+    void should_load_library_only_once_from_absolute_path() {
+      // Since library is already loaded, this should not throw
+      var tempPath = Path.of(System.getProperty("java.io.tmpdir"), "test-lib.so");
+      assertDoesNotThrow(() -> NativeLibrary.loadLibraryFromAbsolutePath(tempPath));
+    }
+
+    @Test
+    void should_handle_concurrent_library_loading() throws Exception {
+      final var threadCount = 10;
+      ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+      var tasks = Stream.generate(
+              () -> (Callable<Void>) () -> {
+                NativeLibrary.loadLibraryFromLibraryName();
+                return null;
+              })
+          .limit(threadCount)
+          .toList();
+
+      var futures = executor.invokeAll(tasks);
+
+      for (var future : futures) {
+        assertDoesNotThrow(() -> future.get());
+      }
+
+      executor.shutdown();
+    }
+  }
+
 
   @Nested
   @DisplayNameGeneration(ReplaceUnderscores.class)
