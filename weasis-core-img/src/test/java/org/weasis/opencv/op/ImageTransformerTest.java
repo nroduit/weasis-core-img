@@ -26,8 +26,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.opencv.core.*;
 import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.natives.NativeLibrary;
 
 /**
  * Comprehensive test suite for ImageTransformer operations using real image data and modern testing
@@ -44,8 +44,7 @@ class ImageTransformerTest {
 
   @BeforeAll
   static void load_native_library() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

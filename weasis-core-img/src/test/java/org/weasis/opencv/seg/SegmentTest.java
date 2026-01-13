@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class SegmentTest {
@@ -50,7 +50,7 @@ class SegmentTest {
 
   @BeforeAll
   static void load_native_library() {
-    new OpenCVNativeLoader().init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

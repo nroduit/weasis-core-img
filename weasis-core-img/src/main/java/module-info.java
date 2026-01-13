@@ -1,9 +1,6 @@
 module org.weasis.core.img {
   requires java.desktop;
-  requires java.xml;
   requires org.slf4j;
-
-  opens org.opencv.osgi; // Allow reflective access for native code loading
 
   exports org.weasis.core.util;
   exports org.weasis.core.util.annotations;
@@ -17,4 +14,7 @@ module org.weasis.core.img {
   exports org.opencv.imgproc;
   exports org.opencv.osgi;
   exports org.opencv.utils;
+  exports org.weasis.opencv.natives;
+
+  opens org.weasis.opencv.natives; // Allow reflective access for native code loading
 }

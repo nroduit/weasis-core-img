@@ -19,15 +19,14 @@ import org.junit.jupiter.api.Test;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
-import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class PlanarImageTest {
 
   @BeforeAll
   static void load_native_library() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

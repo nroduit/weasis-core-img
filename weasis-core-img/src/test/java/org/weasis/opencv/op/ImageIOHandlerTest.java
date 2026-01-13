@@ -33,8 +33,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.Scalar;
 import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
+import org.weasis.opencv.natives.NativeLibrary;
 
 /**
  * Test suite for {@link ImageIOHandler} class. Tests image I/O operations including reading,
@@ -49,8 +49,7 @@ class ImageIOHandlerTest {
 
   @BeforeAll
   static void load_openCV_native_library() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @BeforeEach

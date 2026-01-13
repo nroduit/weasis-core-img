@@ -26,15 +26,14 @@ import org.opencv.core.Range;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class ImageCVTest {
 
   @BeforeAll
   static void load_opencv_native_library() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

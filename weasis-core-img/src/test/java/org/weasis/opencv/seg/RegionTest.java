@@ -31,9 +31,9 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.PlanarImage;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class RegionTest {
@@ -43,7 +43,7 @@ class RegionTest {
 
   @BeforeAll
   static void setUp() {
-    new OpenCVNativeLoader().init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

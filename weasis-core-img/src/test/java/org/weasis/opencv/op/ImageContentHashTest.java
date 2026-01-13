@@ -29,7 +29,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.opencv.natives.NativeLibrary;
 import org.weasis.opencv.op.lut.ColorLut;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
@@ -41,8 +41,7 @@ class ImageContentHashTest {
   @BeforeAll
   @DisplayName("Load OpenCV native library")
   static void load_native_lib() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @Nested

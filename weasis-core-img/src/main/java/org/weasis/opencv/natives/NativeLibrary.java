@@ -7,9 +7,11 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
-package org.weasis.core.util;
+package org.weasis.opencv.natives;
 
+import java.nio.file.Path;
 import java.util.Map;
+import org.opencv.core.Core;
 
 /**
  * Utility class for determining native library specifications based on the current operating system
@@ -20,6 +22,8 @@ import java.util.Map;
  * system property lookups.
  */
 public final class NativeLibrary {
+  private static volatile boolean libraryLoaded = false;
+  private static final Object LIBRARY_LOCK = new Object();
 
   // OS Name Constants
   private static final String OS_WINDOWS = "windows";
@@ -98,9 +102,59 @@ public final class NativeLibrary {
     return result;
   }
 
+  /**
+   * Loads a native library from the specified absolute path. Use the classloader's default library.
+   *
+   * @param absolutePath the absolute path to the native library
+   * @throws UnsatisfiedLinkError if the library cannot be loaded
+   */
+  public static void loadLibraryFromAbsolutePath(Path absolutePath) {
+    if (libraryLoaded) {
+      return;
+    }
+
+    synchronized (LIBRARY_LOCK) {
+      if (libraryLoaded) {
+        return;
+      }
+
+      try {
+        System.load(absolutePath.toAbsolutePath().toString());
+        libraryLoaded = true;
+      } catch (Throwable e) {
+        System.err.println("Cannot load OpenCV native library: " + e.getMessage());
+      }
+    }
+  }
+
+  /**
+   * Loads the OpenCV native library using the standard library name. The library must be available
+   * in the system's library path.
+   *
+   * @throws UnsatisfiedLinkError if the library cannot be loaded
+   */
+  public static void loadLibraryFromLibraryName() {
+    if (libraryLoaded) {
+      return;
+    }
+
+    synchronized (LIBRARY_LOCK) {
+      if (libraryLoaded) {
+        return;
+      }
+
+      try {
+        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        libraryLoaded = true;
+      } catch (Throwable e) {
+        System.err.println("Cannot load OpenCV native library: " + e.getMessage());
+      }
+    }
+  }
+
   private static String buildNativeLibSpecification() {
-    var rawOsName = System.getProperty(PROP_OS_NAME);
-    var rawOsArch = System.getProperty(PROP_OS_ARCH);
+    var rawOsName = System.getProperty(PROP_OS_NAME, "");
+    var rawOsArch = System.getProperty(PROP_OS_ARCH, "");
 
     var normalizedOsName = normalizeOsName(rawOsName);
     var normalizedOsArch = normalizeArchitecture(rawOsArch);
@@ -109,7 +163,7 @@ public final class NativeLibrary {
   }
 
   private static String normalizeOsName(String rawOsName) {
-    if (!StringUtil.hasText(rawOsName)) {
+    if (rawOsName.isBlank()) {
       throw new IllegalStateException("OS name system property is null or empty");
     }
 
@@ -129,7 +183,7 @@ public final class NativeLibrary {
   }
 
   private static String normalizeArchitecture(String rawOsArch) {
-    if (!StringUtil.hasText(rawOsArch)) {
+    if (rawOsArch.isBlank()) {
       throw new IllegalStateException("OS architecture system property is null or empty");
     }
 

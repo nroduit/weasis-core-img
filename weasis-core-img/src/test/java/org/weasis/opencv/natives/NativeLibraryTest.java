@@ -7,7 +7,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
  */
-package org.weasis.core.util;
+package org.weasis.opencv.natives;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,7 +29,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.ClearSystemProperty;
 import org.junitpioneer.jupiter.SetSystemProperty;
-import org.opencv.osgi.OpenCVNativeLoader;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class NativeLibraryTest {
@@ -46,8 +45,7 @@ class NativeLibraryTest {
 
   @BeforeAll
   static void load_native_lib() {
-    var loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   @BeforeEach

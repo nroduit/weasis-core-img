@@ -48,11 +48,11 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.osgi.OpenCVNativeLoader;
 import org.weasis.core.util.FileUtil;
 import org.weasis.opencv.data.ImageCV;
 import org.weasis.opencv.data.LookupTableCV;
 import org.weasis.opencv.data.PlanarImage;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @Deprecated(since = "4.12", forRemoval = true)
 class ImageProcessorTest {
@@ -60,8 +60,7 @@ class ImageProcessorTest {
   @BeforeAll
   public static void loadNativeLib() {
     // Load the native OpenCV library
-    OpenCVNativeLoader loader = new OpenCVNativeLoader();
-    loader.init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   /**

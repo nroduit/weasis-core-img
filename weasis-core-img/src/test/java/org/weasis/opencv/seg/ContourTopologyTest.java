@@ -26,7 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.osgi.OpenCVNativeLoader;
+import org.weasis.opencv.natives.NativeLibrary;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class ContourTopologyTest {
@@ -45,7 +45,7 @@ class ContourTopologyTest {
 
   @BeforeAll
   static void setup_opencv() {
-    new OpenCVNativeLoader().init();
+    NativeLibrary.loadLibraryFromLibraryName();
   }
 
   private static Point[] createRectanglePoints(double width, double height) {
