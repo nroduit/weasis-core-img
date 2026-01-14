@@ -111,6 +111,9 @@ public final class ImageAnalyzer {
         }
         case PathIterator.SEG_LINETO, PathIterator.SEG_CLOSE ->
             currentPoints.add(new Point(coords[0] - bounds.x, coords[1] - bounds.y));
+        default -> {
+          // Ignore other segment types (e.g., curves)
+        }
       }
       pathIterator.next();
     }

@@ -35,8 +35,6 @@ import java.util.zip.ZipOutputStream;
  */
 public final class ZipUtil {
 
-  private static final int BUFFER_SIZE = 8192;
-
   private ZipUtil() {
     // Utility class - prevent instantiation
   }

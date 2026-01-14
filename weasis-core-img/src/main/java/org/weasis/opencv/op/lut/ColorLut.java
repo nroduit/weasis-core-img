@@ -10,7 +10,6 @@
 package org.weasis.opencv.op.lut;
 
 import java.awt.Color;
-import java.nio.channels.Channel;
 
 /**
  * Color lookup tables (LUTs) for image processing and visualization. Each LUT defines color

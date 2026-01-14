@@ -16,6 +16,8 @@ import org.opencv.core.MatOfInt;
 
 public class MetadataParser {
 
+  private MetadataParser() {}
+
   public static List<String> parseExifParseMetadata(
       List<Mat> metadataList, MatOfInt metadataTypes) {
     List<String> result = new ArrayList<>();

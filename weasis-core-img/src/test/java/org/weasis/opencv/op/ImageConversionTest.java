@@ -127,6 +127,7 @@ class ImageConversionTest {
         case CvType.CV_32S -> validate_int_data(img, converted, dataSize);
         case CvType.CV_32F -> validate_float_data(img, converted, dataSize);
         case CvType.CV_64F -> validate_double_data(img, converted, dataSize);
+        default -> fail("Unsupported CV depth: " + depth);
       }
     }
 

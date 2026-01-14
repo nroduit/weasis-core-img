@@ -11,8 +11,6 @@ package org.weasis.core.util;
 
 import java.util.*;
 import java.util.function.Supplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.weasis.core.util.annotations.Generated;
 
 /**
@@ -21,7 +19,6 @@ import org.weasis.core.util.annotations.Generated;
  * @author Nicolas Roduit
  */
 public final class LangUtil {
-  private static final Logger LOGGER = LoggerFactory.getLogger(LangUtil.class);
 
   private LangUtil() {}
 

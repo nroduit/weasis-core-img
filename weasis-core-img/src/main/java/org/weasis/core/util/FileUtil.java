@@ -374,7 +374,7 @@ public final class FileUtil {
   private static int performStreamWrite(InputStream inputStream, Path outPath)
       throws StreamIOException {
     try (var outputStream = Files.newOutputStream(outPath)) {
-      return copyStreamData(inputStream, outputStream, outPath);
+      return copyStreamData(inputStream, outputStream);
     } catch (SocketTimeoutException e) {
       delete(outPath);
       throw new StreamIOException(e);
@@ -388,8 +388,8 @@ public final class FileUtil {
     }
   }
 
-  private static int copyStreamData(
-      InputStream inputStream, OutputStream outputStream, Path outPath) throws IOException {
+  private static int copyStreamData(InputStream inputStream, OutputStream outputStream)
+      throws IOException {
     var buffer = new byte[FILE_BUFFER];
     int bytesRead;
     while ((bytesRead = inputStream.read(buffer)) > 0) {
