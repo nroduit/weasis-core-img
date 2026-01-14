@@ -84,13 +84,16 @@ class NativeLibraryTest {
       final var threadCount = 10;
       ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
-      var tasks = Stream.generate(
-              () -> (Callable<Void>) () -> {
-                NativeLibrary.loadLibraryFromLibraryName();
-                return null;
-              })
-          .limit(threadCount)
-          .toList();
+      var tasks =
+          Stream.generate(
+                  () ->
+                      (Callable<Void>)
+                          () -> {
+                            NativeLibrary.loadLibraryFromLibraryName();
+                            return null;
+                          })
+              .limit(threadCount)
+              .toList();
 
       var futures = executor.invokeAll(tasks);
 
@@ -101,7 +104,6 @@ class NativeLibraryTest {
       executor.shutdown();
     }
   }
-
 
   @Nested
   @DisplayNameGeneration(ReplaceUnderscores.class)

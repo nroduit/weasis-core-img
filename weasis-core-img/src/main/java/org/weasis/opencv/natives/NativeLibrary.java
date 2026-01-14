@@ -89,7 +89,7 @@ public final class NativeLibrary {
    * @throws IllegalStateException if system properties cannot be determined
    */
   public static String getNativeLibSpecification() {
-    // Double-checked locking pattern with volatile field
+    // Double-checked locking pattern with a volatile field
     var result = cachedSpecification;
     if (result == null) {
       synchronized (NativeLibrary.class) {
