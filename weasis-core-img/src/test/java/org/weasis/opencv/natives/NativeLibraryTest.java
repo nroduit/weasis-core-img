@@ -28,8 +28,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.ClearSystemProperty;
-import org.junitpioneer.jupiter.SetSystemProperty;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class NativeLibraryTest {
@@ -43,6 +41,8 @@ class NativeLibraryTest {
 
   private final ByteArrayOutputStream outputCaptor = new ByteArrayOutputStream();
   private PrintStream originalOut;
+  private String originalOsName;
+  private String originalOsArch;
 
   @BeforeAll
   static void load_native_lib() {
@@ -53,13 +53,25 @@ class NativeLibraryTest {
   void set_up() {
     originalOut = System.out;
     System.setOut(new PrintStream(outputCaptor));
+    originalOsName = System.getProperty("os.name");
+    originalOsArch = System.getProperty("os.arch");
     NativeLibrary.clearCache();
   }
 
   @AfterEach
   void tear_down() {
     System.setOut(originalOut);
+    restoreProperty("os.name", originalOsName);
+    restoreProperty("os.arch", originalOsArch);
     NativeLibrary.clearCache();
+  }
+
+  private static void restoreProperty(String key, String value) {
+    if (value == null) {
+      System.clearProperty(key);
+    } else {
+      System.setProperty(key, value);
+    }
   }
 
   @Nested
@@ -301,9 +313,9 @@ class NativeLibraryTest {
   class Error_handling {
 
     @Test
-    @ClearSystemProperty(key = "os.name")
-    @SetSystemProperty(key = "os.arch", value = "amd64")
     void should_throw_exception_when_os_name_is_null() {
+      System.clearProperty("os.name");
+      System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
       var exception =
@@ -313,9 +325,9 @@ class NativeLibraryTest {
     }
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "   ")
-    @SetSystemProperty(key = "os.arch", value = "amd64")
     void should_throw_exception_when_os_name_is_blank() {
+      System.setProperty("os.name", "   ");
+      System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
       var exception =
@@ -325,9 +337,9 @@ class NativeLibraryTest {
     }
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "Linux")
-    @ClearSystemProperty(key = "os.arch")
     void should_throw_exception_when_os_arch_is_null() {
+      System.setProperty("os.name", "Linux");
+      System.clearProperty("os.arch");
       NativeLibrary.clearCache();
 
       var exception =
@@ -337,9 +349,9 @@ class NativeLibraryTest {
     }
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "Linux")
-    @SetSystemProperty(key = "os.arch", value = "\t\n")
     void should_throw_exception_when_os_arch_is_blank() {
+      System.setProperty("os.name", "Linux");
+      System.setProperty("os.arch", "\t\n");
       NativeLibrary.clearCache();
 
       var exception =
@@ -354,9 +366,9 @@ class NativeLibraryTest {
   class Main_method {
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "Linux")
-    @SetSystemProperty(key = "os.arch", value = "amd64")
     void should_print_native_library_specification_to_stdout() {
+      System.setProperty("os.name", "Linux");
+      System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
       NativeLibrary.main(new String[] {});
@@ -366,9 +378,9 @@ class NativeLibraryTest {
     }
 
     @Test
-    @SetSystemProperty(key = "os.name", value = "Windows 10")
-    @SetSystemProperty(key = "os.arch", value = "ARM64")
     void should_handle_windows_arm64_correctly() {
+      System.setProperty("os.name", "Windows 10");
+      System.setProperty("os.arch", "ARM64");
       NativeLibrary.clearCache();
 
       NativeLibrary.main(null);
@@ -378,9 +390,9 @@ class NativeLibraryTest {
     }
 
     @Test
-    @ClearSystemProperty(key = "os.name")
-    @SetSystemProperty(key = "os.arch", value = "amd64")
     void should_handle_errors_gracefully_in_main_method() {
+      System.clearProperty("os.name");
+      System.setProperty("os.arch", "amd64");
       NativeLibrary.clearCache();
 
       // Verify the underlying method throws the expected exception

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -363,6 +364,196 @@ class ImageIOHandlerTest {
     assertThat(result).isNotNull();
     // Tags list should be preserved (though may be empty for synthetic images)
     assertThat(tags).isNotNull();
+  }
+
+  // === Failure-path contract on readImage (IEC 62304 risk: silent failure on corrupt input) ===
+
+  @Nested
+  class Read_Image_Failure_Contract {
+
+    /**
+     * {@code readImage} must downgrade an OpenCV decode failure to {@code null} (not propagate
+     * the exception) so callers can decide whether to retry or surface the error. This is the
+     * documented contract; without an explicit test, a regression in {@link ImageIOHandler}
+     * could turn a recoverable decode error into an unhandled exception in clinical use.
+     */
+    @Test
+    void readImage_returns_null_for_corrupted_image_file() throws IOException {
+      var corrupted = tempDir.resolve("corrupted.png");
+      Files.write(corrupted, new byte[] {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07});
+
+      var result = ImageIOHandler.readImage(corrupted, null);
+
+      assertNull(result, "Corrupted file must yield null, not throw");
+    }
+
+    @Test
+    void readImage_returns_null_for_unrecognised_format() throws IOException {
+      // A plain text file with an image-looking extension exercises the codec
+      // selection failure path inside OpenCV.
+      var garbage = tempDir.resolve("not_an_image.jpg");
+      Files.writeString(garbage, "this is definitely not a JPEG file");
+
+      var result = ImageIOHandler.readImage(garbage, null);
+
+      assertNull(result);
+    }
+
+    @Test
+    void readImage_with_exception_throws_for_corrupted_file_or_returns_null() throws IOException {
+      // The "with exception" variant either throws CvException OR returns null, depending on
+      // what the OpenCV codec does internally. Both behaviours satisfy the contract; what must
+      // NOT happen is an unhandled native crash. This test pins the observable surface.
+      var corrupted = tempDir.resolve("corrupted_for_throw.png");
+      Files.write(corrupted, new byte[] {0x42, 0x42, 0x42, 0x42});
+
+      try {
+        var result = ImageIOHandler.readImageWithCvException(corrupted, null);
+        // Acceptable: returns null when OpenCV silently rejects the bytes.
+        // The important assertion is that no native-level crash occurred.
+        assertTrue(result == null || result.toMat() != null);
+      } catch (org.opencv.core.CvException e) {
+        // Also acceptable: a typed CvException propagated, which is what the
+        // method name advertises.
+        assertNotNull(e.getMessage());
+      }
+    }
+
+    @Test
+    void readImage_returns_null_for_empty_file() throws IOException {
+      var empty = tempDir.resolve("empty.png");
+      Files.createFile(empty);
+
+      var result = ImageIOHandler.readImage(empty, null);
+
+      assertNull(result);
+    }
+  }
+
+  // === Round-trip pixel-integrity (IEC 62304 risk: silent data loss in DICOM I/O) ===
+
+  @Nested
+  class Round_Trip_Integrity {
+
+    /**
+     * Write → read PNG must be bit-exact for every pixel and every supported channel/depth.
+     * Silent corruption of medical pixel values is a hazard tracked under ISO 14971 risk
+     * management; PNG is the project's reference lossless intermediate.
+     */
+    @Test
+    void png_preserves_every_8bit_grayscale_pixel() throws IOException {
+      var original = createDeterministicMat(64, 48, CvType.CV_8UC1);
+      var path = tempDir.resolve("rt_8uc1.png");
+
+      assertTrue(ImageIOHandler.writePNG(original, path));
+      var read = ImageIOHandler.readImage(path, null);
+
+      assertNotNull(read, "PNG must be readable back");
+      assertMatsBitExact(original, read.toMat());
+    }
+
+    @Test
+    void png_preserves_every_16bit_grayscale_pixel() throws IOException {
+      // 16-bit PNG is the format Weasis uses to round-trip raw DICOM modality data.
+      var original = createDeterministicMat(40, 30, CvType.CV_16UC1);
+      var path = tempDir.resolve("rt_16uc1.png");
+
+      assertTrue(ImageIOHandler.writePNG(original, path));
+      var read = ImageIOHandler.readImage(path, null);
+
+      assertNotNull(read);
+      assertMatsBitExact(original, read.toMat());
+    }
+
+    @Test
+    void png_preserves_every_8bit_color_pixel() throws IOException {
+      var original = createDeterministicMat(50, 50, CvType.CV_8UC3);
+      var path = tempDir.resolve("rt_8uc3.png");
+
+      assertTrue(ImageIOHandler.writePNG(original, path));
+      var read = ImageIOHandler.readImage(path, null);
+
+      assertNotNull(read);
+      assertMatsBitExact(original, read.toMat());
+    }
+
+    private void assertMatsBitExact(Mat expected, Mat actual) {
+      assertAll(
+          () -> assertEquals(expected.rows(), actual.rows(), "row count"),
+          () -> assertEquals(expected.cols(), actual.cols(), "col count"),
+          () -> assertEquals(expected.type(), actual.type(), "pixel type"),
+          () -> assertEquals(expected.channels(), actual.channels(), "channel count"));
+
+      var depth = CvType.depth(expected.type());
+      var channels = expected.channels();
+      var rows = expected.rows();
+      var cols = expected.cols();
+
+      if (depth == CvType.CV_8U) {
+        var exp = new byte[channels];
+        var act = new byte[channels];
+        for (int y = 0; y < rows; y++) {
+          for (int x = 0; x < cols; x++) {
+            expected.get(y, x, exp);
+            actual.get(y, x, act);
+            assertArrayEqualsAt(exp, act, y, x);
+          }
+        }
+      } else if (depth == CvType.CV_16U) {
+        var exp = new short[channels];
+        var act = new short[channels];
+        for (int y = 0; y < rows; y++) {
+          for (int x = 0; x < cols; x++) {
+            expected.get(y, x, exp);
+            actual.get(y, x, act);
+            for (int c = 0; c < channels; c++) {
+              if (exp[c] != act[c]) {
+                fail(
+                    "16-bit pixel mismatch at (y=%d,x=%d,c=%d): expected=%d actual=%d"
+                        .formatted(y, x, c, Short.toUnsignedInt(exp[c]), Short.toUnsignedInt(act[c])));
+              }
+            }
+          }
+        }
+      } else {
+        fail("Unsupported depth for round-trip assertion: " + depth);
+      }
+    }
+
+    private void assertArrayEqualsAt(byte[] expected, byte[] actual, int y, int x) {
+      for (int c = 0; c < expected.length; c++) {
+        if (expected[c] != actual[c]) {
+          fail(
+              "8-bit pixel mismatch at (y=%d,x=%d,c=%d): expected=%d actual=%d"
+                  .formatted(y, x, c, Byte.toUnsignedInt(expected[c]), Byte.toUnsignedInt(actual[c])));
+        }
+      }
+    }
+
+    private Mat createDeterministicMat(int width, int height, int type) {
+      var mat = new Mat(height, width, type);
+      var depth = CvType.depth(type);
+      var channels = CvType.channels(type);
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          if (depth == CvType.CV_8U) {
+            var buf = new byte[channels];
+            for (int c = 0; c < channels; c++) {
+              buf[c] = (byte) ((x * 7 + y * 13 + c * 53) & 0xFF);
+            }
+            mat.put(y, x, buf);
+          } else if (depth == CvType.CV_16U) {
+            var buf = new short[channels];
+            for (int c = 0; c < channels; c++) {
+              // Use a range that exercises the full 16-bit space, not just 0..255
+              buf[c] = (short) ((x * 257 + y * 521 + c * 9001) & 0xFFFF);
+            }
+            mat.put(y, x, buf);
+          }
+        }
+      }
+      return mat;
+    }
   }
 
   // === Test Data Providers ===

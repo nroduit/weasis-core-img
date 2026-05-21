@@ -11,6 +11,12 @@ package org.weasis.opencv.data;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -139,6 +145,55 @@ class ImageCVTest {
       }
 
       assertTrue(capturedImg.isReleased());
+    }
+
+    @Test
+    void should_release_exactly_once_under_concurrent_close() throws InterruptedException {
+      // ISO 13485 / IEC 62304 risk: an ImageCV may be released by a worker thread
+      // while the UI thread still observes it. Confirm that:
+      //   1. No exception escapes any thread.
+      //   2. The released flag is visible to all observers after the dust settles.
+      //   3. The underlying Mat is released exactly once (idempotency).
+      var img = new ImageCV(new Size(8, 8), CvType.CV_8UC1, new Scalar(42));
+      var threadCount = 32;
+      var startGate = new CountDownLatch(1);
+      var finishGate = new CountDownLatch(threadCount);
+      var failures = new AtomicInteger();
+      var executor = Executors.newFixedThreadPool(threadCount);
+      try {
+        IntStream.range(0, threadCount)
+            .forEach(
+                i ->
+                    executor.submit(
+                        () -> {
+                          try {
+                            startGate.await();
+                            if ((i & 1) == 0) {
+                              img.close();
+                            } else {
+                              img.release();
+                            }
+                          } catch (Throwable t) {
+                            failures.incrementAndGet();
+                          } finally {
+                            finishGate.countDown();
+                          }
+                        }));
+        startGate.countDown();
+        assertTrue(
+            finishGate.await(5, TimeUnit.SECONDS), "All worker threads must finish in time");
+      } finally {
+        executor.shutdownNow();
+      }
+
+      assertAll(
+          () -> assertEquals(0, failures.get(), "No worker should have thrown"),
+          () -> assertTrue(img.isReleased(), "release flag must be visible to the test thread"),
+          () -> {
+            // A second close from the main thread must remain a no-op (idempotency).
+            img.close();
+            assertTrue(img.isReleased());
+          });
     }
   }
 

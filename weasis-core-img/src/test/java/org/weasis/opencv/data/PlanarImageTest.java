@@ -250,11 +250,6 @@ class PlanarImageTest {
     public void close() {
       release();
     }
-
-    @Override
-    public boolean isHasBeenReleased() {
-      return isReleased();
-    }
   }
 
   /** Minimal implementation that doesn't support conversion */
@@ -355,11 +350,6 @@ class PlanarImageTest {
 
     @Override
     public void close() {}
-
-    @Override
-    public boolean isHasBeenReleased() {
-      return false;
-    }
 
     @Override
     public long physicalBytes() {

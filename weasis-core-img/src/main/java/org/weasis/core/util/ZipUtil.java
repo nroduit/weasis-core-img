@@ -90,11 +90,18 @@ public final class ZipUtil {
     }
   }
 
-  private static void checkEntry(ZipEntry entry) throws IOException {
-    // Verify compression ratio to prevent zip bomb attacks
+  /**
+   * Maximum allowed compression ratio for a single ZIP entry before it is rejected as a suspected
+   * zip-bomb. Package-private for direct testing under IEC 62304 verification.
+   */
+  static final long MAX_COMPRESSION_RATIO = 5000L;
+
+  // Package-private so the zip-bomb threshold can be unit-tested without having
+  // to hand-craft a zip file with a fraudulent central directory.
+  static void checkEntry(ZipEntry entry) throws IOException {
     if (entry.getSize() > 0 && entry.getCompressedSize() > 0) {
       long ratio = entry.getSize() / entry.getCompressedSize();
-      if (ratio > 5000) { // Suspicious compression ratio threshold
+      if (ratio > MAX_COMPRESSION_RATIO) {
         throw new IOException("Entry has suspicious compression ratio: " + entry.getName());
       }
     }

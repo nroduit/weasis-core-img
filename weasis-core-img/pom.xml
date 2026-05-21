@@ -24,10 +24,8 @@
     <bundle.symbolicName>${project.artifactId}</bundle.symbolicName>
 
     <slf4j.version>2.0.17</slf4j.version>
-    <junit-bom.version>5.13.0-M3</junit-bom.version>
-    <mockito.version>5.17.0</mockito.version>
-    <mockito-core.version>5.20.0</mockito-core.version>
-    <junit-pioneer.version>2.3.0</junit-pioneer.version>
+    <junit-bom.version>6.1.0</junit-bom.version>
+    <mockito.version>5.23.0</mockito.version>
 
     <sonar.projectKey>weasis-core-img</sonar.projectKey>
     <sonar.organization>nroduit-github</sonar.organization>
@@ -36,8 +34,16 @@
     <sonar.java.source>${java-version}</sonar.java.source>
     <sonar.test.exclusions>src/test/**/*</sonar.test.exclusions>
 
-    <!-- Tests require the native library and can only be run on Linux, Windows and macOS-->
-    <argLine>-Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name} -Djdk.attach.allowAttachSelf=true</argLine>
+    <!-- Tests require the native library and can only be run on Linux, Windows and macOS.
+         The argLine below adds two JVM flags for tests:
+         (a) javaagent loads mockito-core at JVM start so the inline mock maker
+             no longer self-attaches at runtime (phased out by the JDK). The
+             ${org.mockito:mockito-core:jar} property is populated by the
+             resolve-dependency-paths execution of maven-dependency-plugin.
+         (b) enable-native-access grants this module permission to call the
+             restricted System.loadLibrary used by NativeLibrary; required
+             from JDK 22+, will become mandatory in a future release. -->
+    <argLine>-javaagent:${org.mockito:mockito-core:jar} --enable-native-access=org.weasis.core.img -Djava.library.path=${project.build.directory}/lib/${os-name}-${cpu-name}</argLine>
   </properties>
 
   <build>
@@ -91,6 +97,18 @@
                 </artifactItem>
               </artifactItems>
             </configuration>
+          </execution>
+          <execution>
+            <!-- Exposes resolved dependency paths as Maven properties of the form
+                 ${groupId:artifactId:type}. Used below to point Surefire's
+                 -javaagent at mockito-core, so Mockito's inline-mock-maker no
+                 longer relies on the self-attach mechanism that is being
+                 removed in future JDKs. -->
+            <id>resolve-dependency-paths</id>
+            <phase>process-test-classes</phase>
+            <goals>
+              <goal>properties</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>
@@ -335,6 +353,11 @@
 
     <!-- FOR TESTS -->
     <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
       <scope>test</scope>
@@ -342,13 +365,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>${mockito-core.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit-pioneer</groupId>
-      <artifactId>junit-pioneer</artifactId>
-      <version>${junit-pioneer.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>

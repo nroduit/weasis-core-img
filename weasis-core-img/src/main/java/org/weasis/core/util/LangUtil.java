@@ -11,7 +11,6 @@ package org.weasis.core.util;
 
 import java.util.*;
 import java.util.function.Supplier;
-import org.weasis.core.util.annotations.Generated;
 
 /**
  * Utility class providing common language-level operations and conversions.
@@ -173,67 +172,5 @@ public final class LangUtil {
    */
   public static <T> T defaultIfNull(T value, T defaultValue) {
     return value == null ? defaultValue : value;
-  }
-
-  // ============================== DEPRECATED METHODS ==============================
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #nullToFalse(Boolean)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static boolean getNULLtoFalse(Boolean val) {
-    return nullToFalse(val);
-  }
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #nullToTrue(Boolean)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static boolean getNULLtoTrue(Boolean val) {
-    return nullToTrue(val);
-  }
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #emptyToFalse(String)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static boolean getEmptytoFalse(String val) {
-    return emptyToFalse(val);
-  }
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #emptyToTrue(String)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static boolean geEmptytoTrue(String val) {
-    return emptyToTrue(val);
-  }
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #toOptional(Double)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static OptionalDouble getOptionalDouble(Double val) {
-    return toOptional(val);
-  }
-
-  /**
-   * @deprecated since 4.12, for removal in a future version. Use {@link #toOptional(Integer)}
-   *     instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static OptionalInt getOptionalInteger(Integer val) {
-    return toOptional(val);
   }
 }

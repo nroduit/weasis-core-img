@@ -329,6 +329,41 @@ class ZipUtilTest {
     }
 
     @Test
+    void should_reject_entry_with_suspicious_compression_ratio() {
+      // The threshold is strictly > MAX_COMPRESSION_RATIO. A ratio of exactly
+      // MAX_COMPRESSION_RATIO + 1 must trip the check; MAX_COMPRESSION_RATIO must not.
+      var bomb = new ZipEntry("bomb.bin");
+      bomb.setCompressedSize(1);
+      bomb.setSize(ZipUtil.MAX_COMPRESSION_RATIO + 1);
+
+      var exception = assertThrows(IOException.class, () -> ZipUtil.checkEntry(bomb));
+      assertTrue(
+          exception.getMessage().contains("suspicious compression ratio"),
+          "Exception message must identify the security control that fired");
+      assertTrue(
+          exception.getMessage().contains("bomb.bin"),
+          "Exception message must identify the offending entry");
+    }
+
+    @Test
+    void should_accept_entry_at_compression_ratio_boundary() throws IOException {
+      // The boundary (size / compressedSize == MAX_COMPRESSION_RATIO) must pass.
+      var safe = new ZipEntry("safe.bin");
+      safe.setCompressedSize(2);
+      safe.setSize(2 * ZipUtil.MAX_COMPRESSION_RATIO); // ratio == threshold, allowed
+
+      assertDoesNotThrow(() -> ZipUtil.checkEntry(safe));
+    }
+
+    @Test
+    void should_skip_ratio_check_when_sizes_are_unknown() throws IOException {
+      // ZipInputStream may report size == -1 / compressedSize == -1 before the data
+      // descriptor is read. Those entries must not throw — the check is a no-op.
+      var unknown = new ZipEntry("unknown.bin");
+      assertDoesNotThrow(() -> ZipUtil.checkEntry(unknown));
+    }
+
+    @Test
     void should_handle_multiple_directory_traversal_attempts() throws IOException {
       // Given
       var maliciousZip = tempDir.resolve("multi-attack.zip");

@@ -15,7 +15,6 @@ import org.opencv.core.Range;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.weasis.core.util.annotations.Generated;
 
 /**
  * Enhanced Mat implementation with additional memory management features. Implements PlanarImage
@@ -23,8 +22,11 @@ import org.weasis.core.util.annotations.Generated;
  */
 public final class ImageCV extends Mat implements PlanarImage {
 
-  private boolean releasedAfterProcessing;
-  private boolean released;
+  // Volatile to guarantee happens-before across threads when an image is released
+  // by one thread (e.g. a worker that finished processing) and observed by another
+  // (e.g. the UI). The release path itself is guarded by synchronisation.
+  private volatile boolean releasedAfterProcessing;
+  private volatile boolean released;
 
   public ImageCV() {
     super();
@@ -64,7 +66,7 @@ public final class ImageCV extends Mat implements PlanarImage {
   }
 
   @Override
-  public void release() {
+  public synchronized void release() {
     if (!released) {
       super.release();
       this.released = true;
@@ -108,33 +110,4 @@ public final class ImageCV extends Mat implements PlanarImage {
     return source.toMat();
   }
 
-  // ============================== DEPRECATED FILE-BASED METHODS ==============================
-
-  /**
-   * Checks if the image has been released. This method is deprecated and should be replaced with
-   * {@link #isReleased()}.
-   *
-   * @return false, as this method is deprecated and does not reflect the current state
-   * @deprecated Use {@link #isReleased()} instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  @Override
-  public boolean isHasBeenReleased() {
-    return isReleased();
-  }
-
-  /**
-   * Converts a Mat to an ImageCV instance. This method is deprecated and should be replaced with
-   * {@link #fromMat(Mat)}.
-   *
-   * @param source the source Mat
-   * @return ImageCV instance
-   * @deprecated Use {@link #fromMat(Mat)} instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  @Generated
-  public static ImageCV toImageCV(Mat source) {
-    return fromMat(source);
-  }
 }

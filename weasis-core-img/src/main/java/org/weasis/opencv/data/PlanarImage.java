@@ -87,12 +87,4 @@ public interface PlanarImage extends ImageSize, AutoCloseable {
     throw new UnsupportedOperationException(
         "Conversion to ImageCV not supported for this implementation");
   }
-
-  // ============================== DEPRECATED FILE-BASED METHODS ==============================
-
-  /**
-   * @deprecated Use {@link #isReleased()} instead.
-   */
-  @Deprecated(since = "4.12", forRemoval = true)
-  boolean isHasBeenReleased();
 }

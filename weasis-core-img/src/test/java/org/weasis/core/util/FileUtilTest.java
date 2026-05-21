@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Locale;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -29,7 +30,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.DefaultLocale;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class FileUtilTest {
@@ -727,17 +727,22 @@ class FileUtilTest {
   }
 
   @Test
-  @DefaultLocale(language = "en", country = "US")
   void should_format_bytes_in_human_readable_format() {
-    assertAll(
-        () -> assertEquals("1 B", FileUtil.humanReadableByte(1L, true)),
-        () -> assertEquals("1 B", FileUtil.humanReadableByte(1L, false)),
-        () -> assertEquals("1.0 kB", FileUtil.humanReadableByte(1000L, true)),
-        () -> assertEquals("1.0 KiB", FileUtil.humanReadableByte(1024L, false)),
-        () -> assertEquals("1.3 GB", FileUtil.humanReadableByte(1256799945L, true)),
-        () -> assertEquals("1.2 GiB", FileUtil.humanReadableByte(1256799945L, false)),
-        () -> assertEquals("-9.2 EB", FileUtil.humanReadableByte(Long.MIN_VALUE, true)),
-        () -> assertEquals("-8.0 EiB", FileUtil.humanReadableByte(Long.MIN_VALUE, false)));
+    var previousLocale = Locale.getDefault();
+    Locale.setDefault(Locale.forLanguageTag("en-US"));
+    try {
+      assertAll(
+          () -> assertEquals("1 B", FileUtil.humanReadableByte(1L, true)),
+          () -> assertEquals("1 B", FileUtil.humanReadableByte(1L, false)),
+          () -> assertEquals("1.0 kB", FileUtil.humanReadableByte(1000L, true)),
+          () -> assertEquals("1.0 KiB", FileUtil.humanReadableByte(1024L, false)),
+          () -> assertEquals("1.3 GB", FileUtil.humanReadableByte(1256799945L, true)),
+          () -> assertEquals("1.2 GiB", FileUtil.humanReadableByte(1256799945L, false)),
+          () -> assertEquals("-9.2 EB", FileUtil.humanReadableByte(Long.MIN_VALUE, true)),
+          () -> assertEquals("-8.0 EiB", FileUtil.humanReadableByte(Long.MIN_VALUE, false)));
+    } finally {
+      Locale.setDefault(previousLocale);
+    }
   }
 
   // Helper classes for testing edge cases
