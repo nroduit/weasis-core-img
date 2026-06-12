@@ -72,7 +72,8 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertThat(zipFile).exists().hasPositiveSize();
+      assertPathExists(zipFile);
+      assertPathHasPositiveSize(zipFile);
       verifyZipContains(zipFile, "readme.txt", "config.json", "src/Main.java");
     }
 
@@ -85,7 +86,8 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertThat(zipFile).exists().hasPositiveSize();
+      assertPathExists(zipFile);
+      assertPathHasPositiveSize(zipFile);
     }
 
     @Test
@@ -102,7 +104,7 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertThat(zipFile).exists();
+      assertPathExists(zipFile);
       verifyZipContains(zipFile, "app.txt", "logs/", "temp/");
     }
 
@@ -116,8 +118,9 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, nestedZipFile);
 
       // Then
-      assertThat(nestedZipFile).exists();
-      assertThat(nestedZipFile.getParent()).exists().isDirectory();
+      assertPathExists(nestedZipFile);
+      assertPathExists(nestedZipFile.getParent());
+      assertPathIsDirectory(nestedZipFile.getParent());
     }
 
     @Test
@@ -141,7 +144,7 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertThat(zipFile).exists();
+      assertPathExists(zipFile);
       verifyZipContains(zipFile, specialFiles.toArray(String[]::new));
     }
 
@@ -165,7 +168,8 @@ class ZipUtilTest {
       ZipUtil.zip(sourceFolder, zipFile);
 
       // Then
-      assertThat(zipFile).exists().hasPositiveSize();
+      assertPathExists(zipFile);
+      assertPathHasPositiveSize(zipFile);
       var expectedEntries = new String[15]; // 5 levels * 3 files each
       int index = 0;
       for (int i = 1; i <= 5; i++) {
@@ -237,8 +241,9 @@ class ZipUtilTest {
       ZipUtil.unzip(zipFile, deepExtractFolder);
 
       // Then
-      assertThat(deepExtractFolder).exists().isDirectory();
-      assertThat(deepExtractFolder.resolve("test.txt")).exists();
+      assertPathExists(deepExtractFolder);
+      assertPathIsDirectory(deepExtractFolder);
+      assertPathExists(deepExtractFolder.resolve("test.txt"));
     }
 
     @Test
@@ -266,11 +271,11 @@ class ZipUtilTest {
       ZipUtil.unzip(zipFile, extractFolder);
 
       // Then
-      assertThat(extractFolder.resolve("root.txt")).exists();
-      assertThat(extractFolder.resolve("level1/file1.txt")).exists();
-      assertThat(extractFolder.resolve("level1/level2/deep.txt")).exists();
-      assertThat(extractFolder.resolve("level1/level2/another.txt")).exists();
-      assertThat(extractFolder.resolve("parallel/parallel.txt")).exists();
+      assertPathExists(extractFolder.resolve("root.txt"));
+      assertPathExists(extractFolder.resolve("level1/file1.txt"));
+      assertPathExists(extractFolder.resolve("level1/level2/deep.txt"));
+      assertPathExists(extractFolder.resolve("level1/level2/another.txt"));
+      assertPathExists(extractFolder.resolve("parallel/parallel.txt"));
 
       verifyExtractedStructure(extractFolder, structure);
     }
@@ -292,9 +297,11 @@ class ZipUtilTest {
       ZipUtil.unzip(zipFile, extractFolder);
 
       // Then
-      assertThat(extractFolder.resolve("file.txt")).exists();
-      assertThat(extractFolder.resolve("empty1")).exists().isDirectory();
-      assertThat(extractFolder.resolve("empty2")).exists().isDirectory();
+      assertPathExists(extractFolder.resolve("file.txt"));
+      assertPathExists(extractFolder.resolve("empty1"));
+      assertPathIsDirectory(extractFolder.resolve("empty1"));
+      assertPathExists(extractFolder.resolve("empty2"));
+      assertPathIsDirectory(extractFolder.resolve("empty2"));
     }
   }
 
@@ -500,32 +507,16 @@ class ZipUtilTest {
     }
   }
 
-  /** Custom assertion helper for Path objects */
-  private static PathAssert assertThat(Path actual) {
-    return new PathAssert(actual);
+  private static void assertPathExists(Path path) {
+    assertTrue(Files.exists(path), "Expected path to exist: " + path);
   }
 
-  private static class PathAssert {
-    private final Path actual;
+  private static void assertPathIsDirectory(Path path) {
+    assertTrue(Files.isDirectory(path), "Expected path to be directory: " + path);
+  }
 
-    PathAssert(Path actual) {
-      this.actual = actual;
-    }
-
-    PathAssert exists() {
-      assertTrue(Files.exists(actual), "Expected path to exist: " + actual);
-      return this;
-    }
-
-    PathAssert isDirectory() {
-      assertTrue(Files.isDirectory(actual), "Expected path to be directory: " + actual);
-      return this;
-    }
-
-    PathAssert hasPositiveSize() throws IOException {
-      assertTrue(Files.size(actual) > 0, "Expected file to have positive size: " + actual);
-      return this;
-    }
+  private static void assertPathHasPositiveSize(Path path) throws IOException {
+    assertTrue(Files.size(path) > 0, "Expected file to have positive size: " + path);
   }
 
   private void verifyExtractedStructure(Path extractFolder, Set<FileStructure> expectedStructure)

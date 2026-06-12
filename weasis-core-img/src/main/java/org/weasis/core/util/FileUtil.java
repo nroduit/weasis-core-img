@@ -239,7 +239,7 @@ public final class FileUtil {
   }
 
   /**
-   * Delete all files and subdirectories of a directory.
+   * Delete all files and subdirectories of a directory. Follows symbolic links.
    *
    * @param rootDir the root directory to delete
    * @param deleteRoot true to delete the root directory, false to keep it
@@ -249,21 +249,18 @@ public final class FileUtil {
       return;
     }
     try (var stream = Files.list(rootDir)) {
-      stream.forEach(FileUtil::processRecursiveDelete);
+      stream.forEach(path -> {
+        if (Files.isDirectory(path)) {
+          recursiveDelete(path, true);
+        } else {
+          deleteQuietly(path);
+        }
+      });
     } catch (IOException e) {
       LOGGER.warn("Failed to delete directory contents: {}", rootDir, e);
     }
-
     if (deleteRoot) {
       deleteQuietly(rootDir);
-    }
-  }
-
-  private static void processRecursiveDelete(Path path) {
-    if (Files.isDirectory(path)) {
-      recursiveDelete(path, true);
-    } else {
-      deleteQuietly(path);
     }
   }
 

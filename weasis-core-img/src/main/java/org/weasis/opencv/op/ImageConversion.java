@@ -65,7 +65,6 @@ public final class ImageConversion {
     // Utility class - prevent instantiation
   }
 
-  // Channel band offsets for color conversions
   private static final int[] RGB_OFFSETS = {0, 1, 2};
   private static final int[] BGR_OFFSETS = {2, 1, 0};
   private static final int[] BGR_RASTER_OFFSETS = {2, 1, 0};
@@ -225,11 +224,11 @@ public final class ImageConversion {
    */
   public static BufferedImage convertTo(RenderedImage src, int imageType) {
     var dst = new BufferedImage(src.getWidth(), src.getHeight(), imageType);
-    Graphics2D graphics = dst.createGraphics();
+    var g2d = dst.createGraphics();
     try {
-      graphics.drawRenderedImage(src, AffineTransform.getTranslateInstance(0.0, 0.0));
+      g2d.drawRenderedImage(src, new AffineTransform());
     } finally {
-      graphics.dispose();
+      g2d.dispose();
     }
     return dst;
   }
@@ -387,27 +386,37 @@ public final class ImageConversion {
 
   private static ImageCV createBandedRGBMat(
       DataBufferByte bufferByte, Raster raster, boolean toBGR) {
-    var b = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-    b.put(0, 0, bufferByte.getData(2));
-    var g = new Mat(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-    g.put(0, 0, bufferByte.getData(1));
-    var r = new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_8UC1);
-    r.put(0, 0, bufferByte.getData(0));
+    int h = raster.getHeight();
+    int w = raster.getWidth();
+    var b = new Mat(h, w, CvType.CV_8UC1);
+    var g = new Mat(h, w, CvType.CV_8UC1);
+    var r = new Mat(h, w, CvType.CV_8UC1);
+    try {
+      b.put(0, 0, bufferByte.getData(2));
+      g.put(0, 0, bufferByte.getData(1));
+      r.put(0, 0, bufferByte.getData(0));
 
-    List<Mat> channels = toBGR ? List.of(b, g, r) : List.of(r, g, b);
-    var result = new ImageCV(raster.getHeight(), raster.getWidth(), CvType.CV_8UC3);
-    Core.merge(channels, result);
-    return result;
+      List<Mat> channels = toBGR ? List.of(b, g, r) : List.of(r, g, b);
+      var result = new ImageCV(h, w, CvType.CV_8UC3);
+      Core.merge(channels, result);
+      return result;
+    } finally {
+      b.release();
+      g.release();
+      r.release();
+    }
   }
 
   private static ImageCV applyColorConversion(ImageCV mat, int[] offsets, boolean toBGR) {
     if (toBGR && Arrays.equals(offsets, RGB_OFFSETS)) {
       var result = new ImageCV();
       Imgproc.cvtColor(mat, result, Imgproc.COLOR_RGB2BGR);
+      mat.release();
       return result;
     } else if (!toBGR && Arrays.equals(offsets, BGR_OFFSETS)) {
       var result = new ImageCV();
       Imgproc.cvtColor(mat, result, Imgproc.COLOR_BGR2RGB);
+      mat.release();
       return result;
     }
     return mat;
@@ -448,11 +457,15 @@ public final class ImageConversion {
     return mat;
   }
 
+  @SuppressWarnings("java:S1874") // BufferedImage constructor requires Hashtable
   private static Hashtable<String, Object> createImageProperties(RenderedImage img) {
-    var properties = new Hashtable<String, Object>();
     String[] keys = img.getPropertyNames();
-    if (keys != null) {
-      Arrays.stream(keys).forEach(key -> properties.put(key, img.getProperty(key)));
+    if (keys == null || keys.length == 0) {
+      return null;
+    }
+    var properties = new Hashtable<String, Object>(keys.length);
+    for (String key : keys) {
+      properties.put(key, img.getProperty(key));
     }
     return properties;
   }

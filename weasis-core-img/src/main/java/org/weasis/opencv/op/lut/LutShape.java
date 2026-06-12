@@ -156,14 +156,14 @@ public final class LutShape {
   public boolean equals(Object o) {
     return this == o
         || (o instanceof LutShape other
-            && isFunction() == other.isFunction()
+            && Objects.equals(function, other.function)
             && Objects.equals(explanation, other.explanation)
             && Objects.equals(lookup, other.lookup));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(isFunction(), explanation, lookup);
+    return Objects.hash(function, explanation, lookup);
   }
 
   /**

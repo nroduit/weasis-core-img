@@ -302,14 +302,15 @@ public final class StreamUtil {
     }
   }
 
-  // Extract the NIO channel copying logic
   private static boolean copyWithChannels(
       ReadableByteChannel readChannel, WritableByteChannel writeChannel, int bufferSize)
       throws IOException {
     var buffer = ByteBuffer.allocate(bufferSize);
     while (readChannel.read(buffer) != -1) {
       buffer.flip();
-      writeChannel.write(buffer);
+      while (buffer.hasRemaining()) {
+        writeChannel.write(buffer);
+      }
       buffer.clear();
     }
     return true;

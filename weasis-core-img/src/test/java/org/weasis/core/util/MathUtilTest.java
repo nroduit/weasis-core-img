@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.awt.geom.Point2D;
 import java.math.RoundingMode;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
@@ -25,7 +24,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@DisplayName("MathUtil Tests")
 @DisplayNameGeneration(ReplaceUnderscores.class)
 class MathUtilTest {
 

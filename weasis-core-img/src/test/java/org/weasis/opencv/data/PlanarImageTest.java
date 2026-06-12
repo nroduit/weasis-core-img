@@ -197,18 +197,6 @@ class PlanarImageTest {
     }
   }
 
-  // Helper assertion method
-  private static void assertThat(String actual) {
-    new StringAssert(actual);
-  }
-
-  private record StringAssert(String value) {
-    public void contains(String expected) {
-      assertTrue(
-          value.contains(expected), "Expected '%s' to contain '%s'".formatted(value, expected));
-    }
-  }
-
   // Test implementations
   static class TestPlanarImage extends Mat implements PlanarImage {
     private boolean releasedAfterProcessing;

@@ -14,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator.ReplaceUnderscores;
 import org.junit.jupiter.api.Nested;
@@ -39,7 +38,6 @@ class ImageContentHashTest {
   private static final int DEFAULT_SIZE = 100;
 
   @BeforeAll
-  @DisplayName("Load OpenCV native library")
   static void load_native_lib() {
     NativeLibrary.loadLibraryFromLibraryName();
   }

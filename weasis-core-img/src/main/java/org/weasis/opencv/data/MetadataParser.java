@@ -10,50 +10,55 @@
 package org.weasis.opencv.data;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfInt;
 
-public class MetadataParser {
+/** Parses image metadata extracted by OpenCV's imreadWithMetadata. */
+public final class MetadataParser {
 
   private MetadataParser() {}
 
+  /**
+   * Parses EXIF metadata from OpenCV imreadWithMetadata results.
+   *
+   * @param metadataList the metadata matrices returned by imreadWithMetadata
+   * @param metadataTypes the metadata type indicators
+   * @return list of parsed EXIF tag values as strings
+   */
   public static List<String> parseExifParseMetadata(
       List<Mat> metadataList, MatOfInt metadataTypes) {
-    List<String> result = new ArrayList<>();
-
     if (metadataList == null || metadataTypes == null || metadataTypes.empty()) {
-      return result;
+      return List.of();
     }
 
     int[] typesArray = metadataTypes.toArray();
     if (metadataList.size() != typesArray.length || typesArray[typesArray.length - 1] != 1000) {
-      return result;
+      return List.of();
     }
-    int lastIndex = typesArray.length - 1;
-    Mat metadata = metadataList.get(lastIndex);
 
+    Mat metadata = metadataList.get(typesArray.length - 1);
     if (metadata.empty()) {
-      return result;
+      return List.of();
     }
 
-    // The metadata Mat contains rows of tag data
     int numTags = metadata.rows();
+    var result = new ArrayList<String>(numTags);
     for (int i = 0; i < numTags; i++) {
-      Mat row = metadata.row(i);
-      if (row.empty()) {
-        result.add("");
-      } else {
-        int bytesPerElement = (int) (row.elemSize());
-        int totalElements = row.cols() * row.channels();
-        byte[] tagBytes = new byte[bytesPerElement * totalElements];
-
-        row.get(0, 0, tagBytes);
-        String tagValue = new String(tagBytes, StandardCharsets.UTF_8).trim();
-        result.add(tagValue);
-      }
+      result.add(parseTagRow(metadata.row(i)));
     }
     return result;
+  }
+
+  private static String parseTagRow(Mat row) {
+    if (row.empty()) {
+      return "";
+    }
+    int byteCount = (int) row.elemSize() * row.cols() * row.channels();
+    var tagBytes = new byte[byteCount];
+    row.get(0, 0, tagBytes);
+    return new String(tagBytes, StandardCharsets.UTF_8).trim();
   }
 
   //  /** Parse metadata list into a map of key-value pairs */

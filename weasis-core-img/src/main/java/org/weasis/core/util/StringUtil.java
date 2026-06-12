@@ -230,19 +230,13 @@ public final class StringUtil {
     if (!hasLength(str)) {
       return false;
     }
-
-    // Optimized check for short strings
     int length = str.length();
-    if (length <= 16) {
-      for (int i = 0; i < length; i++) {
-        if (!Character.isWhitespace(str.charAt(i))) {
-          return true;
-        }
+    for (int i = 0; i < length; i++) {
+      if (!Character.isWhitespace(str.charAt(i))) {
+        return true;
       }
-      return false;
     }
-    // Use streams for longer strings
-    return str.chars().anyMatch(c -> !Character.isWhitespace(c));
+    return false;
   }
 
   /**
