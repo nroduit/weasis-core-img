@@ -85,6 +85,37 @@ there. The OS/arch profile in the root `pom.xml` selects which native classifier
 Additional native binaries (other systems and architectures) are published in
 [this Maven repository](https://github.com/nroduit/mvn-repo/tree/master/org/weasis/thirdparty/org/opencv/libopencv_java).
 
+### Platform support and limitations
+
+The native library is a JNI build of OpenCV restricted to the modules used by this project
+(`core`, `imgcodecs`, `imgproc`, `java`, `img_hash`). It is CPU-only: consumers drive it through
+CPU-side `Mat` (no `UMat` / OpenCL / GPU path), while SIMD runtime dispatch (AVX2/AVX-512 on
+x86-64, NEON on aarch64) is fully enabled. The following classifiers are published:
+
+| Classifier | File | Build / target | Runs on                                                   |
+|------------|------|----------------|-----------------------------------------------------------|
+| `linux-x86-64` | `libopencv_java.so` | fully-static **musl**, no dynamic libc | any Linux ≥ kernel ~2.6.39 (incl. Alpine)                 |
+| `linux-aarch64` | `libopencv_java.so` | fully-static **musl**, no dynamic libc | any Linux ≥ kernel ~2.6.39 (incl. Alpine)                 |
+| `macosx-x86-64` | `libopencv_java.dylib` | macOS deployment target **10.13** (High Sierra) | Intel macOS 10.13+                                        |
+| `macosx-aarch64` | `libopencv_java.dylib` | macOS deployment target **10.13** (High Sierra) | Apple Silicon macOS 10.13+   |
+| `windows-x86-64` | `opencv_java.dll` | Visual Studio 2022 (MSVC), static C++ runtime, 64-bit | 64-bit Windows 10+; no Visual C++ redistributable needed  |
+
+The Linux libraries are linked fully static against musl, so they carry no dynamic libc dependency
+and load on both glibc and musl hosts (including Alpine containers); the only floor is an ancient
+Linux-kernel syscall level (~2.6.39, 2011). This makes a single `linux-x86-64` / `linux-aarch64`
+pair usable for both desktop (Weasis) and server/container (dcm4che) deployments.
+
+Limitations to be aware of:
+
+- The musl Linux builds bundle their own C++ runtime; the build hides all but the JNI
+  (`Java_*` / `JNI_*`) symbols so the runtime stays isolated when the library is co-loaded in the
+  same JVM with another C++ native that ships its own `libstdc++` (e.g. the jogamp OpenGL natives
+  used by `weasis-dicom-3d`).
+- 32-bit and other architectures (e.g. `linux-armv7a`, `linux-x86`) are not shipped by default;
+  they can be built from source if a consumer targets them.
+- Each platform must use its matching classifier — the architecture and OS of the native library
+  have to agree with the running JVM.
+
 ## Use as a dependency
 
 The artifact version tracks the underlying OpenCV release (currently `4.13.0`), suffixed with a local
