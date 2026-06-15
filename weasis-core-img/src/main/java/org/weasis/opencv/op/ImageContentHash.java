@@ -108,9 +108,14 @@ public enum ImageContentHash {
     var hashAlgorithm = getAlgorithm();
     var inHash = new Mat();
     var outHash = new Mat();
-    hashAlgorithm.compute(imgIn, inHash);
-    hashAlgorithm.compute(imgOut, outHash);
-    return hashAlgorithm.compare(inHash, outHash);
+    try {
+      hashAlgorithm.compute(imgIn, inHash);
+      hashAlgorithm.compute(imgOut, outHash);
+      return hashAlgorithm.compare(inHash, outHash);
+    } finally {
+      inHash.release();
+      outHash.release();
+    }
   }
 
   @FunctionalInterface

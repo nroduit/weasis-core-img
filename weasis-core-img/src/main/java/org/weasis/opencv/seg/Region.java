@@ -144,8 +144,12 @@ public class Region {
     }
     var contours = new ArrayList<MatOfPoint>();
     var hierarchy = new Mat();
-    findContours(binary, contours, hierarchy, offset);
-    return buildSegmentList(contours, hierarchy);
+    try {
+      findContours(binary, contours, hierarchy, offset);
+      return buildSegmentList(contours, hierarchy);
+    } finally {
+      hierarchy.release();
+    }
   }
 
   private static void findContours(
