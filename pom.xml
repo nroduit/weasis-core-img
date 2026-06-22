@@ -10,11 +10,11 @@
   <packaging>pom</packaging>
 
   <properties>
-    <revision>${weasis.core.version}.1</revision>
-    <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
+    <revision>${weasis.core.version}</revision>
+    <changelist>-SNAPSHOT</changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
-    <weasis.opencv.version>4.13.0</weasis.opencv.version>
+    <weasis.opencv.version>5.0.0</weasis.opencv.version>
     <weasis.core.version>${weasis.opencv.version}</weasis.core.version>
     <weasis.opencv.native.version>${weasis.opencv.version}-dcm</weasis.opencv.native.version>
   </properties>
@@ -46,10 +46,12 @@
       </snapshots>
     </repository>
     <repository>
-      <id>mvn-repo-master</id>
+      <id>nroduit-mvn-repo</id>
+      <name>nroduit GitHub Maven Repository</name>
       <url>https://raw.githubusercontent.com/nroduit/mvn-repo/master/</url>
       <snapshots>
-        <enabled>false</enabled>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
       </snapshots>
     </repository>
   </repositories>
