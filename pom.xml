@@ -11,7 +11,7 @@
 
   <properties>
     <revision>${weasis.core.version}</revision>
-    <changelist>-SNAPSHOT</changelist> <!-- Remove "-SNAPSHOT" for release -->
+    <changelist></changelist> <!-- Remove "-SNAPSHOT" for release -->
     <sha1/>
 
     <weasis.opencv.version>5.0.0</weasis.opencv.version>
