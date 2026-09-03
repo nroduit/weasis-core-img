@@ -11,7 +11,6 @@ package org.weasis.opencv.op;
 
 import java.awt.Dimension;
 import java.awt.image.RenderedImage;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -87,13 +86,17 @@ public final class ImageIOHandler {
     }
     MatOfInt metadataTypes = new MatOfInt();
     List<Mat> metadataList = new ArrayList<>();
-    mat =
-        Imgcodecs.imreadWithMetadata(path.toAbsolutePath().toString(), metadataTypes, metadataList);
-
-    List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
-    tags.clear();
-    tags.addAll(exifTags);
-
+    try {
+      mat =
+          Imgcodecs.imreadWithMetadata(
+              path.toAbsolutePath().toString(), metadataTypes, metadataList);
+      List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
+      tags.clear();
+      tags.addAll(exifTags);
+    } finally {
+      metadataTypes.release();
+      metadataList.forEach(Mat::release);
+    }
     return handleImageConversion(path, mat);
   }
 
@@ -191,14 +194,9 @@ public final class ImageIOHandler {
       throw new IllegalArgumentException("Maximum size must be positive: " + maxSize);
     }
 
-    try {
-      var thumbnail = createThumbnail(source, maxSize);
+    try (var thumbnail = createThumbnail(source, maxSize)) {
       var params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, THUMBNAIL_JPEG_QUALITY);
-      var success = writeImageInternal(thumbnail, path, params);
-
-      thumbnail.release();
-      return success;
-
+      return writeImageInternal(thumbnail, path, params);
     } catch (Exception e) {
       LOGGER.error("Error creating thumbnail for path: {}", path.toAbsolutePath(), e);
       return false;
@@ -242,7 +240,7 @@ public final class ImageIOHandler {
 
   private static boolean writeImageInternal(Mat source, Path path, MatOfInt params) {
     try {
-      prepareOutputPath(path);
+      FileUtil.prepareToWriteFile(path);
       var filename = path.toAbsolutePath().toString();
       var success =
           params != null
@@ -259,16 +257,6 @@ public final class ImageIOHandler {
       LOGGER.error("Error writing image to path: {}", path, e);
       FileUtil.delete(path);
       return false;
-    }
-  }
-
-  private static void prepareOutputPath(Path path) throws IOException {
-    FileUtil.prepareToWriteFile(path);
-    if (!Files.exists(path)) {
-      Files.createFile(path);
-    }
-    if (!Files.isWritable(path)) {
-      throw new IOException("Path is not writable: " + path);
     }
   }
 
@@ -296,9 +284,7 @@ public final class ImageIOHandler {
 
   private static ImageCV createThumbnail(Mat source, int maxSize) {
     var thumbSize = calculateThumbnailSize(source.cols(), source.rows(), maxSize);
-    return shouldScale(source, thumbSize)
-        ? ImageTransformer.scale(source, thumbSize)
-        : ImageCV.fromMat(source);
+    return createThumbnailFromSize(source, thumbSize);
   }
 
   private static Dimension calculateTargetSize(
@@ -313,7 +299,14 @@ public final class ImageIOHandler {
   private static ImageCV createThumbnailFromSize(Mat sourceMat, Dimension targetSize) {
     return shouldScale(sourceMat, targetSize)
         ? ImageTransformer.scale(sourceMat, targetSize)
-        : ImageCV.fromMat(sourceMat);
+        : shareData(sourceMat);
+  }
+
+  // New header on the same pixels, so releasing the thumbnail never frees the caller's image
+  private static ImageCV shareData(Mat source) {
+    var result = new ImageCV();
+    source.assignTo(result);
+    return result;
   }
 
   private static boolean shouldScale(Mat source, Dimension targetSize) {

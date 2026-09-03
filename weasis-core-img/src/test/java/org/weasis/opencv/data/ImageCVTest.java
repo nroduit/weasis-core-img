@@ -12,7 +12,6 @@ package org.weasis.opencv.data;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -180,8 +179,7 @@ class ImageCVTest {
                           }
                         }));
         startGate.countDown();
-        assertTrue(
-            finishGate.await(5, TimeUnit.SECONDS), "All worker threads must finish in time");
+        assertTrue(finishGate.await(5, TimeUnit.SECONDS), "All worker threads must finish in time");
       } finally {
         executor.shutdownNow();
       }

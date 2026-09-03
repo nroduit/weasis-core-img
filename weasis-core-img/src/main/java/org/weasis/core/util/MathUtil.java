@@ -554,12 +554,21 @@ public final class MathUtil {
 
   // ================= Private Helper Methods =================
 
-  /** Validates that values are finite (not NaN or infinite) */
-  private static void validateFiniteValues(double... values) {
-    for (int i = 0; i < values.length; i++) {
-      if (!Double.isFinite(values[i])) {
-        throw new IllegalArgumentException("Value " + i + " must be finite: " + values[i]);
-      }
+  // Fixed-arity overloads: no varargs array on these hot paths
+  private static void validateFiniteValues(double a, double b, double c) {
+    validateFinite(0, a);
+    validateFinite(1, b);
+    validateFinite(2, c);
+  }
+
+  private static void validateFiniteValues(double a, double b, double c, double d) {
+    validateFiniteValues(a, b, c);
+    validateFinite(3, d);
+  }
+
+  private static void validateFinite(int index, double value) {
+    if (!Double.isFinite(value)) {
+      throw new IllegalArgumentException("Value " + index + " must be finite: " + value);
     }
   }
 

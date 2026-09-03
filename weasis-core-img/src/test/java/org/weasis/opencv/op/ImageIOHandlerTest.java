@@ -161,7 +161,8 @@ class ImageIOHandlerTest {
   void write_image_with_null_source_throws_exception() {
     var outputPath = tempDir.resolve("output.png");
 
-    assertThrows(NullPointerException.class, () -> ImageIOHandler.writeImage((Mat) null, outputPath));
+    assertThrows(
+        NullPointerException.class, () -> ImageIOHandler.writeImage((Mat) null, outputPath));
   }
 
   @Test
@@ -237,8 +238,7 @@ class ImageIOHandlerTest {
 
     assertTrue(success);
     var thumbnail = ImageIOHandler.readImage(thumbnailPath, null);
-    assertAll(
-        () -> assertEquals(100, thumbnail.cols()), () -> assertEquals(100, thumbnail.rows()));
+    assertAll(() -> assertEquals(100, thumbnail.cols()), () -> assertEquals(100, thumbnail.rows()));
   }
 
   @ParameterizedTest
@@ -310,8 +310,7 @@ class ImageIOHandlerTest {
     var nonReadablePath = tempDir.resolve("non_existent.png");
 
     assertThrows(
-        IllegalArgumentException.class,
-        () -> ImageIOHandler.validateReadablePath(nonReadablePath));
+        IllegalArgumentException.class, () -> ImageIOHandler.validateReadablePath(nonReadablePath));
   }
 
   @Test

@@ -20,6 +20,7 @@ import java.util.*;
  */
 public class Segment extends ArrayList<Point2D> {
   protected final List<Segment> children = new ArrayList<>();
+  private final List<Segment> childrenView = Collections.unmodifiableList(children);
 
   public Segment() {
     super();
@@ -112,11 +113,10 @@ public class Segment extends ArrayList<Point2D> {
     ensureCapacity(pointCount + (forceClose ? 1 : 0));
 
     boolean shouldScale = isValidDimension(dim);
-
+    double scaleX = shouldScale ? dim.width : 1.0;
+    double scaleY = shouldScale ? dim.height : 1.0;
     for (int i = 0; i < pointCount; i++) {
-      double x = shouldScale ? pts[i * 2] * dim.width : pts[i * 2];
-      double y = shouldScale ? pts[i * 2 + 1] * dim.height : pts[i * 2 + 1];
-      add(new Point2D.Double(x, y));
+      add(new Point2D.Double(pts[i * 2] * scaleX, pts[i * 2 + 1] * scaleY));
     }
 
     if (forceClose && isOpenSegment()) {
@@ -135,7 +135,7 @@ public class Segment extends ArrayList<Point2D> {
 
   /** Returns an unmodifiable view of the child segments. */
   public List<Segment> getChildren() {
-    return List.copyOf(children);
+    return childrenView;
   }
 
   /** Adds a child segment, preventing null references and self-references. */

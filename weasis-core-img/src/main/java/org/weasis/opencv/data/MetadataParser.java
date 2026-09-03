@@ -20,6 +20,10 @@ public final class MetadataParser {
 
   private MetadataParser() {}
 
+  // Future work: extract XMP (Imgcodecs.IMAGE_METADATA_XMP, UTF-8 packet) and ICC profile
+  // (Imgcodecs.IMAGE_METADATA_ICCP, raw profile bytes). Both are 1xN CV_8U Mats located by
+  // matching their type in metadataTypes, since entries are only present when non-empty.
+
   /**
    * Parses EXIF metadata from OpenCV imreadWithMetadata results.
    *
@@ -46,7 +50,12 @@ public final class MetadataParser {
     int numTags = metadata.rows();
     var result = new ArrayList<String>(numTags);
     for (int i = 0; i < numTags; i++) {
-      result.add(parseTagRow(metadata.row(i)));
+      var row = metadata.row(i);
+      try {
+        result.add(parseTagRow(row));
+      } finally {
+        row.release();
+      }
     }
     return result;
   }
@@ -55,71 +64,8 @@ public final class MetadataParser {
     if (row.empty()) {
       return "";
     }
-    int byteCount = (int) row.elemSize() * row.cols() * row.channels();
-    var tagBytes = new byte[byteCount];
+    var tagBytes = new byte[(int) (row.total() * row.elemSize())];
     row.get(0, 0, tagBytes);
     return new String(tagBytes, StandardCharsets.UTF_8).trim();
   }
-
-  //  /** Parse metadata list into a map of key-value pairs */
-  //  public static Map<Integer, String> parseMetadata(List<Mat> metadataList, MatOfInt
-  // metadataTypes) {
-  //    Map<Integer, String> metadataMap = new LinkedHashMap<>();
-  //
-  //    if (metadataList == null || metadataTypes == null || metadataTypes.empty()) {
-  //      return metadataMap;
-  //    }
-  //
-  //    int[] typesArray = metadataTypes.toArray();
-  //    if (metadataList.size() != typesArray.length) {
-  //      return metadataMap;
-  //    }
-  //
-  //    for (int i = 0; i < metadataList.size(); i++) {
-  //      Mat metadata = metadataList.get(i);
-  //      int metadataType = typesArray[i];
-  //
-  //      if (metadata.empty()) {
-  //        continue;
-  //      }
-  //
-  //      switch (metadataType) {
-  //        case Imgcodecs.IMAGE_METADATA_XMP:
-  //          String xmpData = extractMetadata(metadata);
-  //          if (!xmpData.isEmpty()) {
-  //            metadataMap.put(Imgcodecs.IMAGE_METADATA_XMP, xmpData);
-  //          }
-  //          break;
-  //        case Imgcodecs.IMAGE_METADATA_ICCP:
-  //          String iccpData = extractMetadata(metadata);
-  //          if (!iccpData.isEmpty()) {
-  //            metadataMap.put(Imgcodecs.IMAGE_METADATA_ICCP, iccpData);
-  //          }
-  //          break;
-  //        case Imgcodecs.IMAGE_METADATA_CICP:
-  //          String cicpData = extractMetadata(metadata);
-  //          if (!cicpData.isEmpty()) {
-  //            metadataMap.put(Imgcodecs.IMAGE_METADATA_CICP, cicpData);
-  //          }
-  //          break;
-  //        case Imgcodecs.IMAGE_METADATA_UNKNOWN:
-  //        default:
-  //          String rawData = extractMetadata(metadata);
-  //          if (!rawData.isEmpty()) {
-  //            metadataMap.put(metadataType, rawData);
-  //          }
-  //          break;
-  //      }
-  //    }
-  //
-  //    return metadataMap;
-  //  }
-  //
-  //  /** Robust string parsing - removes non-printable characters */
-  //  public static String extractMetadata(Mat metadata) {
-  //    byte[] bytes = new byte[(int) metadata.total()];
-  //    metadata.get(0, 0, bytes);
-  //
-  //    return new String(bytes, StandardCharsets.UTF_8);
-  //  }
 }

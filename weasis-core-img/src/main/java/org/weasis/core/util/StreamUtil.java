@@ -12,10 +12,6 @@ package org.weasis.core.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -37,7 +33,7 @@ import org.slf4j.LoggerFactory;
 public final class StreamUtil {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamUtil.class);
 
-  public static final int DEFAULT_BUFFER_SIZE = 8192;
+  public static final int DEFAULT_BUFFER_SIZE = FileUtil.FILE_BUFFER;
 
   private StreamUtil() {
     // Prevent instantiation
@@ -146,6 +142,19 @@ public final class StreamUtil {
     return totalBytes;
   }
 
+  // Shared with FileUtil; neither stream is closed
+  static long copyImageInputStream(ImageInputStream input, OutputStream output) throws IOException {
+    var buffer = new byte[DEFAULT_BUFFER_SIZE];
+    long totalBytes = 0;
+    int bytesRead;
+    while ((bytesRead = input.read(buffer)) != -1) {
+      output.write(buffer, 0, bytesRead);
+      totalBytes += bytesRead;
+    }
+    output.flush();
+    return totalBytes;
+  }
+
   /**
    * Copy a file from one path to another using NIO. This method replaces the destination file if it
    * already exists.
@@ -220,26 +229,16 @@ public final class StreamUtil {
       return false;
     }
     try {
-      return copyImageInputStream(input, target);
+      FileUtil.prepareToWriteFile(target);
+      try (var output = Files.newOutputStream(target)) {
+        copyImageInputStream(input, output);
+      }
+      return true;
     } catch (Exception e) {
       LOGGER.error("Failed to copy ImageInputStream to file: {}", target, e);
       return false;
     } finally {
       safeClose(input);
-    }
-  }
-
-  // Extract the ImageInputStream copying logic
-  private static boolean copyImageInputStream(ImageInputStream input, Path target)
-      throws IOException {
-    FileUtil.prepareToWriteFile(target);
-    try (var output = Files.newOutputStream(target)) {
-      var buffer = new byte[DEFAULT_BUFFER_SIZE];
-      int bytesRead;
-      while ((bytesRead = input.read(buffer)) != -1) {
-        output.write(buffer, 0, bytesRead);
-      }
-      return true;
     }
   }
 
@@ -256,78 +255,6 @@ public final class StreamUtil {
     } catch (Exception e) {
       LOGGER.error("Failed to copy streams", e);
       return -1;
-    } finally {
-      safeClose(input, output);
-    }
-  }
-
-  /**
-   * Copy data from an InputStream to an OutputStream using NIO channels with a default buffer size.
-   * Neither stream is closed by this method.
-   *
-   * @param input the source InputStream
-   * @param output the target OutputStream
-   * @return true if the copy was successful, false otherwise
-   */
-  public static boolean copyWithNIO(InputStream input, OutputStream output) {
-    return copyWithNIO(input, output, DEFAULT_BUFFER_SIZE);
-  }
-
-  /**
-   * Copy data from an InputStream to an OutputStream using NIO channels with a custom buffer size.
-   * Neither stream is closed by this method.
-   *
-   * @param input the source InputStream
-   * @param output the target OutputStream
-   * @param bufferSize the buffer size for NIO operations
-   * @return true if the copy was successful, false otherwise
-   */
-  public static boolean copyWithNIO(InputStream input, OutputStream output, int bufferSize) {
-    if (input == null || output == null) {
-      LOGGER.warn("Input or output stream is null");
-      return false;
-    }
-
-    if (bufferSize <= 0) {
-      bufferSize = DEFAULT_BUFFER_SIZE;
-    }
-
-    try (var readChannel = Channels.newChannel(input);
-        var writeChannel = Channels.newChannel(output)) {
-
-      return copyWithChannels(readChannel, writeChannel, bufferSize);
-    } catch (Exception e) {
-      LOGGER.error("Failed to copy streams using NIO", e);
-      return false;
-    }
-  }
-
-  private static boolean copyWithChannels(
-      ReadableByteChannel readChannel, WritableByteChannel writeChannel, int bufferSize)
-      throws IOException {
-    var buffer = ByteBuffer.allocate(bufferSize);
-    while (readChannel.read(buffer) != -1) {
-      buffer.flip();
-      while (buffer.hasRemaining()) {
-        writeChannel.write(buffer);
-      }
-      buffer.clear();
-    }
-    return true;
-  }
-
-  /**
-   * Copy data from an InputStream to an OutputStream using NIO channels and close both streams.
-   *
-   * @param input the source InputStream (will be closed)
-   * @param output the target OutputStream (will be closed)
-   * @param bufferSize the buffer size for NIO operations
-   * @return true if the copy was successful, false otherwise
-   */
-  public static boolean copyWithNIOAndClose(
-      InputStream input, OutputStream output, int bufferSize) {
-    try {
-      return copyWithNIO(input, output, bufferSize);
     } finally {
       safeClose(input, output);
     }

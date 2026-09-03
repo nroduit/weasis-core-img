@@ -109,5 +109,4 @@ public final class ImageCV extends Mat implements PlanarImage {
     Objects.requireNonNull(source, "Source PlanarImage cannot be null");
     return source.toMat();
   }
-
 }

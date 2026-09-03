@@ -40,6 +40,7 @@ public final class StringUtil {
   private static final Pattern CAMEL_CASE_PATTERN =
       Pattern.compile("(?<!(^|[A-Z]))(?=[A-Z])|(?<!^)(?=[A-Z][a-z])");
   private static final HexFormat HEX_FORMAT = HexFormat.of().withUpperCase();
+  private static final String REGEX_META_CHARS = ".$|()[{^?*+\\";
 
   public static final Collator collator = createCollator();
 
@@ -121,7 +122,13 @@ public final class StringUtil {
     if (delimiter == null || !hasText(val)) {
       return EMPTY_STRING_ARRAY;
     }
-    return val.split(Pattern.quote(delimiter));
+    return split(val, delimiter);
+  }
+
+  // String.split has a non-regex fast path for a single literal character
+  private static String[] split(String val, String delimiter) {
+    boolean literal = delimiter.length() == 1 && REGEX_META_CHARS.indexOf(delimiter.charAt(0)) < 0;
+    return val.split(literal ? delimiter : Pattern.quote(delimiter));
   }
 
   /**
@@ -136,9 +143,7 @@ public final class StringUtil {
       return EMPTY_INT_ARRAY;
     }
 
-    return Arrays.stream(val.split(Pattern.quote(delimiter)))
-        .mapToInt(StringUtil::getInt)
-        .toArray();
+    return Arrays.stream(split(val, delimiter)).mapToInt(StringUtil::getInt).toArray();
   }
 
   /**

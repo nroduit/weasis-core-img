@@ -11,9 +11,8 @@ package org.weasis.opencv.seg;
 
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.opencv.core.Mat;
@@ -86,7 +85,7 @@ public class Region {
    * @return the segments, never null
    */
   public List<Segment> getSegmentList() {
-    return segmentList != null ? List.copyOf(segmentList) : List.of();
+    return Collections.unmodifiableList(segmentList);
   }
 
   public void setSegmentList(List<Segment> segmentList) {
@@ -149,6 +148,7 @@ public class Region {
       return buildSegmentList(contours, hierarchy);
     } finally {
       hierarchy.release();
+      contours.forEach(Mat::release);
     }
   }
 
@@ -184,61 +184,30 @@ public class Region {
     if (contours == null || hierarchy == null || contours.isEmpty()) {
       return List.of();
     }
-    var contourMap = createContourTopologyMap(contours, hierarchy);
-    return extractRootSegments(contourMap, contours.size());
-  }
+    int count = contours.size();
+    // One native read for the whole hierarchy: 4 ints per contour
+    var hierarchyData = new int[count * 4];
+    hierarchy.get(0, 0, hierarchyData);
 
-  private static Map<Integer, ContourTopology> createContourTopologyMap(
-      List<? extends Mat> contours, Mat hierarchy) {
-    var contourMap = new HashMap<Integer, ContourTopology>();
-    var hierarchyData = new int[4];
-    for (int i = 0; i < contours.size(); i++) {
-      hierarchy.get(0, i, hierarchyData);
-      var topology = createContourTopology(contours.get(i), hierarchyData[HIERARCHY_PARENT_INDEX]);
-      if (topology != null) {
-        contourMap.put(i, topology);
+    var segments = new Segment[count];
+    for (int i = 0; i < count; i++) {
+      segments[i] = ContourTopology.toSegment(contours.get(i));
+    }
+
+    var rootSegments = new ArrayList<Segment>();
+    for (int i = 0; i < count; i++) {
+      var segment = segments[i];
+      if (segment == null) {
+        continue;
+      }
+      int parentIndex = hierarchyData[i * 4 + HIERARCHY_PARENT_INDEX];
+      if (parentIndex < 0) {
+        rootSegments.add(segment);
+      } else if (parentIndex < count && segments[parentIndex] != null) {
+        segments[parentIndex].addChild(segment);
       }
     }
-    return contourMap;
-  }
-
-  private static ContourTopology createContourTopology(Mat contour, int parentIndex) {
-    if (contour instanceof MatOfPoint matOfPoint) {
-      return new ContourTopology(matOfPoint, parentIndex);
-    } else if (contour instanceof MatOfPoint2f matOfPoint2f) {
-      return new ContourTopology(matOfPoint2f, parentIndex);
-    }
-    return null;
-  }
-
-  private static List<Segment> extractRootSegments(
-      Map<Integer, ContourTopology> contourMap, int contourCount) {
-    var segmentList = new ArrayList<Segment>();
-    for (int i = 0; i < contourCount; i++) {
-      var segment = buildSegmentWithChildren(contourMap, i);
-      if (segment != null) {
-        segmentList.add(segment);
-      }
-    }
-    return segmentList;
-  }
-
-  private static Segment buildSegmentWithChildren(
-      Map<Integer, ContourTopology> contourMap, int index) {
-    var contourTopology = contourMap.get(index);
-    if (contourTopology == null) {
-      return null;
-    }
-    int parentIndex = contourTopology.getParent();
-
-    if (parentIndex >= 0) {
-      var parent = contourMap.get(parentIndex);
-      if (parent != null) {
-        parent.getSegment().addChild(contourTopology.getSegment());
-      }
-      return null; // Not a root segment
-    }
-    return contourTopology.getSegment(); // Root segment
+    return rootSegments;
   }
 
   /**
@@ -270,15 +239,12 @@ public class Region {
     if (segment == null || segment.size() < 3) {
       return 0.0;
     }
+    // Shoelace formula over the closed polygon
     double area = 0.0;
-    int vertexCount = segment.size();
-
-    for (int i = 0; i < vertexCount; i++) {
-      Point2D current = segment.get(i);
-      Point2D next = segment.get((i + 1) % vertexCount);
-
-      // Shoelace formula: sum of (x_i * y_{i+1} - x_{i+1} * y_i)
-      area += current.getX() * next.getY() - next.getX() * current.getY();
+    Point2D previous = segment.get(segment.size() - 1);
+    for (Point2D current : segment) {
+      area += previous.getX() * current.getY() - current.getX() * previous.getY();
+      previous = current;
     }
     return Math.abs(area) / 2.0;
   }

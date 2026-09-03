@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayNameGeneration(ReplaceUnderscores.class)
@@ -126,8 +125,8 @@ class NativeLibraryTest {
       "Linux, amd64, linux-x86-64",
       "linux, x86_64, linux-x86-64",
       "Linux Ubuntu, aarch64, linux-aarch64",
-      "linux-gnu, i686, linux-x86",
-      "Linux Mint, arm, linux-armv7a"
+      "linux-gnu, ppc64le, linux-powerpc-64",
+      "Linux Mint, riscv64, linux-riscv64"
     })
     void should_detect_linux_variants(String osName, String architecture, String expected) {
       test_platform_specification(osName, architecture, expected);
@@ -138,9 +137,8 @@ class NativeLibraryTest {
       "Windows 10, amd64, windows-x86-64",
       "Windows 11, x86_64, windows-x86-64",
       "Windows Server 2019, em64t, windows-x86-64",
-      "Windows 7, i386, windows-x86",
       "Windows 12, ARM64, windows-aarch64",
-      "win32, pentium, windows-x86"
+      "win32, x86_64, windows-x86-64"
     })
     void should_detect_windows_variants(String osName, String architecture, String expected) {
       test_platform_specification(osName, architecture, expected);
@@ -158,19 +156,17 @@ class NativeLibraryTest {
     }
 
     @ParameterizedTest
-    @MethodSource("special_os_test_data")
-    void should_detect_special_os_variants(PlatformSpec spec) {
-      test_platform_specification(spec.osName(), spec.architecture(), spec.expectedResult());
-    }
+    @ValueSource(
+        strings = {"SymbianOS", "HP-UX", "OS/2", "procnto", "FreeBSD", "OpenBSD", "SunOS", "AIX"})
+    void should_reject_unsupported_operating_systems(String osName) {
+      System.setProperty("os.name", osName);
+      System.setProperty("os.arch", "amd64");
+      NativeLibrary.clearCache();
 
-    static Stream<PlatformSpec> special_os_test_data() {
-      return Stream.of(
-          PlatformSpec.of("SymbianOS", "i686", "epoc32-x86"),
-          PlatformSpec.of("HP-UX", "amd64", "hpux-x86-64"),
-          PlatformSpec.of("OS/2", "power ppc", "os2-powerpc"),
-          PlatformSpec.of("procnto", "aarch64", "qnx-aarch64"),
-          PlatformSpec.of("FreeBSD", "x86_64", "freebsd-x86-64"),
-          PlatformSpec.of("OpenBSD", "i586", "openbsd-x86"));
+      var exception =
+          assertThrows(
+              UnsupportedOperationException.class, NativeLibrary::getNativeLibSpecification);
+      assertTrue(exception.getMessage().contains(osName));
     }
 
     private void test_platform_specification(String osName, String architecture, String expected) {
@@ -200,29 +196,29 @@ class NativeLibraryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"pentium", "i386", "i486", "i586", "i686"})
-    void should_detect_x86_variants(String architecture) {
-      test_architecture_mapping(architecture, "x86");
+    @ValueSource(strings = {"ppc64", "ppc64le"})
+    void should_detect_powerpc_64_variants(String architecture) {
+      test_architecture_mapping(architecture, "powerpc-64");
     }
 
-    @Test
-    void should_detect_arm_architecture() {
-      test_architecture_mapping("arm", "armv7a");
+    @ParameterizedTest
+    @ValueSource(strings = {"riscv64", "s390x", "loongarch64"})
+    void should_keep_other_64_bit_architectures(String architecture) {
+      test_architecture_mapping(architecture, architecture);
     }
 
-    @Test
-    void should_detect_powerpc_architecture() {
-      test_architecture_mapping("power ppc", "powerpc");
-    }
+    @ParameterizedTest
+    @ValueSource(
+        strings = {"x86", "i386", "i686", "pentium", "arm", "armv7l", "ppc", "unknown-arch"})
+    void should_reject_32_bit_and_unknown_architectures(String architecture) {
+      System.setProperty("os.name", "Linux");
+      System.setProperty("os.arch", architecture);
+      NativeLibrary.clearCache();
 
-    @Test
-    void should_detect_ignite_architecture() {
-      test_architecture_mapping("psc1k", "ignite");
-    }
-
-    @Test
-    void should_handle_unknown_architecture() {
-      test_architecture_mapping("unknown-arch", "unknown-arch");
+      var exception =
+          assertThrows(
+              UnsupportedOperationException.class, NativeLibrary::getNativeLibSpecification);
+      assertTrue(exception.getMessage().contains(architecture));
     }
 
     private void test_architecture_mapping(String inputArch, String expectedArch) {

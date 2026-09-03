@@ -160,7 +160,7 @@ public final class PropertiesUtil {
   }
 
   private static boolean isReadableFile(Path path) {
-    return Files.exists(path) && Files.isReadable(path);
+    return Files.isReadable(path);
   }
 
   private static boolean createParentDirectories(Path path) {

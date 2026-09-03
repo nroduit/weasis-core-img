@@ -10,11 +10,15 @@
 package org.weasis.core.util;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -22,60 +26,55 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Utility class for zipping and unzipping files and directories.
- *
- * <p>Provides methods to create zip files from directories and extract zip files into directories.
- * Uses modern Java NIO.2 Path API for better performance and cross-platform compatibility.
- * Implements security measures to prevent zip slip attacks.
- *
- * <p>All methods validate input parameters and throw appropriate exceptions for invalid arguments.
- * File operations are atomic where possible to ensure data integrity.
- *
- * @since 1.0
+ * Zip and unzip directories. Extraction rejects entries escaping the target directory (zip slip)
+ * and entries with a suspicious compression ratio (zip bomb).
  */
 public final class ZipUtil {
 
-  private ZipUtil() {
-    // Utility class - prevent instantiation
-  }
+  /** Maximum compression ratio of a single entry before it is rejected as a suspected zip bomb. */
+  static final long MAX_COMPRESSION_RATIO = 5000L;
+
+  private ZipUtil() {}
 
   /**
-   * Creates a zip file from a directory.
+   * Creates a zip file from a directory. Empty directories are preserved and parent directories of
+   * the zip file are created if needed.
    *
-   * <p>Recursively processes all files and subdirectories. Empty directories are preserved in the
-   * zip archive. Parent directories for the zip file are created automatically if needed.
-   *
-   * @param sourceDir the directory to zip (must exist and be a directory)
-   * @param zipFile the zip file to create (parent directories will be created if needed)
-   * @throws IOException if an I/O error occurs during zip creation
-   * @throws IllegalArgumentException if sourceDir or zipFile is null
+   * @param sourceDir the directory to zip
+   * @param zipFile the zip file to create
+   * @throws IOException if sourceDir is not a directory or an I/O error occurs
    */
   public static void zip(Path sourceDir, Path zipFile) throws IOException {
-    validateZipArguments(sourceDir, zipFile);
-    validateSourceDirectory(sourceDir);
+    Objects.requireNonNull(sourceDir, "Source directory cannot be null");
+    Objects.requireNonNull(zipFile, "Zip file cannot be null");
+    if (!Files.isDirectory(sourceDir)) {
+      throw new IOException(
+          Files.exists(sourceDir)
+              ? "Source is not a directory: " + sourceDir
+              : "Directory does not exist: " + sourceDir);
+    }
+    FileUtil.prepareToWriteFile(zipFile);
 
-    createParentDirectories(zipFile);
-
-    try (var zipOut = new ZipOutputStream(Files.newOutputStream(zipFile))) {
-      addDirectoryToZip(sourceDir, sourceDir, zipOut);
+    try (var zipOut =
+        new ZipOutputStream(
+            new BufferedOutputStream(Files.newOutputStream(zipFile), FileUtil.FILE_BUFFER))) {
+      Files.walkFileTree(sourceDir, new ZipVisitor(sourceDir, zipOut));
     }
   }
 
   /**
-   * Extracts a zip file into a directory.
+   * Extracts a zip file into a directory, which is created if needed.
    *
-   * <p>Preserves directory structure and handles empty directories. Implements security checks to
-   * prevent zip slip attacks.
-   *
-   * @param zipFile the zip file to extract (must exist)
-   * @param targetDir the directory to extract files into (will be created if it doesn't exist)
-   * @throws IOException if an I/O error occurs during extraction
-   * @throws IllegalArgumentException if zipFile or targetDir is null
+   * @param zipFile the zip file to extract
+   * @param targetDir the directory to extract files into
+   * @throws IOException if zipFile does not exist, contains an unsafe entry, or an I/O error occurs
    */
   public static void unzip(Path zipFile, Path targetDir) throws IOException {
-    validateUnzipArguments(zipFile, targetDir);
-    validateZipFile(zipFile);
-
+    Objects.requireNonNull(zipFile, "Zip file cannot be null");
+    Objects.requireNonNull(targetDir, "Target directory cannot be null");
+    if (!Files.exists(zipFile)) {
+      throw new IOException("Zip file does not exist: " + zipFile);
+    }
     Files.createDirectories(targetDir);
 
     try (var zFile = new ZipFile(zipFile.toFile())) {
@@ -91,13 +90,28 @@ public final class ZipUtil {
   }
 
   /**
-   * Maximum allowed compression ratio for a single ZIP entry before it is rejected as a suspected
-   * zip-bomb. Package-private for direct testing under IEC 62304 verification.
+   * Extracts a zip stream into a directory, which is created if needed. The stream is closed after
+   * extraction.
+   *
+   * @param inputStream the zip input stream to extract
+   * @param targetDir the directory to extract files into
+   * @throws IOException if the stream contains an unsafe entry or an I/O error occurs
    */
-  static final long MAX_COMPRESSION_RATIO = 5000L;
+  public static void unzip(InputStream inputStream, Path targetDir) throws IOException {
+    Objects.requireNonNull(inputStream, "Input stream cannot be null");
+    Objects.requireNonNull(targetDir, "Target directory cannot be null");
 
-  // Package-private so the zip-bomb threshold can be unit-tested without having
-  // to hand-craft a zip file with a fraudulent central directory.
+    try (var zis = new ZipInputStream(new BufferedInputStream(inputStream, FileUtil.FILE_BUFFER))) {
+      Files.createDirectories(targetDir);
+      ZipEntry entry;
+      while ((entry = zis.getNextEntry()) != null) {
+        checkEntry(entry);
+        extractEntry(zis, entry, targetDir);
+      }
+    }
+  }
+
+  // Package-private so the threshold can be tested without crafting a fraudulent central directory
   static void checkEntry(ZipEntry entry) throws IOException {
     if (entry.getSize() > 0 && entry.getCompressedSize() > 0) {
       long ratio = entry.getSize() / entry.getCompressedSize();
@@ -107,141 +121,55 @@ public final class ZipUtil {
     }
   }
 
-  /**
-   * Extracts a zip input stream into a directory.
-   *
-   * <p>Preserves directory structure and handles empty directories. Implements security checks to
-   * prevent zip slip attacks. The input stream is automatically closed after extraction.
-   *
-   * @param inputStream the zip input stream to extract
-   * @param targetDir the directory to extract files into (will be created if it doesn't exist)
-   * @throws IOException if an I/O error occurs during extraction
-   * @throws IllegalArgumentException if inputStream or targetDir is null
-   */
-  public static void unzip(InputStream inputStream, Path targetDir) throws IOException {
-    Objects.requireNonNull(inputStream, "Input stream cannot be null");
-    Objects.requireNonNull(targetDir, "Target directory cannot be null");
-
-    Files.createDirectories(targetDir);
-
-    try (var bufInStream = new BufferedInputStream(inputStream);
-        var zis = new ZipInputStream(bufInStream)) {
-
-      ZipEntry entry;
-      while ((entry = zis.getNextEntry()) != null) {
-
-        // Verify compression ratio to prevent zip bomb attacks
-        checkEntry(entry);
-        extractEntry(zis, entry, targetDir);
-      }
-
-    } finally {
-      StreamUtil.safeClose(inputStream);
-    }
-  }
-
-  private static void addDirectoryToZip(Path sourceDir, Path basePath, ZipOutputStream zipOut)
+  private static void extractEntry(InputStream inputStream, ZipEntry entry, Path targetDir)
       throws IOException {
-    try (var stream = Files.walk(sourceDir)) {
-      var paths = stream.sorted().toList(); // Sort for consistent ordering
-
-      for (var path : paths) {
-        if (path.equals(sourceDir)) {
-          continue; // Skip the root directory itself
-        }
-
-        var relativePath = basePath.relativize(path).toString().replace('\\', '/');
-
-        if (Files.isDirectory(path)) {
-          addDirectoryEntry(path, relativePath, zipOut);
-        } else {
-          addFileEntry(path, relativePath, zipOut);
-        }
-      }
+    var entryPath = targetDir.resolve(entry.getName()).normalize();
+    if (!entryPath.startsWith(targetDir)) {
+      throw new IOException("Entry is outside the target directory: " + entry.getName());
     }
-  }
-
-  private static void addDirectoryEntry(Path path, String relativePath, ZipOutputStream zipOut)
-      throws IOException {
-    if (isDirectoryEmpty(path)) {
-      zipOut.putNextEntry(new ZipEntry(relativePath + "/"));
-      zipOut.closeEntry();
-    }
-  }
-
-  private static void addFileEntry(Path path, String relativePath, ZipOutputStream zipOut)
-      throws IOException {
-    zipOut.putNextEntry(new ZipEntry(relativePath));
-    Files.copy(path, zipOut);
-    zipOut.closeEntry();
-  }
-
-  private static boolean isDirectoryEmpty(Path directory) throws IOException {
-    try (var stream = Files.list(directory)) {
-      return stream.findFirst().isEmpty();
-    }
-  }
-
-  private static void extractEntry(InputStream inputStream, ZipEntry entry, Path targetPath)
-      throws IOException {
-    var entryPath = resolveAndValidateEntryPath(entry, targetPath);
-
     if (entry.isDirectory()) {
       Files.createDirectories(entryPath);
     } else {
-      createParentDirectories(entryPath);
-      writeEntryToFile(inputStream, entryPath);
+      FileUtil.prepareToWriteFile(entryPath);
+      Files.copy(inputStream, entryPath, StandardCopyOption.REPLACE_EXISTING);
     }
   }
 
-  private static Path resolveAndValidateEntryPath(ZipEntry entry, Path targetPath)
-      throws IOException {
-    var entryPath = targetPath.resolve(entry.getName()).normalize();
+  // Single pass over the tree, using the attributes of the directory listing
+  private static final class ZipVisitor extends SimpleFileVisitor<Path> {
+    private final Path root;
+    private final ZipOutputStream zipOut;
 
-    // Security check: prevent zip slip attacks
-    if (!entryPath.startsWith(targetPath)) {
-      throw new IOException("Entry is outside the target directory: " + entry.getName());
+    ZipVisitor(Path root, ZipOutputStream zipOut) {
+      this.root = root;
+      this.zipOut = zipOut;
     }
-    return entryPath;
-  }
 
-  private static void writeEntryToFile(InputStream inputStream, Path filePath) throws IOException {
-    try (var out =
-        Files.newOutputStream(
-            filePath, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-      inputStream.transferTo(out);
+    @Override
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+        throws IOException {
+      if (!dir.equals(root)) {
+        putEntry(dir, attrs, "/");
+        zipOut.closeEntry();
+      }
+      return FileVisitResult.CONTINUE;
     }
-  }
 
-  private static void createParentDirectories(Path path) throws IOException {
-    var parent = path.getParent();
-    if (parent != null) {
-      Files.createDirectories(parent);
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      if (attrs.isRegularFile() || (attrs.isSymbolicLink() && Files.isRegularFile(file))) {
+        putEntry(file, attrs, "");
+        Files.copy(file, zipOut);
+        zipOut.closeEntry();
+      }
+      return FileVisitResult.CONTINUE;
     }
-  }
 
-  private static void validateZipArguments(Path sourceDir, Path zipFile) {
-    Objects.requireNonNull(sourceDir, "Source directory cannot be null");
-    Objects.requireNonNull(zipFile, "Zip file cannot be null");
-  }
-
-  private static void validateUnzipArguments(Path zipFile, Path targetDir) {
-    Objects.requireNonNull(zipFile, "Zip file cannot be null");
-    Objects.requireNonNull(targetDir, "Target directory cannot be null");
-  }
-
-  private static void validateSourceDirectory(Path sourceDir) throws IOException {
-    if (!Files.exists(sourceDir)) {
-      throw new IOException("Directory does not exist: " + sourceDir);
-    }
-    if (!Files.isDirectory(sourceDir)) {
-      throw new IOException("Source is not a directory: " + sourceDir);
-    }
-  }
-
-  private static void validateZipFile(Path zipFile) throws IOException {
-    if (!Files.exists(zipFile)) {
-      throw new IOException("Zip file does not exist: " + zipFile);
+    private void putEntry(Path path, BasicFileAttributes attrs, String suffix) throws IOException {
+      var name = root.relativize(path).toString().replace('\\', '/') + suffix;
+      var entry = new ZipEntry(name);
+      entry.setTime(attrs.lastModifiedTime().toMillis());
+      zipOut.putNextEntry(entry);
     }
   }
 }

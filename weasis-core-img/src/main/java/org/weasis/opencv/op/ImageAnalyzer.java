@@ -65,7 +65,8 @@ public final class ImageAnalyzer {
    * @param shape the shape to apply on the image. If null, the whole image is processed
    * @param paddingValue the starting value to exclude (applied only with single channel images)
    * @param paddingLimit the last value to exclude. If null, only paddingValue is excluded
-   * @return list containing the source and mask images, or empty list if no intersection
+   * @return list containing the source and mask images, or empty list if no intersection. The
+   *     caller owns the returned Mats and releases them.
    */
   public static List<Mat> getMaskImage(
       Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
@@ -169,8 +170,12 @@ public final class ImageAnalyzer {
       return findMinMaxValues(source);
     }
 
-    var maskData = getMaskImage(source, null, paddingValue, paddingLimit);
-    return maskData.isEmpty() ? new MinMaxLocResult() : minMaxLoc(maskData.get(0), maskData.get(1));
+    var paddingMask = getPixelPaddingMask(source, null, paddingValue, paddingLimit);
+    try {
+      return minMaxLoc(source, paddingMask);
+    } finally {
+      ImageConversion.releaseMat(paddingMask);
+    }
   }
 
   /**
@@ -184,12 +189,14 @@ public final class ImageAnalyzer {
   public static MinMaxLocResult minMaxLoc(RenderedImage source, Rectangle area) {
     Objects.requireNonNull(source, NULL_SOURCE_IMAGE_ERROR);
 
-    var mat = ImageConversion.toMat(source);
-    if (area != null) {
-      mat = ImageTransformer.crop(mat, area);
+    try (var mat = ImageConversion.toMat(source)) {
+      if (area == null) {
+        return minMaxLoc(mat, null);
+      }
+      try (var cropped = ImageTransformer.crop(mat, area)) {
+        return minMaxLoc(cropped, null);
+      }
     }
-
-    return minMaxLoc(mat, null);
   }
 
   /**
@@ -204,15 +211,17 @@ public final class ImageAnalyzer {
     ImageIOHandler.validateSource(srcImg);
 
     var channels = splitIntoChannels(srcImg);
-    var result = new MinMaxLocResult();
-    result.minVal = Double.MAX_VALUE;
-    result.maxVal = -Double.MAX_VALUE;
-
-    for (var channel : channels) {
-      var channelResult = Core.minMaxLoc(channel, mask);
-      updateMinMaxResult(result, channelResult);
+    try {
+      var result = new MinMaxLocResult();
+      result.minVal = Double.MAX_VALUE;
+      result.maxVal = -Double.MAX_VALUE;
+      for (var channel : channels) {
+        updateMinMaxResult(result, Core.minMaxLoc(channel, mask));
+      }
+      return result;
+    } finally {
+      releaseChannels(srcImg, channels);
     }
-    return result;
   }
 
   public static double[][] meanStdDev(Mat source) {
@@ -239,7 +248,19 @@ public final class ImageAnalyzer {
     ImageIOHandler.validateSource(source);
 
     var maskData = getMaskImage(source, shape, paddingValue, paddingLimit);
-    return maskData.isEmpty() ? null : buildMeanStdDev(maskData.get(0), maskData.get(1));
+    if (maskData.isEmpty()) {
+      return null;
+    }
+    var croppedSource = maskData.get(0);
+    var mask = maskData.get(1);
+    try {
+      return buildMeanStdDev(croppedSource, mask);
+    } finally {
+      ImageConversion.releaseMat(mask);
+      if (croppedSource != source) {
+        croppedSource.release();
+      }
+    }
   }
 
   /**
@@ -257,12 +278,14 @@ public final class ImageAnalyzer {
       Mat source, Mat mask, Integer paddingValue, Integer paddingLimit) {
     ImageIOHandler.validateSource(source);
 
-    var finalMask =
-        (paddingValue != null)
-            ? getPixelPaddingMask(source, mask, paddingValue, paddingLimit)
-            : mask;
-
-    return buildMeanStdDev(source, finalMask);
+    var finalMask = getPixelPaddingMask(source, mask, paddingValue, paddingLimit);
+    try {
+      return buildMeanStdDev(source, finalMask);
+    } finally {
+      if (finalMask != mask) {
+        finalMask.release();
+      }
+    }
   }
 
   // Private helper methods
@@ -286,6 +309,7 @@ public final class ImageAnalyzer {
     var mask = Mat.zeros(croppedSrc.size(), CvType.CV_8UC1);
     var contours = transformShapeToContour(shape, false);
     Imgproc.fillPoly(mask, contours, new Scalar(255));
+    contours.forEach(Mat::release);
 
     return new MaskData(croppedSrc, mask);
   }
@@ -337,6 +361,15 @@ public final class ImageAnalyzer {
     return channels;
   }
 
+  // Single-channel sources are not split, so the list then holds the source itself
+  private static void releaseChannels(Mat source, List<Mat> channels) {
+    for (var channel : channels) {
+      if (channel != source) {
+        channel.release();
+      }
+    }
+  }
+
   private static void updateMinMaxResult(MinMaxLocResult result, MinMaxLocResult channelResult) {
     if (channelResult.minVal < result.minVal) {
       result.minVal = channelResult.minVal;
@@ -353,30 +386,26 @@ public final class ImageAnalyzer {
       return null;
     }
 
-    var statistics = computeBasicStatistics(source, mask);
     var channels = splitIntoChannels(source);
-    var results = new double[5][channels.size()];
-
-    populateMinMaxValues(results, channels, mask);
-    results[2] = statistics.mean().toArray();
-    results[3] = statistics.stdDev().toArray();
-    results[4][0] = computePixelCount(source, mask);
-
-    return results;
-  }
-
-  private record Statistics(MatOfDouble mean, MatOfDouble stdDev) {}
-
-  private static Statistics computeBasicStatistics(Mat source, Mat mask) {
     var mean = new MatOfDouble();
     var stdDev = new MatOfDouble();
-    if (mask == null) {
-      Core.meanStdDev(source, mean, stdDev);
-    } else {
-      Core.meanStdDev(source, mean, stdDev, mask);
+    try {
+      if (mask == null) {
+        Core.meanStdDev(source, mean, stdDev);
+      } else {
+        Core.meanStdDev(source, mean, stdDev, mask);
+      }
+      var results = new double[5][channels.size()];
+      populateMinMaxValues(results, channels, mask);
+      results[2] = mean.toArray();
+      results[3] = stdDev.toArray();
+      results[4][0] = computePixelCount(source, mask);
+      return results;
+    } finally {
+      mean.release();
+      stdDev.release();
+      releaseChannels(source, channels);
     }
-
-    return new Statistics(mean, stdDev);
   }
 
   private static void populateMinMaxValues(double[][] results, List<Mat> channels, Mat mask) {
@@ -426,6 +455,7 @@ public final class ImageAnalyzer {
 
     var combinedMask = new ImageCV();
     Core.bitwise_and(existingMask, paddingMask, combinedMask);
+    paddingMask.release();
     return combinedMask;
   }
 }

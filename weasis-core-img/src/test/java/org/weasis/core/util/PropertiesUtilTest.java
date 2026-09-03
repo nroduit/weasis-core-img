@@ -109,7 +109,8 @@ class PropertiesUtilTest {
 
       var loadedProperties = PropertiesUtil.loadProperties(nonExistentFile);
 
-      assertAll(() -> assertNotNull(loadedProperties), () -> assertTrue(loadedProperties.isEmpty()));
+      assertAll(
+          () -> assertNotNull(loadedProperties), () -> assertTrue(loadedProperties.isEmpty()));
     }
 
     @Test
@@ -118,7 +119,8 @@ class PropertiesUtilTest {
 
       var loadedProperties = PropertiesUtil.loadProperties(propertiesFile);
 
-      assertAll(() -> assertNotNull(loadedProperties), () -> assertTrue(loadedProperties.isEmpty()));
+      assertAll(
+          () -> assertNotNull(loadedProperties), () -> assertTrue(loadedProperties.isEmpty()));
     }
 
     @Test
