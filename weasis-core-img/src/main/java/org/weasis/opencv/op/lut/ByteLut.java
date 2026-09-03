@@ -17,13 +17,16 @@ import java.awt.Graphics2D;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.swing.Icon;
+import org.weasis.opencv.op.lut.colormap.ColorMap;
 
 /**
  * A record representing a Byte Lookup Table (LUT) with a name and a 2D byte array for color
  * mapping. The LUT contains 3 channels (Red, Green, Blue) with 256 values per channel used for
  * color transformation.
+ *
+ * @param source the declarative map this table was compiled from, or null for a plain table
  */
-public record ByteLut(String name, byte[][] lutTable) {
+public record ByteLut(String name, byte[][] lutTable, ColorMap source) {
 
   private static final int CHANNEL_COUNT = 3;
   private static final int CHANNEL_SIZE = 256;
@@ -46,6 +49,10 @@ public record ByteLut(String name, byte[][] lutTable) {
   public ByteLut {
     Objects.requireNonNull(name, "Name cannot be null");
     validateLutTable(lutTable);
+  }
+
+  public ByteLut(String name, byte[][] lutTable) {
+    this(name, lutTable, null);
   }
 
   private static void validateLutTable(byte[][] lutTable) {
@@ -74,12 +81,13 @@ public record ByteLut(String name, byte[][] lutTable) {
     return this == o
         || (o instanceof ByteLut other
             && Objects.equals(name, other.name)
-            && Arrays.deepEquals(lutTable, other.lutTable));
+            && Arrays.deepEquals(lutTable, other.lutTable)
+            && Objects.equals(source, other.source));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, Arrays.deepHashCode(lutTable));
+    return Objects.hash(name, Arrays.deepHashCode(lutTable), source);
   }
 
   /**

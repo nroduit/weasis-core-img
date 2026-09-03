@@ -6,6 +6,7 @@ module org.weasis.core.img {
   exports org.weasis.core.util.annotations;
   exports org.weasis.opencv.op;
   exports org.weasis.opencv.op.lut;
+  exports org.weasis.opencv.op.lut.colormap;
   exports org.weasis.opencv.data;
   exports org.weasis.opencv.seg;
   exports org.opencv.core;
