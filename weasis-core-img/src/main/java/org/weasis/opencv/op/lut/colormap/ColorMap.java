@@ -87,10 +87,14 @@ public record ColorMap(
 
   /** Lower-case identifier derived from a display name: Unicode letters, digits and dashes only. */
   public static String slug(String name) {
-    return Objects.requireNonNull(name, "Name cannot be null")
-        .toLowerCase(Locale.ROOT)
-        .replaceAll("[^\\p{L}\\p{N}]+", "-")
-        .replaceAll("(^-+|-+$)", "");
+    String dashed =
+        Objects.requireNonNull(name, "Name cannot be null")
+            .toLowerCase(Locale.ROOT)
+            .replaceAll("[^\\p{L}\\p{N}]+", "-");
+    // Separator runs are already collapsed, so at most one dash remains at each end
+    int start = dashed.startsWith("-") ? 1 : 0;
+    int end = dashed.endsWith("-") ? dashed.length() - 1 : dashed.length();
+    return start >= end ? "" : dashed.substring(start, end);
   }
 
   /** Metadata key of the DICOM Color Palette SOP Instance UID the map came from or was given. */

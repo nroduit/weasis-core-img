@@ -261,6 +261,9 @@ class ColorMapTest {
 
     assertAll(
         () -> assertEquals("pet-suv-test", named.id()),
+        () -> assertEquals("a-b", ColorMap.slug(" -A__b- ")),
+        () -> assertEquals("", ColorMap.slug("-")),
+        () -> assertEquals("", ColorMap.slug("")),
         () -> assertEquals("weasis.pet-suv", given.id()),
         () -> assertEquals("weasis.pet-suv", given.withName("Renamed").id()),
         () -> assertEquals("other", given.withId("other").id()),

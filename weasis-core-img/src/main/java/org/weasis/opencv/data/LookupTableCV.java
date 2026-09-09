@@ -376,5 +376,6 @@ public final class LookupTableCV {
     }
   }
 
+  @SuppressWarnings("java:S6218") // internal parameter holder, never compared, hashed or printed
   private record LutContext(int numBands, int[] offsets, byte[][] byteData, short[][] shortData) {}
 }
