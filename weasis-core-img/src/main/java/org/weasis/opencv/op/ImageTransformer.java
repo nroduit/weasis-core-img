@@ -243,7 +243,7 @@ public final class ImageTransformer {
   public static ImageCV bitwiseAnd(Mat source, int src2Cst) {
     ImageIOHandler.validateSource(source);
 
-    try (var mask = new ImageCV(source.size(), source.type(), new Scalar(src2Cst))) {
+    try (var mask = new ImageCV(source.size(), source.type(), Scalar.all(src2Cst))) {
       var result = new ImageCV();
 
       Core.bitwise_and(source, mask, result);

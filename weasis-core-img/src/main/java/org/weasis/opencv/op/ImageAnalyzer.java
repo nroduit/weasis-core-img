@@ -65,10 +65,10 @@ public final class ImageAnalyzer {
    * @param shape the shape to apply on the image. If null, the whole image is processed
    * @param paddingValue the starting value to exclude (applied only with single channel images)
    * @param paddingLimit the last value to exclude. If null, only paddingValue is excluded
-   * @return list containing the source and mask images, or empty list if no intersection. The
-   *     first element is {@code source} itself when {@code shape} is null; the mask is null when
-   *     there is neither a shape nor a padding to exclude. The caller releases only the elements
-   *     that are non-null and not {@code source}.
+   * @return list containing the source and mask images, or empty list if no intersection. The first
+   *     element is {@code source} itself when {@code shape} is null; the mask is null when there is
+   *     neither a shape nor a padding to exclude. The caller releases only the elements that are
+   *     non-null and not {@code source}.
    */
   public static List<Mat> getMaskImage(
       Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {
@@ -78,9 +78,12 @@ public final class ImageAnalyzer {
       return Collections.emptyList();
     }
 
-    var paddingMask =
-        getPixelPaddingMask(maskData.srcImg(), maskData.mask(), paddingValue, paddingLimit);
-    return Arrays.asList(maskData.srcImg(), paddingMask);
+    var shapeMask = maskData.mask();
+    var finalMask = getPixelPaddingMask(maskData.srcImg(), shapeMask, paddingValue, paddingLimit);
+    if (shapeMask != null && finalMask != shapeMask) {
+      shapeMask.release();
+    }
+    return Arrays.asList(maskData.srcImg(), finalMask);
   }
 
   /**
@@ -309,8 +312,9 @@ public final class ImageAnalyzer {
         source.submat(
             new Rect(intersection.x, intersection.y, intersection.width, intersection.height));
     var mask = Mat.zeros(croppedSrc.size(), CvType.CV_8UC1);
-    var contours = transformShapeToContour(shape, false);
-    Imgproc.fillPoly(mask, contours, new Scalar(255));
+    var contours = transformShapeToContour(shape, true);
+    var cropOrigin = new Point(-intersection.x, -intersection.y);
+    Imgproc.fillPoly(mask, contours, new Scalar(255), Imgproc.LINE_8, 0, cropOrigin);
     contours.forEach(Mat::release);
 
     return new MaskData(croppedSrc, mask);

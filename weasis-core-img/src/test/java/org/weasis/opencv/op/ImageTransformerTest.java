@@ -318,6 +318,14 @@ class ImageTransformerTest {
 
       assertEquals(((int) sourcePixel[0]) & maskValue, resultPixel[0], 0.1);
     }
+
+    @Test
+    void should_apply_bitwise_and_on_every_channel() {
+      try (var source = new ImageCV(2, 2, CvType.CV_8UC3, new Scalar(200, 201, 202));
+          var result = ImageTransformer.bitwiseAnd(source, 0xF0)) {
+        assertArrayEquals(new double[] {192, 192, 192}, result.get(0, 0));
+      }
+    }
   }
 
   @Nested

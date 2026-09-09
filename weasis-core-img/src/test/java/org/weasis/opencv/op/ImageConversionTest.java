@@ -13,7 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
 import java.awt.Rectangle;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
 import java.awt.image.MultiPixelPackedSampleModel;
 import java.awt.image.Raster;
@@ -179,6 +182,31 @@ class ImageConversionTest {
     @Test
     void should_return_null_for_null_rendered_image_input() {
       assertNull(ImageConversion.convertRenderedImage(null));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {DataBuffer.TYPE_USHORT, DataBuffer.TYPE_INT, DataBuffer.TYPE_FLOAT})
+    void should_order_packed_non_byte_rgb_as_bgr(int dataType) {
+      var colorModel =
+          new ComponentColorModel(
+              ColorSpace.getInstance(ColorSpace.CS_sRGB),
+              false,
+              false,
+              Transparency.OPAQUE,
+              dataType);
+      var raster = colorModel.createCompatibleWritableRaster(2, 2);
+      for (int y = 0; y < 2; y++) {
+        for (int x = 0; x < 2; x++) {
+          raster.setPixel(x, y, new int[] {1000, 2000, 3000});
+        }
+      }
+      var image = new BufferedImage(colorModel, raster, false, null);
+
+      try (var bgr = ImageConversion.toMat(image);
+          var rgb = ImageConversion.toMat(image, null, false)) {
+        assertArrayEquals(new double[] {3000, 2000, 1000}, bgr.get(0, 0));
+        assertArrayEquals(new double[] {1000, 2000, 3000}, rgb.get(0, 0));
+      }
     }
 
     @Test

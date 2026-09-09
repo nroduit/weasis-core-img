@@ -211,6 +211,28 @@ class ImageIOHandlerTest {
     assertTrue(Files.exists(outputPath));
   }
 
+  @Test
+  void write_PNG_stores_other_depths_as_16bit_unsigned() {
+    for (int type : new int[] {CvType.CV_8SC1, CvType.CV_16SC1, CvType.CV_32SC1, CvType.CV_32FC1}) {
+      var outputPath = tempDir.resolve("depth_" + type + ".png");
+      try (var image = new ImageCV(4, 4, type, new Scalar(100))) {
+        assertTrue(ImageIOHandler.writePNG(image, outputPath));
+      }
+      try (var read = ImageIOHandler.readImage(outputPath, null)) {
+        assertNotNull(read);
+        assertEquals(CvType.CV_16UC1, read.type(), "type " + CvType.typeToString(type));
+        assertEquals(100.0, read.get(0, 0)[0]);
+      }
+    }
+    try (var image = new ImageCV(4, 4, CvType.CV_32FC1, new Scalar(1000))) {
+      var outputPath = tempDir.resolve("float_above_8bit.png");
+      assertTrue(ImageIOHandler.writePNG(image, outputPath));
+      try (var read = ImageIOHandler.readImage(outputPath, null)) {
+        assertEquals(1000.0, read.get(0, 0)[0], "values above 255 must not be clipped");
+      }
+    }
+  }
+
   // === Thumbnail Tests ===
 
   @Test

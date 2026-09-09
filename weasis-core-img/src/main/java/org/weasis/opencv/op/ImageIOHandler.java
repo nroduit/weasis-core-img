@@ -79,25 +79,29 @@ public final class ImageIOHandler {
   public static ImageCV readImageWithCvException(Path path, List<String> tags) {
     validateReadablePath(path);
 
-    Mat mat;
+    var filename = path.toAbsolutePath().toString();
     if (tags == null) {
-      mat = Imgcodecs.imread(path.toAbsolutePath().toString());
-      return handleImageConversion(path, mat);
+      return handleImageConversion(path, Imgcodecs.imread(filename));
     }
     MatOfInt metadataTypes = new MatOfInt();
     List<Mat> metadataList = new ArrayList<>();
     try {
-      mat =
-          Imgcodecs.imreadWithMetadata(
-              path.toAbsolutePath().toString(), metadataTypes, metadataList);
-      List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
-      tags.clear();
-      tags.addAll(exifTags);
+      var image =
+          handleImageConversion(
+              path, Imgcodecs.imreadWithMetadata(filename, metadataTypes, metadataList));
+      try {
+        List<String> exifTags = MetadataParser.parseExifParseMetadata(metadataList, metadataTypes);
+        tags.clear();
+        tags.addAll(exifTags);
+      } catch (RuntimeException e) {
+        image.release();
+        throw e;
+      }
+      return image;
     } finally {
       metadataTypes.release();
       metadataList.forEach(Mat::release);
     }
-    return handleImageConversion(path, mat);
   }
 
   /**
@@ -124,8 +128,7 @@ public final class ImageIOHandler {
   public static boolean writeImage(RenderedImage source, Path path) {
     Objects.requireNonNull(source, "RenderedImage cannot be null");
     Objects.requireNonNull(path, "Output path cannot be null");
-    try {
-      var mat = ImageConversion.toMat(source);
+    try (var mat = ImageConversion.toMat(source)) {
       return writeImageInternal(mat, path, null);
     } catch (Exception e) {
       LOGGER.error("Error converting RenderedImage to Mat for path: {}", path.toAbsolutePath(), e);
@@ -156,7 +159,8 @@ public final class ImageIOHandler {
   }
 
   /**
-   * Writes an image in PNG format with maximum compression.
+   * Writes an image in PNG format with maximum compression. Depths other than 8-bit and 16-bit
+   * unsigned are stored as 16-bit unsigned, with saturation.
    *
    * @param source the Mat image to write
    * @param path the output file path - extension will be enforced as .png
@@ -169,9 +173,9 @@ public final class ImageIOHandler {
     var pngPath = ensurePngExtension(path);
     var convertedSource = convertForPngIfNeeded(source);
 
-    try {
-      var params = new MatOfInt(Imgcodecs.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION_LEVEL);
-      return writeImageInternal(convertedSource, pngPath, params);
+    try (var params =
+        new ReleasableMatOfInt(Imgcodecs.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION_LEVEL)) {
+      return writeImageInternal(convertedSource, pngPath, params.mat());
     } finally {
       if (convertedSource != source) {
         ImageConversion.releaseMat(convertedSource);
@@ -194,9 +198,10 @@ public final class ImageIOHandler {
       throw new IllegalArgumentException("Maximum size must be positive: " + maxSize);
     }
 
-    try (var thumbnail = createThumbnail(source, maxSize)) {
-      var params = new MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, THUMBNAIL_JPEG_QUALITY);
-      return writeImageInternal(thumbnail, path, params);
+    try (var thumbnail = createThumbnail(source, maxSize);
+        var params =
+            new ReleasableMatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, THUMBNAIL_JPEG_QUALITY)) {
+      return writeImageInternal(thumbnail, path, params.mat());
     } catch (Exception e) {
       LOGGER.error("Error creating thumbnail for path: {}", path.toAbsolutePath(), e);
       return false;
@@ -231,11 +236,27 @@ public final class ImageIOHandler {
 
   // Private helper methods with minimal or no documentation
 
+  // The returned image shares the pixel buffer, releasing the decoded Mat only drops its reference
   private static ImageCV handleImageConversion(Path path, Mat mat) {
-    if (mat.empty()) {
-      throw new CvException("Failed to read image or unsupported format: " + path);
+    try {
+      if (mat.empty()) {
+        throw new CvException("Failed to read image or unsupported format: " + path);
+      }
+      return ImageCV.fromMat(mat);
+    } finally {
+      mat.release();
     }
-    return ImageCV.fromMat(mat);
+  }
+
+  private record ReleasableMatOfInt(MatOfInt mat) implements AutoCloseable {
+    ReleasableMatOfInt(int... values) {
+      this(new MatOfInt(values));
+    }
+
+    @Override
+    public void close() {
+      mat.release();
+    }
   }
 
   private static boolean writeImageInternal(Mat source, Path path, MatOfInt params) {
@@ -269,17 +290,13 @@ public final class ImageIOHandler {
   }
 
   private static Mat convertForPngIfNeeded(Mat source) {
-    var type = source.type();
-    var elemSize = CvType.ELEM_SIZE(type);
-    var channels = CvType.channels(type);
-    var bpp = (elemSize * 8) / channels;
-
-    if (bpp > 16 || !CvType.isInteger(type)) {
-      var dstImg = new Mat();
-      source.convertTo(dstImg, CvType.CV_16SC(channels));
-      return dstImg;
+    var depth = CvType.depth(source.type());
+    if (depth == CvType.CV_8U || depth == CvType.CV_16U) {
+      return source;
     }
-    return source;
+    var dstImg = new Mat();
+    source.convertTo(dstImg, CvType.CV_16UC(source.channels()));
+    return dstImg;
   }
 
   private static ImageCV createThumbnail(Mat source, int maxSize) {

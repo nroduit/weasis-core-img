@@ -315,41 +315,33 @@ public final class ImageConversion {
     int channels = model.getNumBands();
     DataBuffer buffer = raster.getDataBuffer();
 
+    ImageCV mat;
     if (buffer instanceof DataBufferByte bufferByte) {
       if (model instanceof BandedSampleModel) {
         return createBandedRGBMat(bufferByte, rows, cols, toBGR);
       }
-      var mat = new ImageCV(rows, cols, CvType.CV_8UC(channels));
+      mat = new ImageCV(rows, cols, CvType.CV_8UC(channels));
       mat.put(0, 0, bufferByte.getData());
-      return applyColorConversion(mat, model.getBandOffsets(), toBGR);
-    }
-    if (buffer instanceof DataBufferUShort bufferUShort) {
+    } else if (buffer instanceof DataBufferUShort bufferUShort) {
       int type = forceShortType ? CvType.CV_16SC(channels) : CvType.CV_16UC(channels);
-      var mat = new ImageCV(rows, cols, type);
+      mat = new ImageCV(rows, cols, type);
       mat.put(0, 0, bufferUShort.getData());
-      return mat;
-    }
-    if (buffer instanceof DataBufferShort bufferShort) {
-      var mat = new ImageCV(rows, cols, CvType.CV_16SC(channels));
+    } else if (buffer instanceof DataBufferShort bufferShort) {
+      mat = new ImageCV(rows, cols, CvType.CV_16SC(channels));
       mat.put(0, 0, bufferShort.getData());
-      return mat;
-    }
-    if (buffer instanceof DataBufferInt bufferInt) {
-      var mat = new ImageCV(rows, cols, CvType.CV_32SC(channels));
+    } else if (buffer instanceof DataBufferInt bufferInt) {
+      mat = new ImageCV(rows, cols, CvType.CV_32SC(channels));
       mat.put(0, 0, bufferInt.getData());
-      return mat;
-    }
-    if (buffer instanceof DataBufferFloat bufferFloat) {
-      var mat = new ImageCV(rows, cols, CvType.CV_32FC(channels));
+    } else if (buffer instanceof DataBufferFloat bufferFloat) {
+      mat = new ImageCV(rows, cols, CvType.CV_32FC(channels));
       mat.put(0, 0, bufferFloat.getData());
-      return mat;
-    }
-    if (buffer instanceof DataBufferDouble bufferDouble) {
-      var mat = new ImageCV(rows, cols, CvType.CV_64FC(channels));
+    } else if (buffer instanceof DataBufferDouble bufferDouble) {
+      mat = new ImageCV(rows, cols, CvType.CV_64FC(channels));
       mat.put(0, 0, bufferDouble.getData());
-      return mat;
+    } else {
+      return fromSamples(raster, toBGR, forceShortType);
     }
-    return fromSamples(raster, toBGR, forceShortType);
+    return applyColorConversion(mat, model.getBandOffsets(), toBGR);
   }
 
   // Reads the samples in band order (R, G, B) through the Raster API: valid for any layout

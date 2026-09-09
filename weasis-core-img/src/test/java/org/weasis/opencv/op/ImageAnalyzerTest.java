@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
@@ -472,6 +473,21 @@ class ImageAnalyzerTest {
         var result = ImageAnalyzer.getMaskImage(img, outsideShape, null, null);
 
         assertTrue(result.isEmpty());
+      }
+    }
+
+    @Test
+    void get_mask_image_aligns_mask_when_shape_starts_outside_image() {
+      try (var img = TestImages.uniform(new Size(10, 10), CvType.CV_8UC1, 100)) {
+        var shape = new Rectangle(-5, 2, 10, 4);
+
+        var result = ImageAnalyzer.getMaskImage(img, shape, null, null);
+        var mask = result.get(1);
+
+        assertEquals(new Size(5, 4), mask.size());
+        assertEquals(20, Core.countNonZero(mask), "every cropped pixel lies inside the shape");
+        mask.release();
+        result.get(0).release();
       }
     }
   }
