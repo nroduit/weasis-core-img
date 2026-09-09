@@ -78,14 +78,17 @@ public final class ColorMapSampler {
       Rgba nan = map.outside().nan();
       return nan != null ? nan : Rgba.TRANSPARENT;
     }
-    double v = cyclic ? wrap(value) : value;
-    if (v < first && map.outside().low() != null) {
+    if (cyclic) {
+      double v = wrap(value);
+      return colorAt(v).withAlpha(alphaAt(v));
+    }
+    if (value < first && map.outside().low() != null) {
       return map.outside().low();
     }
-    if (v > last && map.outside().high() != null) {
+    if (value > last && map.outside().high() != null) {
       return map.outside().high();
     }
-    return colorAt(v).withAlpha(alphaAt(v));
+    return colorAt(value).withAlpha(alphaAt(value));
   }
 
   /** Shading coefficients at a domain value; {@link Material#DEFAULT} when no stop defines any. */
@@ -95,10 +98,16 @@ public final class ColorMapSampler {
     }
     double v = cyclic ? wrap(value) : value;
     int i = segment(materialPositions, v);
+    int n = materials.length;
+    if (isAcrossSeam(i, n)) {
+      return step
+          ? materials[n - 1]
+          : materials[n - 1].mix(materials[0], seam(materialPositions, v));
+    }
     if (i < 0) {
       return materials[0];
     }
-    if (step || i == materials.length - 1) {
+    if (step || i == n - 1) {
       return materials[i];
     }
     return materials[i].mix(materials[i + 1], fraction(materialPositions, i, v));
@@ -118,10 +127,16 @@ public final class ColorMapSampler {
       return Rgba.WHITE;
     }
     int i = segment(colorPositions, v);
+    int n = colors.length;
+    if (isAcrossSeam(i, n)) {
+      return step
+          ? colors[n - 1]
+          : map.space().mix(colors[n - 1], colors[0], seam(colorPositions, v));
+    }
     if (i < 0) {
       return colors[0];
     }
-    if (step || i == colors.length - 1) {
+    if (step || i == n - 1) {
       return colors[i];
     }
     return map.space().mix(colors[i], colors[i + 1], fraction(colorPositions, i, v));
@@ -132,14 +147,32 @@ public final class ColorMapSampler {
       return 1f;
     }
     int i = segment(alphaPositions, v);
+    int n = alphas.length;
+    if (isAcrossSeam(i, n)) {
+      float t = step ? 0f : (float) seam(alphaPositions, v);
+      return alphas[n - 1] + (alphas[0] - alphas[n - 1]) * t;
+    }
     if (i < 0) {
       return alphas[0];
     }
-    if (step || i == alphas.length - 1) {
+    if (step || i == n - 1) {
       return alphas[i];
     }
     float t = (float) fraction(alphaPositions, i, v);
     return alphas[i] + (alphas[i + 1] - alphas[i]) * t;
+  }
+
+  // A cyclic curve continues from its last stop to its first one across the domain end
+  private boolean isAcrossSeam(int segmentIndex, int stopCount) {
+    return cyclic && stopCount > 1 && (segmentIndex < 0 || segmentIndex == stopCount - 1);
+  }
+
+  private double seam(double[] positions, double v) {
+    double span = map.domain().span();
+    double lastPosition = positions[positions.length - 1];
+    double gap = positions[0] + span - lastPosition;
+    double offset = v >= lastPosition ? v - lastPosition : v + span - lastPosition;
+    return gap > 0 ? offset / gap : 0.0;
   }
 
   private static double fraction(double[] positions, int i, double v) {

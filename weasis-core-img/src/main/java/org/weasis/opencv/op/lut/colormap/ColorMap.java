@@ -113,10 +113,13 @@ public record ColorMap(
   /** Sampled map from a {@code [3][n]} table in B, G, R order, the {@link ByteLut} layout. */
   public static ColorMap fromBgrTable(String name, byte[][] bgr) {
     Objects.requireNonNull(bgr, "Table cannot be null");
-    if (bgr.length < 3 || bgr[0].length < 2) {
+    if (bgr.length < 3 || bgr[0] == null || bgr[0].length < 2) {
       throw new IllegalArgumentException("Table must have 3 bands of at least 2 entries");
     }
     int n = bgr[0].length;
+    if (bgr[1] == null || bgr[1].length != n || bgr[2] == null || bgr[2].length != n) {
+      throw new IllegalArgumentException("Table bands must have the same length");
+    }
     var stops = new ArrayList<ColorStop>(n);
     for (int i = 0; i < n; i++) {
       var color =

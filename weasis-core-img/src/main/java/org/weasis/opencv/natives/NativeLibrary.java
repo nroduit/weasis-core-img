@@ -78,6 +78,7 @@ public final class NativeLibrary {
    * Loads the OpenCV native library from an absolute path. Repeat calls are no-ops.
    *
    * @param absolutePath the absolute path to the native library
+   * @throws UnsatisfiedLinkError if the library cannot be loaded; a later call may retry
    */
   public static void loadLibraryFromAbsolutePath(Path absolutePath) {
     loadLibrary(() -> System.load(absolutePath.toAbsolutePath().toString()));
@@ -85,6 +86,8 @@ public final class NativeLibrary {
 
   /**
    * Loads the OpenCV native library by name from the system library path. Repeat calls are no-ops.
+   *
+   * @throws UnsatisfiedLinkError if the library cannot be loaded; a later call may retry
    */
   public static void loadLibraryFromLibraryName() {
     loadLibrary(() -> System.loadLibrary(Core.NATIVE_LIBRARY_NAME));
@@ -95,14 +98,9 @@ public final class NativeLibrary {
       return;
     }
     synchronized (LIBRARY_LOCK) {
-      if (libraryLoaded) {
-        return;
-      }
-      try {
+      if (!libraryLoaded) {
         loader.run();
         libraryLoaded = true;
-      } catch (Throwable e) {
-        System.err.println("Cannot load OpenCV native library: " + e.getMessage());
       }
     }
   }

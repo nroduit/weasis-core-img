@@ -441,4 +441,15 @@ class LookupTableCVTest {
     }
     return array;
   }
+
+  @Test
+  void lookup_rejects_multi_band_table_on_image_with_other_channel_count() {
+    var lut = new LookupTableCV(new byte[3][256]);
+    try (var twoChannels = new ImageCV(new Size(2, 2), CvType.CV_8UC2);
+        var fourChannels = new ImageCV(new Size(1, 1), CvType.CV_8UC4)) {
+      assertAll(
+          () -> assertThrows(IllegalArgumentException.class, () -> lut.lookup(twoChannels)),
+          () -> assertThrows(IllegalArgumentException.class, () -> lut.lookup(fourChannels)));
+    }
+  }
 }

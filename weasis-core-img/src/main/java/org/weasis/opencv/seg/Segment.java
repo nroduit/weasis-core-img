@@ -59,11 +59,13 @@ public class Segment extends ArrayList<Point2D> {
    * @param forceClose whether to close the segment by duplicating the first point
    */
   public void setPoints(Collection<? extends Point2D> point2DList, boolean forceClose) {
-    clear();
     if (point2DList == null || point2DList.isEmpty()) {
+      clear();
       return;
     }
-    addAll(point2DList);
+    var points = new ArrayList<Point2D>(point2DList); // May be this segment or a view of it
+    clear();
+    addAll(points);
     if (forceClose && isOpenSegment()) {
       Point2D firstPoint = get(0);
       add(new Point2D.Double(firstPoint.getX(), firstPoint.getY()));

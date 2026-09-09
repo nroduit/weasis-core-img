@@ -291,6 +291,21 @@ class RegionTest {
 
       assertTrue(segments.isEmpty());
     }
+
+    @Test
+    void should_reject_hierarchy_smaller_than_contour_list() {
+      var contours = List.of(createMatOfPoint(), createMatOfPoint());
+
+      assertAll(
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> Region.buildSegmentList(contours, createBasicHierarchy())),
+          () ->
+              assertThrows(
+                  IllegalArgumentException.class,
+                  () -> Region.buildSegmentList(contours, new Mat())));
+    }
   }
 
   @Nested

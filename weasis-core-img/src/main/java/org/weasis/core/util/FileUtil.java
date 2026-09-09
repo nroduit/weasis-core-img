@@ -374,16 +374,16 @@ public final class FileUtil {
   }
 
   /**
-   * Write inputStream content to a file, failing when nothing could be written.
+   * Write inputStream content to a file, failing when the copy does not complete.
    *
    * @param inputStream the input stream
    * @param outPath the output file path
-   * @throws StreamIOException if an I/O error occurs or write fails
+   * @throws StreamIOException if an I/O error occurs or the copy is interrupted
    */
   public static void writeStreamWithIOException(InputStream inputStream, Path outPath)
       throws StreamIOException {
     int result = writeStream(inputStream, outPath, true);
-    if (result == 0) {
+    if (result != -1) {
       throw new StreamIOException("Failed to write stream to file: " + outPath);
     }
   }

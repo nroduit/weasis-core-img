@@ -334,7 +334,8 @@ public final class ImageIOHandler {
       int originalWidth, int originalHeight, int maxSize) {
     var scale = Math.min(maxSize / (double) originalHeight, (double) maxSize / originalWidth);
     return scale < 1.0
-        ? new Dimension((int) (scale * originalWidth), (int) (scale * originalHeight))
+        ? new Dimension(
+            Math.max(1, (int) (scale * originalWidth)), Math.max(1, (int) (scale * originalHeight)))
         : new Dimension(originalWidth, originalHeight);
   }
 

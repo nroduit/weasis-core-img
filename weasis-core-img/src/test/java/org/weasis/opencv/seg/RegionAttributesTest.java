@@ -74,7 +74,7 @@ class RegionAttributesTest {
               new PrefixTest("ab-cd", "ab-cd"), // Too short prefix
               new PrefixTest("abc def", "abc def"), // Exactly at boundary
               new PrefixTest("abcd efg", "abcd"), // Valid prefix
-              new PrefixTest("no_separators_here", "no_separators_here")));
+              new PrefixTest("no_separators_here", "no_separators"))); // First '_' too early
     }
   }
 
@@ -639,5 +639,21 @@ class RegionAttributesTest {
                         assertDoesNotThrow(() -> attributes.getPrefix());
                       }));
     }
+  }
+
+  @Test
+  void get_color_falls_back_to_lut_for_out_of_range_components() {
+    var fallback = RegionAttributes.getColor(null, 1);
+
+    assertAll(
+        () -> assertEquals(fallback, RegionAttributes.getColor(new int[] {256, 0, 0}, 1)),
+        () -> assertEquals(fallback, RegionAttributes.getColor(new int[] {-1, 128, 64}, 1)));
+  }
+
+  @Test
+  void get_prefix_uses_first_separator_after_minimum_length() {
+    assertAll(
+        () -> assertEquals("ab c", new RegionAttributes(1, "ab c_Liver").getPrefix()),
+        () -> assertEquals("ab c", new RegionAttributes(2, "ab c Liver").getPrefix()));
   }
 }

@@ -233,6 +233,15 @@ class ImageIOHandlerTest {
     }
   }
 
+  @Test
+  void build_thumbnail_keeps_at_least_one_pixel_for_thin_images() {
+    try (var image = new ImageCV(5000, 1, CvType.CV_8UC1, new Scalar(10));
+        var thumbnail = ImageIOHandler.buildThumbnail(image, new Dimension(100, 100), true)) {
+      assertEquals(1, thumbnail.cols());
+      assertEquals(100, thumbnail.rows());
+    }
+  }
+
   // === Thumbnail Tests ===
 
   @Test

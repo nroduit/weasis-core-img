@@ -616,6 +616,30 @@ class FileUtilTest {
       assertDoesNotThrow(() -> FileUtil.writeStreamWithIOException(inputStream, testFile));
       assertTrue(Files.exists(testFile));
     }
+
+    @Test
+    void should_throw_when_stream_copy_is_interrupted_after_some_bytes() {
+      var testFile = tempDir.resolve("interrupted.dat");
+      var inputStream =
+          new InputStream() {
+            private int count;
+
+            @Override
+            public int read() throws IOException {
+              if (count++ < 5) {
+                return 'x';
+              }
+              var exception = new InterruptedIOException("Simulated interruption");
+              exception.bytesTransferred = 5;
+              throw exception;
+            }
+          };
+
+      assertThrows(
+          StreamIOException.class,
+          () -> FileUtil.writeStreamWithIOException(inputStream, testFile));
+      assertFalse(Files.exists(testFile));
+    }
   }
 
   @Nested

@@ -340,7 +340,7 @@ public final class ImageAnalyzer {
   }
 
   private static boolean is8BitImage(PlanarImage img) {
-    return CvType.depth(img.type()) <= 1;
+    return CvType.depth(img.type()) == CvType.CV_8U;
   }
 
   private static MinMaxLocResult create8BitDefaultResult() {

@@ -490,6 +490,18 @@ class ImageAnalyzerTest {
         result.get(0).release();
       }
     }
+
+    @Test
+    void find_raw_min_max_computes_signed_8bit_range() {
+      try (var img = new ImageCV(4, 4, CvType.CV_8SC1, new Scalar(-100))) {
+        img.put(0, 0, new byte[] {20});
+
+        var result = ImageAnalyzer.findRawMinMaxValues(img, true);
+
+        assertEquals(-100.0, result.minVal);
+        assertEquals(20.0, result.maxVal);
+      }
+    }
   }
 
   @Nested

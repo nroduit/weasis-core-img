@@ -618,6 +618,12 @@ public final class EscapeChars {
 
     for (int i = 0; i < chars.length; i++) {
       char ch = chars[i];
+      if (Character.isHighSurrogate(ch)
+          && i + 1 < chars.length
+          && Character.isLowSurrogate(chars[i + 1])) {
+        i++; // A valid pair is a supplementary character, allowed in XML
+        continue;
+      }
       String encoded = encodingMap.get(ch);
 
       if (encoded != null || (isXmlEncoding && isInvalidXml(ch))) {

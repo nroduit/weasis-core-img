@@ -63,15 +63,26 @@ public final class ColorMapEdits {
     }
     ColorMapDomain domain = map.domain();
     ColorMapSampler sampler = map.sampler();
+    var samples = new Rgba[bands];
+    // Outside colors can make a band translucent even when the map has no alpha curve
     boolean alpha = map.hasAlpha();
-    var stops = new ArrayList<ColorStop>(bands);
     for (int i = 0; i < bands; i++) {
-      double start = domain.denormalize((double) i / bands);
-      Rgba sample = sampler.sample(domain.denormalize((i + 0.5) / bands));
+      samples[i] = sampler.sample(domain.denormalize((i + 0.5) / bands));
+      alpha |= samples[i].alpha() < 1f;
+    }
+    var stops = new ArrayList<ColorStop>(bands + 1);
+    for (int i = 0; i < bands; i++) {
+      Rgba sample = samples[i];
       stops.add(
           new ColorStop(
-              start, sample.withAlpha(1f).toColor(), alpha ? sample.alpha() : null, null, null));
+              domain.denormalize((double) i / bands),
+              sample.withAlpha(1f).toColor(),
+              alpha ? sample.alpha() : null,
+              null,
+              null));
     }
+    // Closes the top band at the range end, so it is not sampled as an outside value
+    stops.add(stops.get(bands - 1).withPosition(domain.denormalize(1.0)));
     return map.toBuilder().interpolation(Interpolation.STEP).stops(stops).build();
   }
 
@@ -96,16 +107,21 @@ public final class ColorMapEdits {
 
   /**
    * Takes the color curve of {@code palette}, stretched over the map's default range, and keeps the
-   * map's alpha curve and metadata.
+   * map's alpha curve, materials and metadata.
    */
   public static ColorMap withPalette(ColorMap map, ColorMap palette) {
     Objects.requireNonNull(palette, "Palette cannot be null");
     ColorMapDomain target = map.domain();
     ColorMapDomain source = palette.domain();
+    ColorMapSampler sampler = map.sampler();
     var stops = new ArrayList<ColorStop>();
     for (ColorStop stop : map.stops()) {
       if (stop.hasAlpha()) {
-        stops.add(stop.withColor(null).withMaterial(null));
+        stops.add(stop.withColor(null));
+      } else if (stop.hasMaterial()) {
+        // A stop without color needs an alpha; the map's own value keeps the curve unchanged
+        float alpha = sampler.sample(stop.position()).alpha();
+        stops.add(stop.withAlpha(alpha).withColor(null));
       }
     }
     for (ColorStop stop : palette.stops()) {

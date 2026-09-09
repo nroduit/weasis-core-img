@@ -9,14 +9,15 @@
  */
 package org.weasis.core.util;
 
-import java.io.Serial;
-import java.io.Serializable;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -33,13 +34,11 @@ import java.util.Set;
  * @param <V> the type of values held by this map (must not be null)
  * @author Nicolas Roduit
  */
-public final class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serializable {
+public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
 
-  @Serial private static final long serialVersionUID = 1L;
-
-  private final transient Map<K, SoftReference<V>> primaryMap = new HashMap<>();
-  private final transient Map<SoftReference<V>, K> reverseLookup = new HashMap<>();
-  private final transient ReferenceQueue<V> referenceQueue = new ReferenceQueue<>();
+  private final Map<K, SoftReference<V>> primaryMap = new HashMap<>();
+  private final Map<SoftReference<V>, K> reverseLookup = new HashMap<>();
+  private final ReferenceQueue<V> referenceQueue = new ReferenceQueue<>();
 
   @Override
   public V get(Object key) {
@@ -114,19 +113,64 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> implements Serial
     return primaryMap.containsKey(key);
   }
 
+  /** A view backed by the map: removals through it, its iterator, keySet() or values() apply. */
   @Override
   public Set<Entry<K, V>> entrySet() {
+    return new AbstractSet<>() {
+      @Override
+      public Iterator<Entry<K, V>> iterator() {
+        return new EntryIterator();
+      }
+
+      @Override
+      public int size() {
+        return SoftHashMap.this.size();
+      }
+
+      @Override
+      public void clear() {
+        SoftHashMap.this.clear();
+      }
+    };
+  }
+
+  // Strong snapshot of the reachable entries, so values cannot vanish during an iteration
+  private List<Entry<K, V>> liveEntries() {
     expungeStaleEntries();
-    return primaryMap.entrySet().stream()
-        .map(
-            entry -> {
-              var key = entry.getKey();
-              var value = entry.getValue().get();
-              return key != null && value != null ? Map.entry(key, value) : null;
-            })
-        .filter(Objects::nonNull)
-        .map(entry -> new SoftEntry<>(entry.getKey(), entry.getValue(), this))
-        .collect(LinkedHashSet::new, Set::add, Set::addAll);
+    var entries = new ArrayList<Entry<K, V>>(primaryMap.size());
+    primaryMap.forEach(
+        (key, ref) -> {
+          var value = ref.get();
+          if (value != null) {
+            entries.add(new SoftEntry<>(key, value, this));
+          }
+        });
+    return entries;
+  }
+
+  private final class EntryIterator implements Iterator<Entry<K, V>> {
+    private final Iterator<Entry<K, V>> snapshot = liveEntries().iterator();
+    private Entry<K, V> current;
+
+    @Override
+    public boolean hasNext() {
+      return snapshot.hasNext();
+    }
+
+    @Override
+    public Entry<K, V> next() {
+      current = snapshot.next();
+      return current;
+    }
+
+    @Override
+    public void remove() {
+      if (current == null) {
+        throw new IllegalStateException();
+      }
+      SoftHashMap.this.remove(current.getKey());
+      current = null;
+    }
   }
 
   @Override

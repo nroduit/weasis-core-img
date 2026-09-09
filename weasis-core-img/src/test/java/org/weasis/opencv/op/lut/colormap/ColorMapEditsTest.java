@@ -88,7 +88,7 @@ class ColorMapEditsTest {
 
     assertAll(
         () -> assertEquals(Interpolation.STEP, out.interpolation()),
-        () -> assertEquals(List.of(0.0, 250.0, 500.0, 750.0), positions(out)),
+        () -> assertEquals(List.of(0.0, 250.0, 500.0, 750.0, 1000.0), positions(out)),
         () ->
             assertEquals(
                 HU.sample(125).toColor().getRGB() & 0xffffff,
@@ -177,5 +177,52 @@ class ColorMapEditsTest {
       assertTrue(seen.add(preset.material()), preset.name());
       assertTrue(preset.specularPower() > 0f);
     }
+  }
+
+  @Test
+  void discretized_keeps_top_band_in_range_and_outside_transparency() {
+    ColorMap full =
+        ColorMap.builder("HU")
+            .domain(ColorMapDomain.absolute("HU", 0, 1000))
+            .outside(OutsideColors.TRANSPARENT)
+            .stop(0, Color.BLACK)
+            .stop(1000, Color.WHITE)
+            .build();
+    ColorMap partial =
+        ColorMap.builder("HU")
+            .domain(ColorMapDomain.absolute("HU", 0, 1000))
+            .outside(OutsideColors.TRANSPARENT)
+            .stop(300, Color.RED)
+            .stop(1000, Color.WHITE)
+            .build();
+
+    ColorMap fullBands = ColorMapEdits.discretized(full, 4);
+    ColorMap partialBands = ColorMapEdits.discretized(partial, 4);
+
+    assertAll(
+        () -> assertEquals(1f, fullBands.sample(900).alpha()),
+        () -> assertEquals(fullBands.sample(750), fullBands.sample(1000)),
+        () -> assertEquals(0f, partialBands.sample(125).alpha()),
+        () -> assertEquals(1f, partialBands.sample(900).alpha()));
+  }
+
+  @Test
+  void with_palette_keeps_materials_and_alpha() {
+    ColorMap map =
+        ColorMap.builder("CT")
+            .type(ColorMapType.TRANSFER)
+            .domain(ColorMapDomain.absolute("HU", -1000, 1000))
+            .stop(new ColorStop(-100, Color.BLACK, 0f, MaterialPreset.BONE.material(), null))
+            .stop(new ColorStop(500, Color.WHITE, null, MaterialPreset.SKIN.material(), null))
+            .build();
+    ColorMap palette =
+        ColorMap.builder("BlueGreen").stop(0, Color.BLUE).stop(1, Color.GREEN).build();
+
+    ColorMap out = ColorMapEdits.withPalette(map, palette);
+
+    assertAll(
+        () -> assertEquals(MaterialPreset.BONE.material(), out.sampler().material(-500)),
+        () -> assertEquals(MaterialPreset.SKIN.material(), out.sampler().material(600)),
+        () -> assertEquals(map.sample(200).alpha(), out.sample(200).alpha(), 1e-6f));
   }
 }

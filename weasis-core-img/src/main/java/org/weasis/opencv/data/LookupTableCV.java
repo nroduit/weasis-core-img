@@ -202,6 +202,8 @@ public final class LookupTableCV {
    *
    * @param src source image matrix (8 or 16 bits)
    * @return transformed image
+   * @throws IllegalArgumentException if the table and the image both have several bands, in
+   *     different numbers
    */
   public ImageCV lookup(Mat src) {
     Objects.requireNonNull(src, "Source Mat cannot be null.");
@@ -273,6 +275,10 @@ public final class LookupTableCV {
   // A table with fewer bands than the image channels is repeated for every channel
   private LutContext prepareLutContext(int channels) {
     int numBands = getNumBands();
+    if (numBands != channels && numBands != 1 && channels != 1) {
+      throw new IllegalArgumentException(
+          "A " + numBands + "-band table cannot be applied to a " + channels + "-channel image");
+    }
     int[] tblOffsets = getOffsets();
     byte[][] bTblData = getByteData();
     short[][] sTblData = getShortData();

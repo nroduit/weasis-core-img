@@ -488,5 +488,17 @@ class SegmentTest {
           () -> assertEquals(BASIC_POINTS.point1(), segment.get(0)),
           () -> assertEquals(BASIC_POINTS.point2(), segment.get(1)));
     }
+
+    @Test
+    void set_points_accepts_the_segment_itself() {
+      var segment =
+          new Segment(
+              List.of(
+                  new Point2D.Double(0, 0), new Point2D.Double(10, 0), new Point2D.Double(10, 10)));
+
+      segment.setPoints(segment, true);
+
+      assertEquals(4, segment.size());
+    }
   }
 }

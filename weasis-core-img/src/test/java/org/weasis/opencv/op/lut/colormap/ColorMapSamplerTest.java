@@ -190,4 +190,19 @@ class ColorMapSamplerTest {
     assertRgba(new Rgba(0.5f, 0f, 0.5f, 1f), map.sample(50));
     assertEquals(0.5, map.domain().normalize(60), 1e-9);
   }
+
+  @Test
+  void cyclic_maps_blend_across_the_domain_seam() {
+    ColorMap map =
+        ColorMap.builder("Phase")
+            .type(ColorMapType.CYCLIC)
+            .stop(0.25, Color.RED)
+            .stop(0.75, Color.BLUE)
+            .build();
+
+    assertAll(
+        () -> assertRgba(new Rgba(0.5f, 0f, 0.5f, 1f), map.sample(0.0)),
+        () -> assertRgba(map.sample(0.1), map.sample(1.1)),
+        () -> assertEquals(map.sample(0.0).red(), map.sample(0.999).red(), 0.01f));
+  }
 }

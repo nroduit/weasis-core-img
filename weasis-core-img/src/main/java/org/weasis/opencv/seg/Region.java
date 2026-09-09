@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
@@ -168,13 +169,21 @@ public class Region {
     }
   }
 
-  /** Builds segments from MatOfPoint2f contours with hierarchical relationships. */
+  /**
+   * Builds segments from MatOfPoint2f contours with hierarchical relationships.
+   *
+   * @throws IllegalArgumentException if the hierarchy does not hold 4 int values per contour
+   */
   public static List<Segment> buildSegmentListFromFloat(
       List<MatOfPoint2f> contours, Mat hierarchy) {
     return buildSegmentListFromContours(contours, hierarchy);
   }
 
-  /** Builds segments from MatOfPoint contours with hierarchical relationships. */
+  /**
+   * Builds segments from MatOfPoint contours with hierarchical relationships.
+   *
+   * @throws IllegalArgumentException if the hierarchy does not hold 4 int values per contour
+   */
   public static List<Segment> buildSegmentList(List<MatOfPoint> contours, Mat hierarchy) {
     return buildSegmentListFromContours(contours, hierarchy);
   }
@@ -185,6 +194,10 @@ public class Region {
       return List.of();
     }
     int count = contours.size();
+    if (CvType.depth(hierarchy.type()) != CvType.CV_32S
+        || hierarchy.total() * hierarchy.channels() < 4L * count) {
+      throw new IllegalArgumentException("Hierarchy must hold 4 int values per contour");
+    }
     // One native read for the whole hierarchy: 4 ints per contour
     var hierarchyData = new int[count * 4];
     hierarchy.get(0, 0, hierarchyData);

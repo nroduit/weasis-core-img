@@ -166,8 +166,8 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
     }
     int earliest = label.length();
     for (String sep : LABEL_SEPARATORS) {
-      int idx = label.indexOf(sep);
-      if (idx > MIN_PREFIX_LENGTH && idx < earliest) {
+      int idx = label.indexOf(sep, MIN_PREFIX_LENGTH + 1);
+      if (idx >= 0 && idx < earliest) {
         earliest = idx;
       }
     }
@@ -260,7 +260,15 @@ public class RegionAttributes implements Comparable<RegionAttributes> {
   }
 
   private static boolean isValidColorArray(int[] colorRgb) {
-    return colorRgb != null && colorRgb.length >= 3;
+    return colorRgb != null
+        && colorRgb.length >= 3
+        && isColorComponent(colorRgb[0])
+        && isColorComponent(colorRgb[1])
+        && isColorComponent(colorRgb[2]);
+  }
+
+  private static boolean isColorComponent(int value) {
+    return value >= 0 && value <= 255;
   }
 
   private static Color generateColorFromLut(int contourID, int alphaValue) {

@@ -421,6 +421,18 @@ class EscapeCharsTest {
         .map(entry -> Arguments.of(entry.getKey(), entry.getValue()));
   }
 
+  @Test
+  void forXML_keeps_supplementary_characters_and_drops_unpaired_surrogates() {
+    var emoji = new String(Character.toChars(0x1F600));
+    var cjkExtB = new String(Character.toChars(0x20000));
+
+    assertAll(
+        () -> assertEquals("a" + emoji + "b", EscapeChars.forXML("a" + emoji + "b")),
+        () -> assertEquals(cjkExtB, EscapeChars.forXML(cjkExtB)),
+        () -> assertEquals("ab", EscapeChars.forXML("a\uD800b")),
+        () -> assertEquals("ab", EscapeChars.forXML("a\uDC00b")));
+  }
+
   static Stream<String> safeCharacterData() {
     return SAFE_CHARACTERS.stream();
   }

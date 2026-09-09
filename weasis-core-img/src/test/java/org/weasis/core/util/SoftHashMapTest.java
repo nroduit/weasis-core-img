@@ -317,18 +317,15 @@ class SoftHashMapTest {
     }
 
     @Test
-    void should_create_independent_entry_set_snapshots() {
+    void should_return_entry_set_view_reflecting_later_changes() {
       SAMPLE_DATA.forEach(softHashMap::put);
 
-      var entrySet1 = softHashMap.entrySet();
-      var entrySet2 = softHashMap.entrySet();
+      var entrySet = softHashMap.entrySet();
 
       softHashMap.put("new-key", "new-value");
 
-      // Entry sets are snapshots and shouldn't reflect new additions
       assertAll(
-          () -> assertEquals(SAMPLE_DATA.size(), entrySet1.size()),
-          () -> assertEquals(SAMPLE_DATA.size(), entrySet2.size()),
+          () -> assertEquals(SAMPLE_DATA.size() + 1, entrySet.size()),
           () -> assertEquals(SAMPLE_DATA.size() + 1, softHashMap.size()));
     }
   }
@@ -518,5 +515,36 @@ class SoftHashMapTest {
             "30"), // Extra entry
         Map.of(), // Empty map
         Map.of("different", "content", "entirely", "different"));
+  }
+
+  @Test
+  void views_remove_entries_from_the_map() {
+    var map = new SoftHashMap<String, String>();
+    map.put("a", "1");
+    map.put("b", "2");
+    map.put("c", "3");
+
+    assertTrue(map.keySet().remove("a"));
+    assertTrue(map.values().removeIf("2"::equals));
+
+    assertAll(
+        () -> assertEquals(Map.of("c", "3"), new HashMap<>(map)),
+        () -> assertNull(map.get("a")),
+        () -> assertNull(map.get("b")));
+
+    map.entrySet().clear();
+    assertTrue(map.isEmpty());
+  }
+
+  @Test
+  void entry_iterator_remove_requires_next() {
+    var map = new SoftHashMap<String, String>();
+    map.put("a", "1");
+    var iterator = map.entrySet().iterator();
+
+    assertThrows(IllegalStateException.class, iterator::remove);
+    iterator.next();
+    iterator.remove();
+    assertTrue(map.isEmpty());
   }
 }

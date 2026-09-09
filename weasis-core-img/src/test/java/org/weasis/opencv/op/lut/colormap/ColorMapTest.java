@@ -273,4 +273,18 @@ class ColorMapTest {
                 IllegalArgumentException.class,
                 () -> ColorMap.builder("---").stop(0, Color.RED).build()));
   }
+
+  @Test
+  void from_bgr_table_rejects_short_or_missing_bands() {
+    byte[][] shortGreen = {new byte[256], new byte[10], new byte[256]};
+    byte[][] missingRed = {new byte[256], new byte[256], null};
+
+    assertAll(
+        () ->
+            assertThrows(
+                IllegalArgumentException.class, () -> ColorMap.fromBgrTable("x", shortGreen)),
+        () ->
+            assertThrows(
+                IllegalArgumentException.class, () -> ColorMap.fromBgrTable("x", missingRed)));
+  }
 }
