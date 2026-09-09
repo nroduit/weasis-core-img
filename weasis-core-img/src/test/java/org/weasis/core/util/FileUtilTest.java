@@ -66,6 +66,11 @@ class FileUtilTest {
     }
 
     @Test
+    void should_remove_c1_control_characters_and_keep_other_non_ascii() {
+      assertEquals("abcé", FileUtil.getValidFileName("abcé"));
+    }
+
+    @Test
     void should_trim_whitespace_from_filename() {
       assertEquals("filename", FileUtil.getValidFileName("  filename  "));
     }
@@ -152,6 +157,14 @@ class FileUtilTest {
     void should_handle_null_directory_gracefully() {
       var files = new ArrayList<Path>();
       FileUtil.getAllFilesInDirectory(null, files);
+
+      assertTrue(files.isEmpty());
+    }
+
+    @Test
+    void should_ignore_a_regular_file_given_as_directory() {
+      var files = new ArrayList<Path>();
+      FileUtil.getAllFilesInDirectory(tempDir.resolve("file1.txt"), files, false);
 
       assertTrue(files.isEmpty());
     }

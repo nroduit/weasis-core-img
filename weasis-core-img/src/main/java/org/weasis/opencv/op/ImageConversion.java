@@ -369,13 +369,29 @@ public final class ImageConversion {
       mat = new ImageCV(rows, cols, CvType.CV_64FC(bands));
       mat.put(0, 0, raster.getPixels(x, y, cols, rows, (double[]) null));
     } else {
-      try (var samples = new ImageCV(rows, cols, CvType.CV_32SC(bands))) {
-        samples.put(0, 0, raster.getPixels(x, y, cols, rows, (int[]) null));
-        mat = new ImageCV();
-        samples.convertTo(mat, CvType.makeType(integerDepth(raster, forceShortType), bands));
+      int[] pixels = raster.getPixels(x, y, cols, rows, (int[]) null);
+      int depth = integerDepth(raster, forceShortType);
+      if (depth == CvType.CV_16U || depth == CvType.CV_16S) {
+        // Keeps the 16 bits as stored, like the packed path, instead of saturating on conversion
+        mat = new ImageCV(rows, cols, CvType.makeType(depth, bands));
+        mat.put(0, 0, toShorts(pixels));
+      } else {
+        try (var samples = new ImageCV(rows, cols, CvType.CV_32SC(bands))) {
+          samples.put(0, 0, pixels);
+          mat = new ImageCV();
+          samples.convertTo(mat, CvType.makeType(depth, bands));
+        }
       }
     }
     return toBGR && bands == 3 ? swapRedBlue(mat) : mat;
+  }
+
+  private static short[] toShorts(int[] pixels) {
+    var shorts = new short[pixels.length];
+    for (int i = 0; i < pixels.length; i++) {
+      shorts[i] = (short) pixels[i];
+    }
+    return shorts;
   }
 
   private static int integerDepth(Raster raster, boolean forceShortType) {

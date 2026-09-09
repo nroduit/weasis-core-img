@@ -66,7 +66,9 @@ public final class ImageAnalyzer {
    * @param paddingValue the starting value to exclude (applied only with single channel images)
    * @param paddingLimit the last value to exclude. If null, only paddingValue is excluded
    * @return list containing the source and mask images, or empty list if no intersection. The
-   *     caller owns the returned Mats and releases them.
+   *     first element is {@code source} itself when {@code shape} is null; the mask is null when
+   *     there is neither a shape nor a padding to exclude. The caller releases only the elements
+   *     that are non-null and not {@code source}.
    */
   public static List<Mat> getMaskImage(
       Mat source, Shape shape, Integer paddingValue, Integer paddingLimit) {

@@ -20,8 +20,6 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -62,7 +60,7 @@ public final class FileUtil {
   }
 
   private static boolean isValidFileNameChar(char c) {
-    return c < 128 ? VALID_ASCII[c] : c >= ' ';
+    return c < 128 ? VALID_ASCII[c] : c >= '\u00a0';
   }
 
   /**
@@ -149,7 +147,7 @@ public final class FileUtil {
    * @param recursive true to include subdirectories
    */
   public static void getAllFilesInDirectory(Path directory, List<Path> files, boolean recursive) {
-    if (directory == null || files == null) {
+    if (files == null || isNotDirectory(directory)) {
       return;
     }
     // The visitor receives the attributes of the listing: no extra stat per entry
@@ -175,8 +173,6 @@ public final class FileUtil {
           EnumSet.of(FileVisitOption.FOLLOW_LINKS),
           recursive ? Integer.MAX_VALUE : 1,
           visitor);
-    } catch (NotDirectoryException | NoSuchFileException e) {
-      LOGGER.debug("Not a directory: {}", directory);
     } catch (IOException e) {
       LOGGER.warn("Failed to list directory contents: {}", directory, e);
     }

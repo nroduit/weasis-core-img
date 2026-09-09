@@ -74,4 +74,9 @@ public interface WlParams extends WlPresentation {
    * @return the LUT shape configuration
    */
   LutShape getLutShape();
+
+  /** Bit depth of the windowed output: 8 for a byte image, up to 16 for a wide index image. */
+  default int getOutputBits() {
+    return 8;
+  }
 }

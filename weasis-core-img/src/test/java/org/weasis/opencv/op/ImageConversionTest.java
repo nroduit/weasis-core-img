@@ -539,6 +539,20 @@ class ImageConversionTest {
       }
     }
 
+    @Test
+    void should_keep_forced_short_bits_whatever_the_raster_layout() {
+      var image = new BufferedImage(4, 4, BufferedImage.TYPE_USHORT_GRAY);
+      image.getRaster().setSample(1, 1, 0, 0xFFFF);
+      var subImage = image.getSubimage(1, 1, 2, 2);
+
+      try (var packed = ImageConversion.toMat(image, null, false, true);
+          var sampled = ImageConversion.toMat(subImage, null, false, true)) {
+        assertEquals(CvType.CV_16SC1, sampled.type());
+        assertEquals(-1.0, packed.get(1, 1)[0]);
+        assertEquals(-1.0, sampled.get(0, 0)[0]);
+      }
+    }
+
     private BufferedImage create_test_color_image() {
       var image = new BufferedImage(10, 10, BufferedImage.TYPE_3BYTE_BGR);
       var g2d = image.createGraphics();

@@ -44,6 +44,11 @@ class ColorMapTest {
         () -> assertEquals(Interpolation.LINEAR, map.interpolation()),
         () -> assertEquals(OutsideColors.CLAMP, map.outside()),
         () -> assertEquals(null, map.lighting()),
+        () -> assertTrue(map.metadata().isEmpty()),
+        () -> assertEquals("gray", map.id()),
+        () -> assertEquals(null, map.category()),
+        () -> assertTrue(map.tags().isEmpty()),
+        () -> assertFalse(map.hidden()),
         () -> assertFalse(map.hasAlpha()),
         () -> assertFalse(map.hasMaterial()));
   }
@@ -167,6 +172,24 @@ class ColorMapTest {
   }
 
   @Test
+  void reversed_keeps_hard_edges() {
+    ColorMap map =
+        ColorMap.builder("Edge")
+            .stop(0, Color.RED)
+            .stop(0.5, Color.RED)
+            .stop(0.5, Color.BLUE)
+            .stop(1, Color.BLUE)
+            .build();
+
+    ColorMap reversed = map.reversed();
+
+    assertAll(
+        () -> assertEquals(Rgba.of(Color.BLUE), reversed.sample(0.25)),
+        () -> assertEquals(Rgba.of(Color.RED), reversed.sample(0.75)),
+        () -> assertEquals(map, reversed.reversed()));
+  }
+
+  @Test
   void from_byte_lut_round_trips_every_built_in_lut() {
     for (ColorLut lut : ColorLut.values()) {
       ByteLut original = lut.getByteLut();
@@ -205,11 +228,49 @@ class ColorMapTest {
             .stop(500, Color.WHITE, 1f)
             .outside(OutsideColors.TRANSPARENT)
             .lighting(Lighting.DEFAULT)
+            .metadata(ColorMap.META_DICOM_UID, "1.2.3")
             .build();
 
     assertEquals(map, map.toBuilder().build());
+    assertEquals("1.2.3", map.metadata().get(ColorMap.META_DICOM_UID));
+    assertTrue(
+        map.toBuilder().metadata(ColorMap.META_DICOM_UID, null).build().metadata().isEmpty());
     assertEquals("Renamed", map.withName("Renamed").name());
     assertTrue(map.hasAlpha());
     assertTrue(map.hasMaterial());
+  }
+
+  @Test
+  void ids_keep_non_ascii_letters() {
+    ColorMap map = ColorMap.builder("血管 Ангио").stop(0, Color.RED).build();
+
+    assertEquals("血管-ангио", map.id());
+  }
+
+  @Test
+  void ids_are_stable_slugs_unless_given() {
+    ColorMap named = ColorMap.builder("PET SUV (test)").stop(0, Color.RED).build();
+    ColorMap given =
+        ColorMap.builder("PET SUV")
+            .id("weasis.pet-suv")
+            .category("Clinical")
+            .tags("pet")
+            .hidden(true)
+            .stop(0, Color.RED)
+            .build();
+
+    assertAll(
+        () -> assertEquals("pet-suv-test", named.id()),
+        () -> assertEquals("weasis.pet-suv", given.id()),
+        () -> assertEquals("weasis.pet-suv", given.withName("Renamed").id()),
+        () -> assertEquals("other", given.withId("other").id()),
+        () -> assertEquals("Clinical", given.category()),
+        () -> assertEquals(Set.of("pet"), given.tags()),
+        () -> assertTrue(given.hidden()),
+        () -> assertEquals("legacy.hue", ColorMap.fromByteLut(ColorLut.HUE.getByteLut()).id()),
+        () ->
+            assertThrows(
+                IllegalArgumentException.class,
+                () -> ColorMap.builder("---").stop(0, Color.RED).build()));
   }
 }
