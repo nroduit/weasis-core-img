@@ -336,38 +336,69 @@ class ZipUtilTest {
     }
 
     @Test
-    void should_reject_entry_with_suspicious_compression_ratio() {
-      // The threshold is strictly > MAX_COMPRESSION_RATIO. A ratio of exactly
-      // MAX_COMPRESSION_RATIO + 1 must trip the check; MAX_COMPRESSION_RATIO must not.
-      var bomb = new ZipEntry("bomb.bin");
-      bomb.setCompressedSize(1);
-      bomb.setSize(ZipUtil.MAX_COMPRESSION_RATIO + 1);
+    void should_reject_zip_bomb_from_path() throws IOException {
+      var bomb = createZerosZip(2 * ZipUtil.RATIO_FREE_BYTES);
+      var extractFolder = tempDir.resolve("bomb-path");
 
-      var exception = assertThrows(IOException.class, () -> ZipUtil.checkEntry(bomb));
-      assertTrue(
-          exception.getMessage().contains("suspicious compression ratio"),
-          "Exception message must identify the security control that fired");
-      assertTrue(
-          exception.getMessage().contains("bomb.bin"),
-          "Exception message must identify the offending entry");
+      var exception = assertThrows(IOException.class, () -> ZipUtil.unzip(bomb, extractFolder));
+
+      assertTrue(exception.getMessage().contains("suspicious compression ratio"));
+      assertFalse(Files.exists(extractFolder.resolve("zeros.bin")));
     }
 
     @Test
-    void should_accept_entry_at_compression_ratio_boundary() throws IOException {
-      // The boundary (size / compressedSize == MAX_COMPRESSION_RATIO) must pass.
-      var safe = new ZipEntry("safe.bin");
-      safe.setCompressedSize(2);
-      safe.setSize(2 * ZipUtil.MAX_COMPRESSION_RATIO); // ratio == threshold, allowed
+    void should_reject_zip_bomb_from_stream() throws IOException {
+      var bomb = createZerosZip(2 * ZipUtil.RATIO_FREE_BYTES);
+      var extractFolder = tempDir.resolve("bomb-stream");
 
-      assertDoesNotThrow(() -> ZipUtil.checkEntry(safe));
+      var exception =
+          assertThrows(
+              IOException.class,
+              () -> {
+                try (var in = Files.newInputStream(bomb)) {
+                  ZipUtil.unzip(in, extractFolder);
+                }
+              });
+
+      assertTrue(exception.getMessage().contains("suspicious compression ratio"));
+      assertFalse(Files.exists(extractFolder.resolve("zeros.bin")));
     }
 
     @Test
-    void should_skip_ratio_check_when_sizes_are_unknown() throws IOException {
-      // ZipInputStream may report size == -1 / compressedSize == -1 before the data
-      // descriptor is read. Those entries must not throw — the check is a no-op.
-      var unknown = new ZipEntry("unknown.bin");
-      assertDoesNotThrow(() -> ZipUtil.checkEntry(unknown));
+    void should_accept_highly_compressible_entry_below_ratio_free_size() throws IOException {
+      var small = createZerosZip(ZipUtil.RATIO_FREE_BYTES / 2);
+      var extractFolder = tempDir.resolve("small");
+
+      ZipUtil.unzip(small, extractFolder);
+
+      assertEquals(ZipUtil.RATIO_FREE_BYTES / 2, Files.size(extractFolder.resolve("zeros.bin")));
+    }
+
+    @Test
+    void should_reject_archive_with_too_many_entries() throws IOException {
+      var manyEntries = tempDir.resolve("many.zip");
+      try (var zos = new ZipOutputStream(Files.newOutputStream(manyEntries))) {
+        for (int i = 0; i <= ZipUtil.MAX_ENTRIES; i++) {
+          zos.putNextEntry(new ZipEntry("d" + i + "/"));
+          zos.closeEntry();
+        }
+      }
+
+      var exception =
+          assertThrows(
+              IOException.class, () -> ZipUtil.unzip(manyEntries, tempDir.resolve("many")));
+      assertTrue(exception.getMessage().contains("too many entries"));
+    }
+
+    @Test
+    void should_extract_into_non_normalized_target_directory() throws IOException {
+      testDataBuilder.directory(sourceFolder).file("x.txt", "hello").build();
+      ZipUtil.zip(sourceFolder, zipFile);
+      Files.createDirectories(tempDir.resolve("a"));
+
+      ZipUtil.unzip(zipFile, tempDir.resolve("a/../out"));
+
+      assertEquals("hello", Files.readString(tempDir.resolve("out/x.txt")));
     }
 
     @Test
@@ -559,6 +590,20 @@ class ZipUtilTest {
                 + foundEntries);
       }
     }
+  }
+
+  private Path createZerosZip(long size) throws IOException {
+    var zip = tempDir.resolve("zeros.zip");
+    try (var zos = new ZipOutputStream(Files.newOutputStream(zip))) {
+      zos.setLevel(9);
+      zos.putNextEntry(new ZipEntry("zeros.bin"));
+      var buffer = new byte[64 * 1024];
+      for (long written = 0; written < size; written += buffer.length) {
+        zos.write(buffer, 0, (int) Math.min(buffer.length, size - written));
+      }
+      zos.closeEntry();
+    }
+    return zip;
   }
 
   private Path createMaliciousZip(String maliciousPath) throws IOException {

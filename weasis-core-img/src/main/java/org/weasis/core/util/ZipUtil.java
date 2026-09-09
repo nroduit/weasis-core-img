@@ -11,15 +11,17 @@ package org.weasis.core.util;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -27,12 +29,18 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * Zip and unzip directories. Extraction rejects entries escaping the target directory (zip slip)
- * and entries with a suspicious compression ratio (zip bomb).
+ * and archives whose extracted bytes or entry count exceed safe limits (zip bomb).
  */
 public final class ZipUtil {
 
-  /** Maximum compression ratio of a single entry before it is rejected as a suspected zip bomb. */
-  static final long MAX_COMPRESSION_RATIO = 5000L;
+  /** Maximum ratio between extracted bytes and compressed bytes read from the archive. */
+  static final long MAX_COMPRESSION_RATIO = 100L;
+
+  /** Extracted bytes always allowed, so small highly compressible archives are not rejected. */
+  static final long RATIO_FREE_BYTES = 16L * 1024 * 1024;
+
+  /** Maximum number of entries in an archive. */
+  static final int MAX_ENTRIES = 100_000;
 
   private ZipUtil() {}
 
@@ -75,15 +83,19 @@ public final class ZipUtil {
     if (!Files.exists(zipFile)) {
       throw new IOException("Zip file does not exist: " + zipFile);
     }
-    Files.createDirectories(targetDir);
+    var target = prepareTargetDir(targetDir);
+    long archiveSize = Files.size(zipFile);
+    var guard = new ExtractionGuard(() -> archiveSize);
 
     try (var zFile = new ZipFile(zipFile.toFile())) {
+      if (zFile.size() > MAX_ENTRIES) {
+        throw new IOException("Archive has too many entries: " + zipFile);
+      }
       var entries = zFile.entries();
       while (entries.hasMoreElements()) {
         var entry = entries.nextElement();
-        checkEntry(entry);
         try (var entryStream = zFile.getInputStream(entry)) {
-          extractEntry(entryStream, entry, targetDir);
+          extractEntry(entryStream, entry, target, guard);
         }
       }
     }
@@ -101,37 +113,109 @@ public final class ZipUtil {
     Objects.requireNonNull(inputStream, "Input stream cannot be null");
     Objects.requireNonNull(targetDir, "Target directory cannot be null");
 
-    try (var zis = new ZipInputStream(new BufferedInputStream(inputStream, FileUtil.FILE_BUFFER))) {
-      Files.createDirectories(targetDir);
+    var counting = new CountingInputStream(inputStream);
+    try (var zis = new ZipInputStream(new BufferedInputStream(counting, FileUtil.FILE_BUFFER))) {
+      var target = prepareTargetDir(targetDir);
+      var guard = new ExtractionGuard(counting::count);
       ZipEntry entry;
       while ((entry = zis.getNextEntry()) != null) {
-        checkEntry(entry);
-        extractEntry(zis, entry, targetDir);
+        extractEntry(zis, entry, target, guard);
       }
     }
   }
 
-  // Package-private so the threshold can be tested without crafting a fraudulent central directory
-  static void checkEntry(ZipEntry entry) throws IOException {
-    if (entry.getSize() > 0 && entry.getCompressedSize() > 0) {
-      long ratio = entry.getSize() / entry.getCompressedSize();
-      if (ratio > MAX_COMPRESSION_RATIO) {
-        throw new IOException("Entry has suspicious compression ratio: " + entry.getName());
-      }
-    }
+  private static Path prepareTargetDir(Path targetDir) throws IOException {
+    var target = targetDir.toAbsolutePath().normalize();
+    Files.createDirectories(target);
+    return target;
   }
 
-  private static void extractEntry(InputStream inputStream, ZipEntry entry, Path targetDir)
+  private static void extractEntry(
+      InputStream inputStream, ZipEntry entry, Path targetDir, ExtractionGuard guard)
       throws IOException {
+    guard.onEntry(entry);
     var entryPath = targetDir.resolve(entry.getName()).normalize();
     if (!entryPath.startsWith(targetDir)) {
       throw new IOException("Entry is outside the target directory: " + entry.getName());
     }
     if (entry.isDirectory()) {
       Files.createDirectories(entryPath);
-    } else {
-      FileUtil.prepareToWriteFile(entryPath);
-      Files.copy(inputStream, entryPath, StandardCopyOption.REPLACE_EXISTING);
+      return;
+    }
+    FileUtil.prepareToWriteFile(entryPath);
+    try (var out = Files.newOutputStream(entryPath)) {
+      guard.copy(inputStream, out, entry);
+    } catch (IOException e) {
+      Files.deleteIfExists(entryPath);
+      throw e;
+    }
+  }
+
+  // Bounds entry count and extracted bytes relative to compressed bytes actually read
+  private static final class ExtractionGuard {
+    private final LongSupplier compressedBytes;
+    private final byte[] buffer = new byte[FileUtil.FILE_BUFFER];
+    private int entryCount;
+    private long extractedBytes;
+
+    ExtractionGuard(LongSupplier compressedBytes) {
+      this.compressedBytes = compressedBytes;
+    }
+
+    void onEntry(ZipEntry entry) throws IOException {
+      if (++entryCount > MAX_ENTRIES) {
+        throw new IOException("Archive has too many entries: " + entry.getName());
+      }
+    }
+
+    void copy(InputStream in, OutputStream out, ZipEntry entry) throws IOException {
+      int read;
+      while ((read = in.read(buffer)) != -1) {
+        extractedBytes += read;
+        long allowed =
+            Math.max(RATIO_FREE_BYTES, MAX_COMPRESSION_RATIO * compressedBytes.getAsLong());
+        if (extractedBytes > allowed) {
+          throw new IOException("Entry has suspicious compression ratio: " + entry.getName());
+        }
+        out.write(buffer, 0, read);
+      }
+    }
+  }
+
+  private static final class CountingInputStream extends FilterInputStream {
+    private long count;
+
+    CountingInputStream(InputStream in) {
+      super(in);
+    }
+
+    long count() {
+      return count;
+    }
+
+    @Override
+    public int read() throws IOException {
+      int b = super.read();
+      if (b != -1) {
+        count++;
+      }
+      return b;
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+      int n = super.read(b, off, len);
+      if (n > 0) {
+        count += n;
+      }
+      return n;
+    }
+
+    @Override
+    public long skip(long n) throws IOException {
+      long skipped = super.skip(n);
+      count += skipped;
+      return skipped;
     }
   }
 
