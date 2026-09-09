@@ -25,9 +25,8 @@ import org.weasis.opencv.data.LookupTableCV;
  *   <li>A custom lookup table with arbitrary transformation values
  * </ul>
  *
- * <p>The LINEAR and SIGMOID functions comply with DICOM Part 3 standard specifications for
- * presentation LUT shapes, while other functions provide enhanced visualization capabilities for
- * specific medical imaging needs.
+ * <p>LINEAR, LINEAR_EXACT and SIGMOID are the VOI LUT Functions (0028,1056) of DICOM PS3.3
+ * C.11.2.1.3; the other functions are Weasis extensions that no DICOM object can encode.
  *
  * <p>This class is immutable and thread-safe. Instances can be compared by their underlying
  * function or lookup table content, ignoring explanation differences.
@@ -39,6 +38,9 @@ public final class LutShape {
 
   /** Linear transformation - DICOM standard LUT function */
   public static final LutShape LINEAR = new LutShape(Function.LINEAR);
+
+  /** Exact linear transformation - DICOM standard LUT function */
+  public static final LutShape LINEAR_EXACT = new LutShape(Function.LINEAR_EXACT);
 
   /** Sigmoid transformation - DICOM standard LUT function */
   public static final LutShape SIGMOID = new LutShape(Function.SIGMOID);
@@ -55,12 +57,14 @@ public final class LutShape {
   /**
    * Enumeration of predefined lookup table transformation functions.
    *
-   * <p>LINEAR and SIGMOID are defined according to DICOM Part 3 standard. Other functions provide
-   * custom implementations for specialized imaging needs.
+   * <p>LINEAR, LINEAR_EXACT and SIGMOID are defined by DICOM PS3.3 C.11.2.1.2 and C.11.2.1.3. Other
+   * functions are Weasis extensions.
    */
   public enum Function {
-    /** Linear transformation: f(x) = x */
+    /** DICOM LINEAR: the window maps [c - 0.5 - (w - 1) / 2, c - 0.5 + (w - 1) / 2] */
     LINEAR("Linear"),
+    /** DICOM LINEAR_EXACT: the window maps [c - w / 2, c + w / 2] */
+    LINEAR_EXACT("Linear Exact"),
     /** Sigmoid transformation: f(x) = 1/(1+e^(-x)) */
     SIGMOID("Sigmoid"),
     /** Normalized sigmoid transformation with enhanced contrast */
@@ -173,6 +177,7 @@ public final class LutShape {
    *
    * <ul>
    *   <li>"LINEAR" - Linear transformation
+   *   <li>"LINEAR_EXACT" - Exact linear transformation
    *   <li>"SIGMOID" - Sigmoid transformation
    *   <li>"SIGMOID_NORM" - Normalized sigmoid transformation
    *   <li>"LOG" - Logarithmic transformation
@@ -188,6 +193,7 @@ public final class LutShape {
     }
     return switch (shape.trim().toUpperCase()) {
       case "LINEAR" -> LINEAR;
+      case "LINEAR_EXACT" -> LINEAR_EXACT;
       case "SIGMOID" -> SIGMOID;
       case "SIGMOID_NORM" -> SIGMOID_NORM;
       case "LOG" -> LOG;
@@ -202,6 +208,6 @@ public final class LutShape {
    * @return an immutable set of all predefined LutShape instances
    */
   public static Set<LutShape> getAllPredefined() {
-    return Set.of(LINEAR, SIGMOID, SIGMOID_NORM, LOG, LOG_INV);
+    return Set.of(LINEAR, LINEAR_EXACT, SIGMOID, SIGMOID_NORM, LOG, LOG_INV);
   }
 }

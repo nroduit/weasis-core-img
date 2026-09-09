@@ -27,8 +27,9 @@ import java.util.Set;
  * memory is low. The map entries are cleared when the associated {@link SoftReference} is cleared
  * by the garbage collector.
  *
- * <p>This implementation is not thread-safe. If multiple threads access this map concurrently, it
- * must be synchronized externally.
+ * <p>This implementation is thread-safe: every operation is guarded by an internal lock. Compound
+ * actions performed through the {@link #entrySet()} view are not atomic, as the view iterates over
+ * a snapshot of the reachable entries.
  *
  * @param <K> the type of keys maintained by this map
  * @param <V> the type of values held by this map (must not be null)
@@ -36,6 +37,7 @@ import java.util.Set;
  */
 public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
 
+  private final Object lock = new Object();
   private final Map<K, SoftReference<V>> primaryMap = new HashMap<>();
   private final Map<SoftReference<V>, K> reverseLookup = new HashMap<>();
   private final ReferenceQueue<V> referenceQueue = new ReferenceQueue<>();
@@ -45,17 +47,19 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
     if (key == null) {
       return null;
     }
-    expungeStaleEntries();
-    var softRef = primaryMap.get(key);
-    if (softRef == null) {
-      return null;
-    }
+    synchronized (lock) {
+      expungeStaleEntries();
+      var softRef = primaryMap.get(key);
+      if (softRef == null) {
+        return null;
+      }
 
-    var result = softRef.get();
-    if (result == null) {
-      removeStaleReference(softRef);
+      var result = softRef.get();
+      if (result == null) {
+        removeStaleReference(softRef);
+      }
+      return result;
     }
-    return result;
   }
 
   @Override
@@ -64,10 +68,12 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
     if (value == null) {
       return remove(key);
     }
-    expungeStaleEntries();
-    var oldValue = removeExistingMapping(key);
-    addNewMapping(key, value);
-    return oldValue;
+    synchronized (lock) {
+      expungeStaleEntries();
+      var oldValue = removeExistingMapping(key);
+      addNewMapping(key, value);
+      return oldValue;
+    }
   }
 
   @Override
@@ -75,33 +81,41 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
     if (key == null) {
       return null;
     }
-    expungeStaleEntries();
-    var removedRef = primaryMap.remove(key);
-    if (removedRef == null) {
-      return null;
-    }
+    synchronized (lock) {
+      expungeStaleEntries();
+      var removedRef = primaryMap.remove(key);
+      if (removedRef == null) {
+        return null;
+      }
 
-    reverseLookup.remove(removedRef);
-    return removedRef.get();
+      reverseLookup.remove(removedRef);
+      return removedRef.get();
+    }
   }
 
   @Override
   public void clear() {
-    primaryMap.clear();
-    reverseLookup.clear();
-    drainReferenceQueue();
+    synchronized (lock) {
+      primaryMap.clear();
+      reverseLookup.clear();
+      drainReferenceQueue();
+    }
   }
 
   @Override
   public int size() {
-    expungeStaleEntries();
-    return primaryMap.size();
+    synchronized (lock) {
+      expungeStaleEntries();
+      return primaryMap.size();
+    }
   }
 
   @Override
   public boolean isEmpty() {
-    expungeStaleEntries();
-    return primaryMap.isEmpty();
+    synchronized (lock) {
+      expungeStaleEntries();
+      return primaryMap.isEmpty();
+    }
   }
 
   @Override
@@ -109,8 +123,10 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
     if (key == null) {
       return false;
     }
-    expungeStaleEntries();
-    return primaryMap.containsKey(key);
+    synchronized (lock) {
+      expungeStaleEntries();
+      return primaryMap.containsKey(key);
+    }
   }
 
   /** A view backed by the map: removals through it, its iterator, keySet() or values() apply. */
@@ -136,16 +152,18 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
 
   // Strong snapshot of the reachable entries, so values cannot vanish during an iteration
   private List<Entry<K, V>> liveEntries() {
-    expungeStaleEntries();
-    var entries = new ArrayList<Entry<K, V>>(primaryMap.size());
-    primaryMap.forEach(
-        (key, ref) -> {
-          var value = ref.get();
-          if (value != null) {
-            entries.add(new SoftEntry<>(key, value, this));
-          }
-        });
-    return entries;
+    synchronized (lock) {
+      expungeStaleEntries();
+      var entries = new ArrayList<Entry<K, V>>(primaryMap.size());
+      primaryMap.forEach(
+          (key, ref) -> {
+            var value = ref.get();
+            if (value != null) {
+              entries.add(new SoftEntry<>(key, value, this));
+            }
+          });
+      return entries;
+    }
   }
 
   private final class EntryIterator implements Iterator<Entry<K, V>> {
@@ -177,32 +195,22 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
   public boolean equals(Object obj) {
     if (this == obj) return true;
     if (!(obj instanceof SoftHashMap<?, ?> other)) return false;
-    expungeStaleEntries();
-    other.expungeStaleEntries();
-
-    if (primaryMap.size() != other.primaryMap.size()) {
+    // Compare snapshots so that only one lock is ever held at a time
+    var entries = liveEntries();
+    var otherEntries = other.liveEntries();
+    if (entries.size() != otherEntries.size()) {
       return false;
     }
-
-    return primaryMap.entrySet().stream()
-        .allMatch(
-            entry -> {
-              var value = entry.getValue().get();
-              return value != null && Objects.equals(value, other.get(entry.getKey()));
-            });
+    return entries.stream()
+        .allMatch(entry -> Objects.equals(entry.getValue(), other.get(entry.getKey())));
   }
 
   @Override
   public int hashCode() {
-    expungeStaleEntries();
-    return primaryMap.entrySet().stream()
-        .mapToInt(
-            entry -> {
-              var value = entry.getValue().get();
-              return value != null ? Objects.hashCode(entry.getKey()) ^ Objects.hashCode(value) : 0;
-            })
-        .sum();
+    return liveEntries().stream().mapToInt(Entry::hashCode).sum();
   }
+
+  // The helpers below touch the two maps directly: callers must hold the lock.
 
   private V removeExistingMapping(K key) {
     var oldRef = primaryMap.get(key);

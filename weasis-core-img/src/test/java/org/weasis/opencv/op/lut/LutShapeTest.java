@@ -133,6 +133,7 @@ class LutShapeTest {
       var expectedFunctions =
           Set.of(
               Function.LINEAR,
+              Function.LINEAR_EXACT,
               Function.SIGMOID,
               Function.SIGMOID_NORM,
               Function.LOG,
@@ -147,6 +148,7 @@ class LutShapeTest {
       var expectedDescriptions =
           Map.of(
               Function.LINEAR, "Linear",
+              Function.LINEAR_EXACT, "Linear Exact",
               Function.SIGMOID, "Sigmoid",
               Function.SIGMOID_NORM, "Sigmoid Normalize",
               Function.LOG, "Logarithmic",
@@ -169,6 +171,7 @@ class LutShapeTest {
       var predefinedConstants =
           List.of(
               LutShape.LINEAR,
+              LutShape.LINEAR_EXACT,
               LutShape.SIGMOID,
               LutShape.SIGMOID_NORM,
               LutShape.LOG,
@@ -197,6 +200,7 @@ class LutShapeTest {
     static Stream<Arguments> predefinedConstantData() {
       return Stream.of(
           Arguments.of(LutShape.LINEAR, Function.LINEAR),
+          Arguments.of(LutShape.LINEAR_EXACT, Function.LINEAR_EXACT),
           Arguments.of(LutShape.SIGMOID, Function.SIGMOID),
           Arguments.of(LutShape.SIGMOID_NORM, Function.SIGMOID_NORM),
           Arguments.of(LutShape.LOG, Function.LOG),
@@ -209,6 +213,7 @@ class LutShapeTest {
       var expected =
           Set.of(
               LutShape.LINEAR,
+              LutShape.LINEAR_EXACT,
               LutShape.SIGMOID,
               LutShape.SIGMOID_NORM,
               LutShape.LOG,
@@ -224,6 +229,7 @@ class LutShapeTest {
     @ParameterizedTest
     @CsvSource({
       "LINEAR, LINEAR",
+      "LINEAR_EXACT, LINEAR_EXACT",
       "SIGMOID, SIGMOID",
       "SIGMOID_NORM, SIGMOID_NORM",
       "LOG, LOG",
@@ -233,6 +239,7 @@ class LutShapeTest {
       var expected =
           switch (expectedConstant) {
             case "LINEAR" -> LutShape.LINEAR;
+            case "LINEAR_EXACT" -> LutShape.LINEAR_EXACT;
             case "SIGMOID" -> LutShape.SIGMOID;
             case "SIGMOID_NORM" -> LutShape.SIGMOID_NORM;
             case "LOG" -> LutShape.LOG;

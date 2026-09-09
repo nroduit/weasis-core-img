@@ -22,6 +22,9 @@ import java.lang.ref.SoftReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -533,6 +536,44 @@ class SoftHashMapTest {
         () -> assertNull(map.get("b")));
 
     map.entrySet().clear();
+    assertTrue(map.isEmpty());
+  }
+
+  @Test
+  void concurrent_put_and_remove_keep_the_map_consistent() throws Exception {
+    var map = new SoftHashMap<String, String>();
+    int threads = 8;
+    int iterations = 2_000;
+    var start = new CountDownLatch(1);
+    var executor = Executors.newFixedThreadPool(threads);
+    try {
+      var tasks =
+          IntStream.range(0, threads)
+              .mapToObj(
+                  t ->
+                      (Callable<Void>)
+                          () -> {
+                            start.await();
+                            for (int i = 0; i < iterations; i++) {
+                              var key = "key-" + t + "-" + i;
+                              map.put(key, "value-" + i);
+                              map.get(key);
+                              map.containsKey(key);
+                              map.size();
+                              map.remove(key);
+                            }
+                            return null;
+                          })
+              .toList();
+      var futures = tasks.stream().map(executor::submit).toList();
+      start.countDown();
+      for (var future : futures) {
+        future.get(60, TimeUnit.SECONDS);
+      }
+    } finally {
+      executor.shutdownNow();
+    }
+
     assertTrue(map.isEmpty());
   }
 
