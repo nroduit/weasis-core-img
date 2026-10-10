@@ -9,6 +9,7 @@ module org.weasis.core.img {
   exports org.weasis.opencv.op.lut.colormap;
   exports org.weasis.opencv.data;
   exports org.weasis.opencv.seg;
+  exports org.weasis.opencv.waveform;
   exports org.opencv.core;
   exports org.opencv.img_hash;
   exports org.opencv.imgcodecs;
