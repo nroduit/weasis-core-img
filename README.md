@@ -80,36 +80,51 @@ Additional native binaries (other systems and architectures) are published in [t
 
 ### Platform support and limitations
 
-The native library is a JNI build of OpenCV restricted to the modules used by this project (`core`, `imgcodecs`, `imgproc`, `java`, `img_hash`).
-It is CPU-only: consumers drive it through CPU-side `Mat` (no `UMat` / OpenCL / GPU path), while SIMD runtime dispatch (AVX2/AVX-512 on x86-64, NEON on aarch64) is fully enabled.
+The native library is a JNI build of OpenCV restricted to the modules used by this project (`core`, `imgproc`, `imgcodecs`, `img_hash`, `java` and the modules they depend on).
+It is CPU-only: consumers drive it through CPU-side `Mat` (no `UMat` / OpenCL / GPU path).
 The following classifiers are published:
 
-| Classifier | File | Build / target | Runs on                                                   |
-|------------|------|----------------|-----------------------------------------------------------|
-| `linux-x86-64` | `libopencv_java.so` | fully-static **musl**, no dynamic libc | any Linux ≥ kernel ~2.6.39 (incl. Alpine)                 |
-| `linux-aarch64` | `libopencv_java.so` | fully-static **musl**, no dynamic libc | any Linux ≥ kernel ~2.6.39 (incl. Alpine)                 |
-| `macosx-x86-64` | `libopencv_java.dylib` | macOS deployment target **10.13** (High Sierra) | Intel macOS 10.13+                                        |
-| `macosx-aarch64` | `libopencv_java.dylib` | macOS deployment target **10.13** (High Sierra) | Apple Silicon macOS 10.13+   |
-| `windows-x86-64` | `opencv_java.dll` | Visual Studio 2022 (MSVC), static C++ runtime, 64-bit | 64-bit Windows 10+; no Visual C++ redistributable needed  |
+| Classifier | File | Build | Runs on |
+|---|---|---|---|
+| `linux-x86-64` | `libopencv_java.so` | GCC, against glibc; C++ runtime linked statically | glibc-based Linux at or above the glibc floor of the library |
+| `linux-aarch64` | `libopencv_java.so` | GCC (cross), against glibc; C++ runtime linked statically | glibc-based Linux at or above the glibc floor of the library |
+| `macosx-x86-64` | `libopencv_java.dylib` | Apple Clang, with a macOS deployment target | Intel macOS at or above the deployment target |
+| `macosx-aarch64` | `libopencv_java.dylib` | Apple Clang, with a macOS deployment target | Apple Silicon macOS at or above the deployment target |
+| `windows-x86-64` | `opencv_java.dll` | MSVC, static C and C++ runtime | 64-bit Windows 10 and later, no Visual C++ redistributable needed |
 
-The Linux libraries are linked fully static against musl, so they carry no dynamic libc dependency and load on both glibc and musl hosts (including Alpine containers); the only floor is an ancient Linux-kernel syscall level (~2.6.39, 2011).
-This makes a single `linux-x86-64` / `linux-aarch64` pair usable for both desktop (Weasis) and server/container (dcm4che) deployments.
+The Linux libraries load the C library of the system (`libc`, `libm`, `libdl`, `libpthread`) and nothing else: `libstdc++` and `libgcc` are linked in statically.
+Their glibc floor is the highest symbol version they reference, set by the build toolchain; they do not load on a musl system such as Alpine.
+A linker version script exports only the JNI symbols (`Java_*`, `JNI_*`), so the bundled C++ runtime stays isolated when the library is loaded in the same JVM as another native library that ships its own `libstdc++`.
+The macOS libraries link only the system `libc++` and frameworks; the Windows library imports only system DLLs.
+
+Check the requirements of a given library:
+
+```bash
+objdump -T libopencv_java.so | grep -oE 'GLIBC_[0-9.]+' | sort -uV | tail -1   # Linux: glibc floor
+vtool -show-build libopencv_java.dylib                                          # macOS: minos
+strings libopencv_java.so | grep -A60 'General configuration'                   # build: compiler, modules, SIMD
+```
+
+SIMD code has a baseline that the CPU must support and faster paths chosen at run time (both are listed in the build configuration above):
+
+- x86-64: the baseline is SSE4.2 with POPCNT (x86-64-v2), and AVX, AVX2 and AVX-512 paths are dispatched.
+- aarch64: the baseline is NEON, and the newer extensions (FP16, dot product, BF16) are dispatched or part of the baseline depending on the platform.
 
 Limitations to be aware of:
 
-- The musl Linux builds bundle their own C++ runtime; the build hides all but the JNI (`Java_*` / `JNI_*`) symbols so the runtime stays isolated when the library is co-loaded in the same JVM with another C++ native that ships its own `libstdc++` (e.g. the jogamp OpenGL natives used by `weasis-dicom-3d`).
-- 32-bit and other architectures (e.g. `linux-armv7a`, `linux-x86`) are not shipped by default; they can be built from source if a consumer targets them.
-- Each platform must use its matching classifier — the architecture and OS of the native library have to agree with the running JVM.
+- 32-bit and other architectures (for example `linux-armv7a`, `linux-x86`) are not shipped; they can be built from source if a consumer targets them.
+- Each platform must use its matching classifier: the architecture and OS of the native library have to agree with the running JVM.
 
 ## Use as a dependency
 
-The artifact version tracks the underlying OpenCV release (currently `4.13.0`), suffixed with a local revision (`.1`).
+The artifact version is the version of the underlying OpenCV release (`weasis.opencv.version` in the root `pom.xml`); a fourth number marks a revision of the Java code on the same OpenCV release.
+The native libraries carry the OpenCV version with a `-dcm` suffix.
 
 ```xml
 <dependency>
   <groupId>org.weasis.core</groupId>
   <artifactId>weasis-core-img</artifactId>
-  <version>4.13.0.1</version>
+  <version>${weasis.core.img.version}</version>
 </dependency>
 ```
 
@@ -119,7 +134,7 @@ A matching native classifier must be added separately, for example for Linux x86
 <dependency>
   <groupId>org.weasis.thirdparty.org.opencv</groupId>
   <artifactId>libopencv_java</artifactId>
-  <version>4.13.0-dcm</version>
+  <version>${weasis.opencv.native.version}</version> <!-- for example 5.1.0-dcm -->
   <type>so</type>
   <classifier>linux-x86-64</classifier>
 </dependency>
