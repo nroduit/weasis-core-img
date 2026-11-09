@@ -11,6 +11,7 @@ module org.weasis.core.img {
   exports org.weasis.opencv.seg;
   exports org.weasis.opencv.waveform;
   exports org.opencv.core;
+  exports org.opencv.geometry;
   exports org.opencv.img_hash;
   exports org.opencv.imgcodecs;
   exports org.opencv.imgproc;
