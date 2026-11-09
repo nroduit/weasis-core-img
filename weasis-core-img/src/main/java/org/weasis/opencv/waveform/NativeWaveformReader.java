@@ -120,38 +120,58 @@ public final class NativeWaveformReader implements WaveformReader {
     if (offset < 0 || length < 0) {
       throw new IllegalArgumentException("Negative file region");
     }
-    FileChannel channel;
+    // The channel belongs to the source, which the returned reader closes. If the reader cannot be
+    // built (invalid arguments), the source is closed here so the file handle does not leak.
+    FileByteSource source = new FileByteSource(file, offset, length);
     try {
-      channel = FileChannel.open(file, StandardOpenOption.READ);
-    } catch (IOException e) {
-      throw new UncheckedIOException("Cannot open " + file, e);
+      return new NativeWaveformReader(
+          source, channels, interpretation, bigEndian, samplingFrequency);
+    } catch (RuntimeException e) {
+      source.close();
+      throw e;
     }
-    ByteSource source =
-        new ByteSource() {
-          @Override
-          public ByteBuffer slice(long regionOffset, int sliceLength) {
-            try {
-              return channel.map(MapMode.READ_ONLY, offset + regionOffset, sliceLength);
-            } catch (IOException e) {
-              throw new UncheckedIOException("Cannot map " + file, e);
-            }
-          }
+  }
 
-          @Override
-          public long size() {
-            return length;
-          }
+  /** File region memory-mapped on demand; owns the channel until {@link #close()}. */
+  private static final class FileByteSource implements ByteSource {
+    private final Path file;
+    private final long offset;
+    private final long length;
+    private final FileChannel channel;
 
-          @Override
-          public void close() {
-            try {
-              channel.close();
-            } catch (IOException e) {
-              throw new UncheckedIOException(e);
-            }
-          }
-        };
-    return new NativeWaveformReader(source, channels, interpretation, bigEndian, samplingFrequency);
+    FileByteSource(Path file, long offset, long length) {
+      this.file = file;
+      this.offset = offset;
+      this.length = length;
+      try {
+        this.channel = FileChannel.open(file, StandardOpenOption.READ);
+      } catch (IOException e) {
+        throw new UncheckedIOException("Cannot open " + file, e);
+      }
+    }
+
+    @Override
+    public ByteBuffer slice(long regionOffset, int sliceLength) {
+      try {
+        return channel.map(MapMode.READ_ONLY, offset + regionOffset, sliceLength);
+      } catch (IOException e) {
+        throw new UncheckedIOException("Cannot map " + file, e);
+      }
+    }
+
+    @Override
+    public long size() {
+      return length;
+    }
+
+    @Override
+    public void close() {
+      try {
+        channel.close();
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
   }
 
   @Override

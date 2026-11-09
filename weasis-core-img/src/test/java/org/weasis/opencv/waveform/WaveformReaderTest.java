@@ -248,6 +248,33 @@ class WaveformReaderTest {
   }
 
   @Test
+  void native_file_reader_releases_the_file_when_arguments_are_invalid(@TempDir Path dir)
+      throws IOException {
+    Path file = dir.resolve("native.dcm");
+    Files.write(file, new byte[64]);
+    Path fds = Path.of("/proc/self/fd");
+    long before = Files.isDirectory(fds) ? countEntries(fds) : -1;
+    for (int i = 0; i < 20; i++) {
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              NativeWaveformReader.ofFile(
+                  file, 0, 64, 0, WaveformSampleInterpretation.SS, false, FS));
+    }
+    if (before >= 0) {
+      // A leaked channel per call would add 20 descriptors
+      assertTrue(countEntries(fds) < before + 20);
+    }
+    Files.delete(file);
+  }
+
+  private static long countEntries(Path dir) throws IOException {
+    try (var entries = Files.list(dir)) {
+      return entries.count();
+    }
+  }
+
+  @Test
   void t261_file_reader_reads_items_lazily(@TempDir Path dir) throws IOException {
     Mat signal = synth(SAMPLES, CHANNELS, 12, 6);
     T261Parameters params = T261Parameters.lossless(CHANNELS, 16, 12, FS).withIntraPeriod(4096);
