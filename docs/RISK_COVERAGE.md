@@ -4,15 +4,15 @@ This document is a developer-facing index of which automated tests in this repos
 It is **not** a certification artifact, a conformity claim, or a substitute for any regulated process.
 Readers integrating `weasis-core-img` into a regulated product are responsible for their own software-requirement traceability and verification evidence under the framework that applies to them (e.g. ISO 13485 / ISO 14971 / IEC 62304 in a medical-device context).
 
-> Last updated: 2026-05-21
-> Test count at that date: 1510 automated tests, all passing on the active
+> Last updated: 2026-11-09
+> Test count at that date: 1590 automated tests, all passing on the active
 > build OS/arch profile.
 > Coverage tooling: JaCoCo via `mvn -Pcoverage verify`. SonarCloud reports
 > the Linux-x86-64 native path only.
 
 ## 1. Scope
 
-`weasis-core-img` is a Java 17 library that wraps OpenCV (loaded via JNI) and adds DICOM-oriented operations: window/level lookup tables, segmentation primitives, and a raw-image I/O format.
+`weasis-core-img` is a Java 17 library that wraps OpenCV (loaded via JNI) and adds DICOM-oriented operations: window/level lookup tables, color maps, segmentation primitives, a raw-image I/O format, and waveform readers with the T.261 codec.
 The risk-relevant axes for a library of this shape are native interop, resource lifecycle around `Mat`-backed buffers, and pixel-exact data integrity of the lossless I/O path.
 
 The build expects a per-platform native OpenCV library to be supplied at runtime by the consumer via `-Djava.library.path`.
@@ -39,6 +39,7 @@ The "Tests exercise" column is descriptive — it states what is tested, not how
 | R-12 | Numerical correctness | `ImageAnalyzer`, `LookupTableCV`, `MathUtil`, `ImageContentHash` | `ImageAnalyzerTest`, `LookupTableCVTest`, `MathUtilTest`, `ImageContentHashTest` | Epsilon-based float comparisons; LUT direct lookup; identical-image hash equality. |
 | R-13 | Determinism / reproducibility | `ImageContentHash`, `ZipUtil` (sorted entries) | `ImageContentHashTest`, `ZipUtilTest` | Single-JVM determinism; consistent zip entry ordering. |
 | R-14 | Error-handling contract (typed exceptions, messages) | I/O classes | `ZipUtilTest`, `ImageIOHandlerTest`, `FileUtilTest` | Exception types pinned; specific message substrings asserted where they are part of the API contract. |
+| R-15 | Waveform sample integrity and streaming codec | `NativeWaveformReader`, `T261WaveformReader`, `T261WaveformWriter`, `T261Parameters` | `WaveformReaderTest` | Windowed reads from memory and from a memory-mapped file region (clipping at the end, sample types pinned); streamed T.261 items byte-identical to the one-shot encoding and decoded windows equal to the source, items read lazily from a file, lossy transcoding bounded in memory; file handle released on invalid arguments; invalid streams and parameters rejected. |
 
 ## 3. Changes recorded in this revision (2026-05-21)
 

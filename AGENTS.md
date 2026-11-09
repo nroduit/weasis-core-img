@@ -16,7 +16,7 @@ It requires **JDK 17+** (`java-version` in `weasis-core-img/pom.xml`) and Maven 
 mvn clean install                                           # full build, from the repository root
 mvn -f weasis-core-img clean install                        # the bundle module only
 mvn -f weasis-core-img test                                 # tests only
-mvn -f weasis-core-img test -Dtest=ImageProcessorTest#methodName   # one test class or method
+mvn -f weasis-core-img test -Dtest=ImageCVTest#methodName          # one test class or method
 mvn -Pcoverage -f weasis-core-img verify                    # JaCoCo coverage, as CI and SonarCloud
 mvn -f weasis-core-img spotless:apply                       # format and license header, before committing
 ```
@@ -42,12 +42,13 @@ A change is complete when:
 A two-module Maven build:
 
 - Root `pom.xml`: the BOM (`weasis-core-img-bom`) that pins `weasis.opencv.version` and declares the five native library classifiers (linux-aarch64, linux-x86-64, macosx-aarch64, macosx-x86-64, windows-x86-64).
-  The version is `${weasis.core.version}.1`, so the artifact version tracks the OpenCV native release.
+  The version is `${weasis.core.version}`, the OpenCV release the natives are built from; a fourth number (`5.0.0.1`) marks a revision of the Java code on the same OpenCV release.
 - `weasis-core-img/`: the library itself (packaging `bundle`; the OSGi bundle plugin embeds dependencies inline under `lib/`).
 
 Packages under `weasis-core-img/src/main/java`:
 
 - `org.weasis.core.util`: generic utilities (file, string, math, stream and zip helpers, `Pair` / `Triple`, `SoftHashMap`).
+  `org.weasis.core.util.annotations` holds the `Generated` marker that excludes code from coverage.
 - `org.weasis.opencv.natives.NativeLibrary`: resolves `os.name` / `os.arch` to an OSGi-style `<os>-<arch>` spec and loads `libopencv_java` by absolute path or by library name.
   It is thread-safe with a double-checked initialization; once loaded, further calls do nothing.
 - `org.weasis.opencv.data`: image data types.
@@ -55,13 +56,17 @@ Packages under `weasis-core-img/src/main/java`:
   `FileRawImage` is a `Path`-backed record for the raw image format of the project (46-byte header).
   Also `LookupTableCV`, `MetadataParser`, `ImageSize`.
 - `org.weasis.opencv.op`: image operations.
-  `ImageProcessor` is a **deprecated** facade kept for backward compatibility; new code uses `ImageAnalyzer` (statistics and measurements), `ImageTransformer` (geometric and visual operations) and `ImageIOHandler` (read, write, thumbnails), plus `ImageConversion` and `ImageContentHash`.
+  `ImageAnalyzer` (statistics and measurements), `ImageTransformer` (geometric and visual operations) and `ImageIOHandler` (read, write, thumbnails), plus `ImageConversion` and `ImageContentHash`.
+  The former `ImageProcessor` facade was deprecated, then removed; `docs/RISK_COVERAGE.md` keeps the migration matrix.
 - `org.weasis.opencv.op.lut`: DICOM window/level and presentation LUT (`ByteLut`, `ColorLut`, `LutShape`, `LutParameters`, `WlParams`, `WlPresentation`, `DefaultWlPresentation`, `PresentationStateLut`).
+- `org.weasis.opencv.op.lut.colormap`: color maps for pseudo-color and volume rendering (`ColorMap` and its stops, domain and interpolation records, `ColorMapCompiler`, `ColorMapSampler`, `ColorMapEdits`, `GradientOpacity`, `Material`, `Lighting`).
 - `org.weasis.opencv.seg`: segmentation primitives (`Region`, `Segment`, `ContourTopology`, `RegionAttributes`).
+- `org.weasis.opencv.waveform`: DICOM waveform access.
+  `WaveformReader` gives windowed access to one multiplex group as a `Mat` (rows = samples, columns = channels); `NativeWaveformReader` reads uncompressed Waveform Data from memory or a memory-mapped file, `T261WaveformReader` and `T261WaveformWriter` wrap the native T.261 codec of Supplement 253, configured by `T261Parameters`.
 
 ### Build mechanics
 
-- `module-info.java` declares the JPMS module `org.weasis.core.img` and re-exports a curated subset of OpenCV packages (`org.opencv.core`, `imgcodecs`, `imgproc`, `img_hash`, `osgi`, `utils`).
+- `module-info.java` declares the JPMS module `org.weasis.core.img` and re-exports a curated subset of OpenCV packages (`org.opencv.core`, `geometry`, `imgcodecs`, `imgproc`, `img_hash`, `osgi`, `utils`); the bundle manifest must export the same list.
   The OpenCV Java sources come at build time from the `opencv:sources` artifact, unpacked into `target/sources-import` and added as a source root by `build-helper-maven-plugin`; they are not in this repository.
 - All OpenCV native dependencies have `provided` scope.
   Consumers ship a native library with their application and load it through `NativeLibrary.loadLibraryFromAbsolutePath(...)` or `NativeLibrary.loadLibraryFromLibraryName()` after setting `-Djava.library.path`.
@@ -127,6 +132,6 @@ These rules apply to Markdown docs, Javadoc, comments and commit messages.
 - Adding, upgrading or removing a dependency or a Maven plugin, or changing `weasis.opencv.version`.
   A new dependency must have a license compatible with EPL-2.0 OR Apache-2.0, and downstream OSGi consumers have to ship it.
 - Changing or removing a public API: Weasis and weasis-dicom-tools use it.
-  Deprecate with `@Deprecated` rather than remove, as for `ImageProcessor`.
+  Deprecate with `@Deprecated(forRemoval = true)` in one release and remove in a later one, as was done for `ImageProcessor`.
 - Changing the exported packages in `module-info.java` or the bundle manifest.
 - Changing the CI or release workflows.

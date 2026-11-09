@@ -10,11 +10,13 @@ Used downstream by [Weasis](https://github.com/nroduit/Weasis).
 
 ## Features
 
-- Java 17 module (`org.weasis.core.img`) re-exporting `org.opencv.core`, `imgcodecs`, `imgproc`, `img_hash`, `osgi`, `utils`.
+- Java 17 module (`org.weasis.core.img`) re-exporting `org.opencv.core`, `geometry`, `imgcodecs`, `imgproc`, `img_hash`, `osgi`, `utils`.
 - `PlanarImage` / `ImageCV` — `AutoCloseable` abstraction over an OpenCV `Mat` with explicit release tracking.
 - Image operations split into focused entry points: `ImageAnalyzer` (stats and measurements), `ImageTransformer` (geometric and visual operations), `ImageIOHandler` (read/write/thumbnails).
 - DICOM-oriented LUTs and presentation state helpers (`ByteLut`, `ColorLut`, `LutShape`, `LutParameters`, `WlParams`, `WlPresentation`, `DefaultWlPresentation`, `PresentationStateLut`).
+- Color maps for pseudo-color and volume rendering (`ColorMap`, `ColorMapCompiler`, `ColorMapSampler`, `GradientOpacity`, `Material`).
 - Segmentation primitives (`Region`, `Segment`, `ContourTopology`, `RegionAttributes`).
+- DICOM waveform readers and the T.261 streaming codec of Supplement 253 (`WaveformReader`, `NativeWaveformReader`, `T261WaveformReader`, `T261WaveformWriter`, `T261Parameters`).
 - Raw image format with a 46-byte header (`FileRawImage`) and OpenCV-backed I/O.
 - Native-library resolver (`NativeLibrary`) that maps `os.name` / `os.arch` to an OSGi-style `<os>-<arch>` spec and loads `libopencv_java` from an absolute path or by library name.
 
@@ -47,8 +49,8 @@ mvn -f weasis-core-img test
 Run a single test class or method:
 
 ```bash
-mvn -f weasis-core-img test -Dtest=ImageProcessorTest
-mvn -f weasis-core-img test -Dtest=ImageProcessorTest#methodName
+mvn -f weasis-core-img test -Dtest=ImageCVTest
+mvn -f weasis-core-img test -Dtest=ImageCVTest#methodName
 ```
 
 Produce a coverage report (JaCoCo, used by CI and SonarCloud):
@@ -151,13 +153,14 @@ Two-module Maven build:
 
 Main source roots under `weasis-core-img/src/main/java`:
 
-- `org.weasis.core.util` — generic helpers (file, string, math, stream, zip, `Pair` / `Triple`, `SoftHashMap`).
+- `org.weasis.core.util` — generic helpers (file, string, math, stream, zip, `Pair` / `Triple`, `SoftHashMap`); `org.weasis.core.util.annotations` holds the `Generated` marker.
 - `org.weasis.opencv.natives` — native-library loader.
 - `org.weasis.opencv.data` — image data types (`PlanarImage`, `ImageCV`, `FileRawImage`, `LookupTableCV`, `MetadataParser`, `ImageSize`).
 - `org.weasis.opencv.op` — image operations (`ImageAnalyzer`, `ImageTransformer`, `ImageIOHandler`, `ImageConversion`, `ImageContentHash`).
-  The legacy `ImageProcessor` facade is kept for backward compatibility but is deprecated — new code should use the split classes above.
-- `org.weasis.opencv.op.lut` — window/level and presentation LUTs.
+  The former `ImageProcessor` facade was removed after its deprecation; see `docs/RISK_COVERAGE.md` for the migration matrix.
+- `org.weasis.opencv.op.lut` — window/level and presentation LUTs; `org.weasis.opencv.op.lut.colormap` — color map model, compiler and sampler.
 - `org.weasis.opencv.seg` — segmentation primitives.
+- `org.weasis.opencv.waveform` — DICOM waveform readers (native and T.261) and the T.261 streaming writer.
 
 The OpenCV Java sources themselves are not vendored: they are pulled at build time from the `opencv:sources` artifact, unpacked into `target/sources-import`, and added as an extra source root via `build-helper-maven-plugin`.
 

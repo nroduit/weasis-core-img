@@ -11,8 +11,8 @@ The artifact version tracks the underlying OpenCV native release (`<opencv.versi
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.0.x   | :white_check_mark: |
-| < 5.0   | :x:                |
+| 5.1.x   | :white_check_mark: |
+| < 5.1   | :x:                |
 
 ## Reporting a Vulnerability
 
