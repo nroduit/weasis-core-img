@@ -84,11 +84,18 @@ public final class T261WaveformReader implements WaveformReader {
       positions[i] = itemPositions[i];
       lengths[i] = itemLengths[i];
     }
-    DicomWaveformReader reader = new DicomWaveformReader();
-    if (!reader.openFile(file.toString(), new MatOfDouble(positions), new MatOfDouble(lengths))) {
-      throw new IllegalArgumentException("Not a decodable T.261 waveform stream: " + file);
+    MatOfDouble positionsMat = new MatOfDouble(positions);
+    MatOfDouble lengthsMat = new MatOfDouble(lengths);
+    try {
+      DicomWaveformReader reader = new DicomWaveformReader();
+      if (!reader.openFile(file.toString(), positionsMat, lengthsMat)) {
+        throw new IllegalArgumentException("Not a decodable T.261 waveform stream: " + file);
+      }
+      return new T261WaveformReader(reader, samplingFrequency);
+    } finally {
+      positionsMat.release();
+      lengthsMat.release();
     }
-    return new T261WaveformReader(reader, samplingFrequency);
   }
 
   @Override

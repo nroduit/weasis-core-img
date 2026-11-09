@@ -12,6 +12,7 @@ package org.weasis.opencv.waveform;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfInt;
 import org.opencv.imgcodecs.DicomWaveformWriter;
 
 /**
@@ -35,8 +36,13 @@ public final class T261WaveformWriter implements AutoCloseable {
   public T261WaveformWriter(T261Parameters parameters) {
     this.parameters = Objects.requireNonNull(parameters);
     this.writer = new DicomWaveformWriter();
-    if (!writer.open(parameters.toMatOfInt())) {
-      throw new IllegalArgumentException("Cannot open the T.261 encoder with " + parameters);
+    MatOfInt params = parameters.toMatOfInt();
+    try {
+      if (!writer.open(params)) {
+        throw new IllegalArgumentException("Cannot open the T.261 encoder with " + parameters);
+      }
+    } finally {
+      params.release();
     }
   }
 
