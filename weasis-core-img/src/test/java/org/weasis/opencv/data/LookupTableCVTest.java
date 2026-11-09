@@ -377,21 +377,18 @@ class LookupTableCVTest {
 
       var results =
           IntStream.range(0, 10)
-              .mapToObj(
-                  i -> {
-                    try (var image =
-                        new ImageCV(
-                            new Size(5, 5), CvType.CV_8UC1, new Scalar(i % lutData.length))) {
-                      return lut.lookup(image.toMat());
-                    }
-                  })
+              .mapToObj(i -> {
+                try (var image =
+                    new ImageCV(new Size(5, 5), CvType.CV_8UC1, new Scalar(i % lutData.length))) {
+                  return lut.lookup(image.toMat());
+                }
+              })
               .toList();
 
-      results.forEach(
-          result -> {
-            assertNotNull(result);
-            assertEquals(CvType.CV_8UC1, result.type());
-          });
+      results.forEach(result -> {
+        assertNotNull(result);
+        assertEquals(CvType.CV_8UC1, result.type());
+      });
     }
 
     @Test

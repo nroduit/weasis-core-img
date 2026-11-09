@@ -154,12 +154,11 @@ class LutShapeTest {
               Function.LOG, "Logarithmic",
               Function.LOG_INV, "Logarithmic Inverse");
 
-      expectedDescriptions.forEach(
-          (function, expectedDesc) ->
-              assertEquals(
-                  expectedDesc,
-                  function.getDescription(),
-                  "Function %s should have correct description".formatted(function)));
+      expectedDescriptions.forEach((function, expectedDesc) ->
+          assertEquals(
+              expectedDesc,
+              function.getDescription(),
+              "Function %s should have correct description".formatted(function)));
     }
   }
 
@@ -430,12 +429,11 @@ class LutShapeTest {
               new LutShape(validLookupTable, ""),
               new LutShape(validLookupTable, null));
 
-      shapes.forEach(
-          shape ->
-              assertEquals(
-                  "",
-                  shape.getExplanation(),
-                  "Empty explanation should be normalized to empty string"));
+      shapes.forEach(shape ->
+          assertEquals(
+              "",
+              shape.getExplanation(),
+              "Empty explanation should be normalized to empty string"));
     }
   }
 }

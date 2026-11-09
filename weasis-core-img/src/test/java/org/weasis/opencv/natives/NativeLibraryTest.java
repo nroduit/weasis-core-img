@@ -96,13 +96,12 @@ class NativeLibraryTest {
       ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
       var tasks =
-          Stream.generate(
-                  () ->
-                      (Callable<Void>)
-                          () -> {
-                            NativeLibrary.loadLibraryFromLibraryName();
-                            return null;
-                          })
+          Stream.generate(() ->
+                  (Callable<Void>)
+                      () -> {
+                        NativeLibrary.loadLibraryFromLibraryName();
+                        return null;
+                      })
               .limit(threadCount)
               .toList();
 
@@ -282,16 +281,15 @@ class NativeLibraryTest {
       final var latch = new CountDownLatch(threadCount);
       ExecutorService executor = Executors.newFixedThreadPool(threadCount);
       var tasks =
-          Stream.generate(
-                  () ->
-                      (java.util.concurrent.Callable<Void>)
-                          () -> {
-                            latch.countDown();
-                            latch.await();
-                            var result = NativeLibrary.getNativeLibSpecification();
-                            assertEquals("linux-x86-64", result);
-                            return null;
-                          })
+          Stream.generate(() ->
+                  (java.util.concurrent.Callable<Void>)
+                      () -> {
+                        latch.countDown();
+                        latch.await();
+                        var result = NativeLibrary.getNativeLibSpecification();
+                        assertEquals("linux-x86-64", result);
+                        return null;
+                      })
               .limit(threadCount)
               .toList();
 
@@ -436,18 +434,17 @@ class NativeLibraryTest {
               PlatformSpec.of("Windows", "X86_64", "windows-x86-64"),
               PlatformSpec.of("MacOS", "AARCH64", "macosx-aarch64"));
 
-      testCases.forEach(
-          spec -> {
-            System.setProperty("os.name", spec.osName());
-            System.setProperty("os.arch", spec.architecture());
-            NativeLibrary.clearCache();
+      testCases.forEach(spec -> {
+        System.setProperty("os.name", spec.osName());
+        System.setProperty("os.arch", spec.architecture());
+        NativeLibrary.clearCache();
 
-            var result = NativeLibrary.getNativeLibSpecification();
-            assertEquals(
-                spec.expectedResult(),
-                result,
-                () -> "Failed for OS: " + spec.osName() + ", Arch: " + spec.architecture());
-          });
+        var result = NativeLibrary.getNativeLibSpecification();
+        assertEquals(
+            spec.expectedResult(),
+            result,
+            () -> "Failed for OS: " + spec.osName() + ", Arch: " + spec.architecture());
+      });
     }
   }
 }

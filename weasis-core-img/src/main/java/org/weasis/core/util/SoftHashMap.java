@@ -155,13 +155,12 @@ public final class SoftHashMap<K, V> extends AbstractMap<K, V> {
     synchronized (lock) {
       expungeStaleEntries();
       var entries = new ArrayList<Entry<K, V>>(primaryMap.size());
-      primaryMap.forEach(
-          (key, ref) -> {
-            var value = ref.get();
-            if (value != null) {
-              entries.add(new SoftEntry<>(key, value, this));
-            }
-          });
+      primaryMap.forEach((key, ref) -> {
+        var value = ref.get();
+        if (value != null) {
+          entries.add(new SoftEntry<>(key, value, this));
+        }
+      });
       return entries;
     }
   }

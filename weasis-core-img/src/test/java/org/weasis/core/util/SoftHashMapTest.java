@@ -185,12 +185,11 @@ class SoftHashMapTest {
 
       // Simulate garbage collection pressure
       IntStream.range(0, 10)
-          .forEach(
-              i -> {
-                System.gc();
-                System.runFinalization();
-                softHashMap.size(); // Trigger expunge
-              });
+          .forEach(i -> {
+            System.gc();
+            System.runFinalization();
+            softHashMap.size(); // Trigger expunge
+          });
 
       TimeUnit.MILLISECONDS.sleep(50);
 
@@ -417,14 +416,13 @@ class SoftHashMapTest {
       var key = "cycling-key";
 
       IntStream.range(0, 100)
-          .forEach(
-              i -> {
-                var value = "value-" + i;
-                softHashMap.put(key, value);
-                assertEquals(value, softHashMap.get(key));
-                assertEquals(value, softHashMap.remove(key));
-                assertNull(softHashMap.get(key));
-              });
+          .forEach(i -> {
+            var value = "value-" + i;
+            softHashMap.put(key, value);
+            assertEquals(value, softHashMap.get(key));
+            assertEquals(value, softHashMap.remove(key));
+            assertNull(softHashMap.get(key));
+          });
 
       assertTrue(softHashMap.isEmpty());
     }
@@ -454,13 +452,12 @@ class SoftHashMapTest {
 
       // Trigger multiple expunge operations
       IntStream.range(0, 20)
-          .forEach(
-              i -> {
-                softHashMap.size();
-                softHashMap.isEmpty();
-                softHashMap.containsValue("John");
-                softHashMap.entrySet();
-              });
+          .forEach(i -> {
+            softHashMap.size();
+            softHashMap.isEmpty();
+            softHashMap.containsValue("John");
+            softHashMap.entrySet();
+          });
 
       // Verify consistency between different views
       assertAll(
@@ -471,14 +468,13 @@ class SoftHashMapTest {
       // Verify remaining entries are valid
       softHashMap
           .keySet()
-          .forEach(
-              key -> {
-                var value = softHashMap.get(key);
-                assertAll(
-                    () -> assertNotNull(value, "Value should not be null for key: " + key),
-                    () -> assertTrue(softHashMap.containsKey(key)),
-                    () -> assertTrue(softHashMap.containsValue(value)));
-              });
+          .forEach(key -> {
+            var value = softHashMap.get(key);
+            assertAll(
+                () -> assertNotNull(value, "Value should not be null for key: " + key),
+                () -> assertTrue(softHashMap.containsKey(key)),
+                () -> assertTrue(softHashMap.containsValue(value)));
+          });
     }
 
     @Test
@@ -549,21 +545,20 @@ class SoftHashMapTest {
     try {
       var tasks =
           IntStream.range(0, threads)
-              .mapToObj(
-                  t ->
-                      (Callable<Void>)
-                          () -> {
-                            start.await();
-                            for (int i = 0; i < iterations; i++) {
-                              var key = "key-" + t + "-" + i;
-                              map.put(key, "value-" + i);
-                              map.get(key);
-                              map.containsKey(key);
-                              map.size();
-                              map.remove(key);
-                            }
-                            return null;
-                          })
+              .mapToObj(t ->
+                  (Callable<Void>)
+                      () -> {
+                        start.await();
+                        for (int i = 0; i < iterations; i++) {
+                          var key = "key-" + t + "-" + i;
+                          map.put(key, "value-" + i);
+                          map.get(key);
+                          map.containsKey(key);
+                          map.size();
+                          map.remove(key);
+                        }
+                        return null;
+                      })
               .toList();
       var futures = tasks.stream().map(executor::submit).toList();
       start.countDown();

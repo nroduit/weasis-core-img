@@ -56,11 +56,10 @@ class ContourTopologyTest {
 
   private static Point[] createCircleApproximation(double radius, int segments) {
     return IntStream.range(0, segments)
-        .mapToObj(
-            i -> {
-              double angle = 2.0 * Math.PI * i / segments;
-              return new Point(radius * Math.cos(angle), radius * Math.sin(angle));
-            })
+        .mapToObj(i -> {
+          double angle = 2.0 * Math.PI * i / segments;
+          return new Point(radius * Math.cos(angle), radius * Math.sin(angle));
+        })
         .toArray(Point[]::new);
   }
 

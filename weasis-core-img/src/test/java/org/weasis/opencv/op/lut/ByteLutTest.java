@@ -310,14 +310,13 @@ class ByteLutTest {
 
     @Test
     void should_handle_very_large_dimensions() {
-      assertDoesNotThrow(
-          () -> {
-            Icon largeIcon = byteLut.getIcon(10000, 100);
-            assertAll(
-                () -> assertNotNull(largeIcon),
-                () -> assertEquals(100, largeIcon.getIconHeight()),
-                () -> assertEquals(10004, largeIcon.getIconWidth()));
-          });
+      assertDoesNotThrow(() -> {
+        Icon largeIcon = byteLut.getIcon(10000, 100);
+        assertAll(
+            () -> assertNotNull(largeIcon),
+            () -> assertEquals(100, largeIcon.getIconHeight()),
+            () -> assertEquals(10004, largeIcon.getIconWidth()));
+      });
     }
 
     @ParameterizedTest

@@ -188,11 +188,10 @@ class LangUtilTest {
       // Submit concurrent tasks
       for (int i = 0; i < threadCount; i++) {
         futures.add(
-            executor.submit(
-                () -> {
-                  results.add(memoizedSupplier.get());
-                  return null;
-                }));
+            executor.submit(() -> {
+              results.add(memoizedSupplier.get());
+              return null;
+            }));
       }
 
       // Release all threads simultaneously
@@ -634,10 +633,9 @@ class LangUtilTest {
     @Test
     void supplier_exception_propagation() {
       var memoizedSupplier =
-          LangUtil.memoize(
-              () -> {
-                throw new IllegalStateException("Test exception");
-              });
+          LangUtil.memoize(() -> {
+            throw new IllegalStateException("Test exception");
+          });
 
       // Exception should be propagated on each call
       assertThrows(IllegalStateException.class, memoizedSupplier::get);

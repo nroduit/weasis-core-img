@@ -406,28 +406,27 @@ class PropertiesUtilTest {
       try {
         var futures =
             IntStream.range(0, numThreads)
-                .mapToObj(
-                    i ->
-                        CompletableFuture.runAsync(
-                            () -> {
-                              var threadFile = tempDir.resolve("thread-" + i + ".properties");
-                              var threadProperties = new Properties();
-                              threadProperties.setProperty("thread.id", String.valueOf(i));
-                              threadProperties.setProperty("thread.value", "value-" + i);
+                .mapToObj(i ->
+                    CompletableFuture.runAsync(
+                        () -> {
+                          var threadFile = tempDir.resolve("thread-" + i + ".properties");
+                          var threadProperties = new Properties();
+                          threadProperties.setProperty("thread.id", String.valueOf(i));
+                          threadProperties.setProperty("thread.value", "value-" + i);
 
-                              PropertiesUtil.storeProperties(
-                                  threadFile, threadProperties, "Thread " + i);
-                              var loadedProps = PropertiesUtil.loadProperties(threadFile);
+                          PropertiesUtil.storeProperties(
+                              threadFile, threadProperties, "Thread " + i);
+                          var loadedProps = PropertiesUtil.loadProperties(threadFile);
 
-                              assertAll(
-                                  () ->
-                                      assertEquals(
-                                          String.valueOf(i), loadedProps.getProperty("thread.id")),
-                                  () ->
-                                      assertEquals(
-                                          "value-" + i, loadedProps.getProperty("thread.value")));
-                            },
-                            executor))
+                          assertAll(
+                              () ->
+                                  assertEquals(
+                                      String.valueOf(i), loadedProps.getProperty("thread.id")),
+                              () ->
+                                  assertEquals(
+                                      "value-" + i, loadedProps.getProperty("thread.value")));
+                        },
+                        executor))
                 .toArray(CompletableFuture[]::new);
 
         assertDoesNotThrow(() -> CompletableFuture.allOf(futures).join());

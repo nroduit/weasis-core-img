@@ -59,11 +59,10 @@ class ColorLutTest {
           () -> assertEquals(CHANNEL_COUNT, lutTable.length),
           () ->
               Arrays.stream(lutTable)
-                  .forEach(
-                      channel -> {
-                        assertNotNull(channel);
-                        assertEquals(LUT_SIZE, channel.length);
-                      }));
+                  .forEach(channel -> {
+                    assertNotNull(channel);
+                    assertEquals(LUT_SIZE, channel.length);
+                  }));
     }
 
     @Test
@@ -109,16 +108,15 @@ class ColorLutTest {
       var expectedPattern = createFlagPattern();
 
       IntStream.range(0, 16)
-          .forEach(
-              i -> {
-                var patternIndex = i % expectedPattern.length;
-                var expected = expectedPattern[patternIndex];
+          .forEach(i -> {
+            var patternIndex = i % expectedPattern.length;
+            var expected = expectedPattern[patternIndex];
 
-                assertAll(
-                    () -> assertEquals(expected.blue(), Byte.toUnsignedInt(flagLut[0][i])),
-                    () -> assertEquals(expected.green(), Byte.toUnsignedInt(flagLut[1][i])),
-                    () -> assertEquals(expected.red(), Byte.toUnsignedInt(flagLut[2][i])));
-              });
+            assertAll(
+                () -> assertEquals(expected.blue(), Byte.toUnsignedInt(flagLut[0][i])),
+                () -> assertEquals(expected.green(), Byte.toUnsignedInt(flagLut[1][i])),
+                () -> assertEquals(expected.red(), Byte.toUnsignedInt(flagLut[2][i])));
+          });
     }
 
     @Test
@@ -137,17 +135,16 @@ class ColorLutTest {
       var grayLut = ColorLut.GRAY.getByteLut().lutTable();
 
       IntStream.range(0, LUT_SIZE)
-          .forEach(
-              i -> {
-                var blue = Byte.toUnsignedInt(grayLut[0][i]);
-                var green = Byte.toUnsignedInt(grayLut[1][i]);
-                var red = Byte.toUnsignedInt(grayLut[2][i]);
+          .forEach(i -> {
+            var blue = Byte.toUnsignedInt(grayLut[0][i]);
+            var green = Byte.toUnsignedInt(grayLut[1][i]);
+            var red = Byte.toUnsignedInt(grayLut[2][i]);
 
-                assertAll(
-                    () -> assertEquals(i, blue),
-                    () -> assertEquals(i, green),
-                    () -> assertEquals(i, red));
-              });
+            assertAll(
+                () -> assertEquals(i, blue),
+                () -> assertEquals(i, green),
+                () -> assertEquals(i, red));
+          });
     }
 
     @Test
@@ -155,15 +152,14 @@ class ColorLutTest {
       var hueLut = ColorLut.HUE.getByteLut().lutTable();
 
       IntStream.iterate(0, i -> i < LUT_SIZE, i -> i + 32)
-          .forEach(
-              i -> {
-                var expectedColor = Color.getHSBColor(i / 255f, 1f, 1f);
+          .forEach(i -> {
+            var expectedColor = Color.getHSBColor(i / 255f, 1f, 1f);
 
-                assertAll(
-                    () -> assertEquals(expectedColor.getBlue(), Byte.toUnsignedInt(hueLut[0][i])),
-                    () -> assertEquals(expectedColor.getGreen(), Byte.toUnsignedInt(hueLut[1][i])),
-                    () -> assertEquals(expectedColor.getRed(), Byte.toUnsignedInt(hueLut[2][i])));
-              });
+            assertAll(
+                () -> assertEquals(expectedColor.getBlue(), Byte.toUnsignedInt(hueLut[0][i])),
+                () -> assertEquals(expectedColor.getGreen(), Byte.toUnsignedInt(hueLut[1][i])),
+                () -> assertEquals(expectedColor.getRed(), Byte.toUnsignedInt(hueLut[2][i])));
+          });
     }
 
     @Test
@@ -172,24 +168,23 @@ class ColorLutTest {
       var patternSize = 36;
 
       IntStream.range(0, 72)
-          .forEach(
-              i -> {
-                var patternIndex = i % patternSize;
+          .forEach(i -> {
+            var patternIndex = i % patternSize;
 
-                assertAll(
-                    () ->
-                        assertEquals(
-                            Byte.toUnsignedInt(multicolorLut[0][patternIndex]),
-                            Byte.toUnsignedInt(multicolorLut[0][i])),
-                    () ->
-                        assertEquals(
-                            Byte.toUnsignedInt(multicolorLut[1][patternIndex]),
-                            Byte.toUnsignedInt(multicolorLut[1][i])),
-                    () ->
-                        assertEquals(
-                            Byte.toUnsignedInt(multicolorLut[2][patternIndex]),
-                            Byte.toUnsignedInt(multicolorLut[2][i])));
-              });
+            assertAll(
+                () ->
+                    assertEquals(
+                        Byte.toUnsignedInt(multicolorLut[0][patternIndex]),
+                        Byte.toUnsignedInt(multicolorLut[0][i])),
+                () ->
+                    assertEquals(
+                        Byte.toUnsignedInt(multicolorLut[1][patternIndex]),
+                        Byte.toUnsignedInt(multicolorLut[1][i])),
+                () ->
+                    assertEquals(
+                        Byte.toUnsignedInt(multicolorLut[2][patternIndex]),
+                        Byte.toUnsignedInt(multicolorLut[2][i])));
+          });
     }
 
     private ColorRGB[] createFlagPattern() {
@@ -205,13 +200,12 @@ class ColorLutTest {
       var lut = testData.colorLut().getByteLut().lutTable();
 
       IntStream.range(0, LUT_SIZE)
-          .forEach(
-              i -> {
-                for (int channel = 0; channel < CHANNEL_COUNT; channel++) {
-                  var expected = channel == testData.activeChannel() ? i : 0;
-                  assertEquals(expected, Byte.toUnsignedInt(lut[channel][i]));
-                }
-              });
+          .forEach(i -> {
+            for (int channel = 0; channel < CHANNEL_COUNT; channel++) {
+              var expected = channel == testData.activeChannel() ? i : 0;
+              assertEquals(expected, Byte.toUnsignedInt(lut[channel][i]));
+            }
+          });
     }
 
     private record ColorRGB(int red, int green, int blue) {}
@@ -228,14 +222,12 @@ class ColorLutTest {
       var lutTable = colorLut.getByteLut().lutTable();
       var boundaryIndices = List.of(0, LUT_SIZE - 1);
 
-      boundaryIndices.forEach(
-          index ->
-              IntStream.range(0, CHANNEL_COUNT)
-                  .forEach(
-                      channel -> {
-                        var value = Byte.toUnsignedInt(lutTable[channel][index]);
-                        assertTrue(value >= 0 && value <= 255);
-                      }));
+      boundaryIndices.forEach(index ->
+          IntStream.range(0, CHANNEL_COUNT)
+              .forEach(channel -> {
+                var value = Byte.toUnsignedInt(lutTable[channel][index]);
+                assertTrue(value >= 0 && value <= 255);
+              }));
     }
 
     @Test

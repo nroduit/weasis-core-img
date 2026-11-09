@@ -622,20 +622,18 @@ class ImageAnalyzerTest {
 
       try (sharedImage) {
         var results =
-            Stream.generate(
-                    () ->
-                        (Runnable)
-                            () -> {
-                              var result = ImageAnalyzer.meanStdDev(sharedImage);
-                              assertNotNull(result);
-                            })
+            Stream.generate(() ->
+                    (Runnable)
+                        () -> {
+                          var result = ImageAnalyzer.meanStdDev(sharedImage);
+                          assertNotNull(result);
+                        })
                 .limit(10)
                 .parallel()
-                .map(
-                    task -> {
-                      task.run();
-                      return "completed";
-                    })
+                .map(task -> {
+                  task.run();
+                  return "completed";
+                })
                 .toList();
 
         assertEquals(10, results.size());

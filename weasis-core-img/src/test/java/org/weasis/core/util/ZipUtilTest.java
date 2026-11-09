@@ -59,11 +59,11 @@ class ZipUtilTest {
               .file(
                   "config.json",
                   """
-              {
-                "name": "test-project",
-                "version": "1.0.0"
-              }
-              """)
+                  {
+                    "name": "test-project",
+                    "version": "1.0.0"
+                  }
+                  """)
               .subdirectory("src")
               .file("Main.java", "public class Main { }")
               .build();
@@ -195,8 +195,8 @@ class ZipUtilTest {
               .file(
                   "sample.json",
                   """
-              {"users": [{"name": "John", "age": 30}]}
-              """)
+                  {"users": [{"name": "John", "age": 30}]}
+                  """)
               .build();
 
       ZipUtil.zip(sourceFolder, zipFile);

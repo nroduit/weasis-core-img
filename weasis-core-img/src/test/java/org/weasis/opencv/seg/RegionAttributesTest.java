@@ -166,12 +166,11 @@ class RegionAttributesTest {
     void should_handle_null_values_gracefully() {
       var attributes = new RegionAttributes(TEST_DATA.id(), TEST_DATA.label());
 
-      assertDoesNotThrow(
-          () -> {
-            attributes.setDescription(null);
-            attributes.setType(null);
-            attributes.setColor(null);
-          });
+      assertDoesNotThrow(() -> {
+        attributes.setDescription(null);
+        attributes.setType(null);
+        attributes.setColor(null);
+      });
 
       assertAll(
           "Null values should be handled correctly",
@@ -562,12 +561,11 @@ class RegionAttributesTest {
     void should_handle_extreme_values_gracefully() {
       var attributes = new RegionAttributes(Integer.MAX_VALUE, "extreme test");
 
-      assertDoesNotThrow(
-          () -> {
-            attributes.setLineThickness(Float.MAX_VALUE);
-            attributes.setInteriorOpacity(Float.MAX_VALUE);
-            // These should be handled gracefully
-          });
+      assertDoesNotThrow(() -> {
+        attributes.setLineThickness(Float.MAX_VALUE);
+        attributes.setInteriorOpacity(Float.MAX_VALUE);
+        // These should be handled gracefully
+      });
 
       assertAll(
           "Extreme values should be handled correctly",
@@ -591,15 +589,14 @@ class RegionAttributesTest {
 
       ExecutorService executor = Executors.newFixedThreadPool(threadCount);
       for (int i = 0; i < threadCount; i++) {
-        executor.submit(
-            () -> {
-              try {
-                var groupedRegions = RegionAttributes.groupRegions(regions);
-                results.put(Thread.currentThread().getName(), groupedRegions.size());
-              } finally {
-                latch.countDown();
-              }
-            });
+        executor.submit(() -> {
+          try {
+            var groupedRegions = RegionAttributes.groupRegions(regions);
+            results.put(Thread.currentThread().getName(), groupedRegions.size());
+          } finally {
+            latch.countDown();
+          }
+        });
       }
 
       assertTrue(latch.await(5, TimeUnit.SECONDS), "All threads should complete");
@@ -631,13 +628,12 @@ class RegionAttributesTest {
       assertAll(
           "Should handle unicode labels correctly",
           unicodeLabels.stream()
-              .map(
-                  label ->
-                      () -> {
-                        var attributes = new RegionAttributes(1, label);
-                        assertEquals(label, attributes.getLabel());
-                        assertDoesNotThrow(() -> attributes.getPrefix());
-                      }));
+              .map(label ->
+                  () -> {
+                    var attributes = new RegionAttributes(1, label);
+                    assertEquals(label, attributes.getLabel());
+                    assertDoesNotThrow(() -> attributes.getPrefix());
+                  }));
     }
   }
 

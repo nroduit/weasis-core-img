@@ -161,23 +161,21 @@ class ImageCVTest {
       var executor = Executors.newFixedThreadPool(threadCount);
       try {
         IntStream.range(0, threadCount)
-            .forEach(
-                i ->
-                    executor.submit(
-                        () -> {
-                          try {
-                            startGate.await();
-                            if ((i & 1) == 0) {
-                              img.close();
-                            } else {
-                              img.release();
-                            }
-                          } catch (Throwable t) {
-                            failures.incrementAndGet();
-                          } finally {
-                            finishGate.countDown();
-                          }
-                        }));
+            .forEach(i ->
+                executor.submit(() -> {
+                  try {
+                    startGate.await();
+                    if ((i & 1) == 0) {
+                      img.close();
+                    } else {
+                      img.release();
+                    }
+                  } catch (Throwable t) {
+                    failures.incrementAndGet();
+                  } finally {
+                    finishGate.countDown();
+                  }
+                }));
         startGate.countDown();
         assertTrue(finishGate.await(5, TimeUnit.SECONDS), "All worker threads must finish in time");
       } finally {

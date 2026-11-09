@@ -376,9 +376,8 @@ class FileUtilTest {
           () ->
               paths
                   .subList(1, paths.size())
-                  .forEach(
-                      path ->
-                          assertFalse(Files.exists(path), "Deep path should be deleted: " + path)));
+                  .forEach(path ->
+                      assertFalse(Files.exists(path), "Deep path should be deleted: " + path)));
     }
 
     @Test
@@ -498,11 +497,10 @@ class FileUtilTest {
       Files.createFile(subDir.resolve("file.txt"));
 
       // These operations should complete without throwing exceptions
-      assertDoesNotThrow(
-          () -> {
-            FileUtil.deleteDirectoryContents(testDir, 1, 0);
-            FileUtil.recursiveDelete(testDir, true);
-          });
+      assertDoesNotThrow(() -> {
+        FileUtil.deleteDirectoryContents(testDir, 1, 0);
+        FileUtil.recursiveDelete(testDir, true);
+      });
     }
   }
 
