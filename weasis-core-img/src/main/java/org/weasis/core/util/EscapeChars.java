@@ -675,11 +675,11 @@ public final class EscapeChars {
   }
 
   /**
-   * Replaces all occurrences of the ampersand character '&' in the given URL string with an escaped
-   * equivalent.
+   * Replaces all occurrences of the ampersand character {@code &} in the given URL string with an
+   * escaped equivalent.
    *
    * @param url the input URL string where ampersand characters are to be replaced
-   * @return the URL string with all '&' characters replaced by their escaped equivalent
+   * @return the URL string with all {@code &} characters replaced by their escaped equivalent
    */
   public static String forUrlAmpersand(String url) {
     if (!StringUtil.hasText(url)) {
@@ -699,10 +699,10 @@ public final class EscapeChars {
   }
 
   /**
-   * Return a string with '<' and '>' characters replaced by their escaped equivalents.
+   * Return a string with {@code <} and {@code >} characters replaced by their escaped equivalents.
    *
    * @param text the input String
-   * @return the String with '<' and '>' escaped characters
+   * @return the String with {@code <} and {@code >} escaped characters
    */
   public static String toDisableTags(String text) {
     return encode(text, TAG_ENCODE_CHARS);
